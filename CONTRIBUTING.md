@@ -26,7 +26,7 @@ This guide provides the shortest path from cloning the repository to landing a h
 
 Before pushing changes or submitting a Pull Request, verify each item:
 
-- [ ] **Toolchain:** Built with **Go 1.27.1+** with `CGO_ENABLED=0`. Zero CGO or external runtime dependencies.
+- [ ] **Toolchain:** Built with **Go 1.27.2+** with `CGO_ENABLED=0`. Zero CGO or external runtime dependencies.
 - [ ] **Tests with Race Detector:** `go test -race ./...` passes 100% cleanly with zero race warnings.
 - [ ] **Formatting:** Code formatted via `gofmt -s -w .` (zero diffs reported by `gofmt -l cmd internal`).
 - [ ] **Changelog:** Updated `CHANGELOG.md` under `## [Unreleased]` documenting the user-facing effect.
@@ -41,7 +41,7 @@ Before pushing changes or submitting a Pull Request, verify each item:
 
 ### Prerequisites
 
-- **Go 1.27.1+** (download from [go.dev](https://go.dev/dl/))
+- **Go 1.27.2+** (download from [go.dev](https://go.dev/dl/))
 - **Git**
 - **SQLite:** Pure-Go SQLite (`modernc.org/sqlite`) is embedded directly in the binary. No local SQLite C-libraries, header files, or `gcc` required.
 - **No Node.js, Python, or auxiliary runtimes:** Sila is an entirely self-contained Go application.
@@ -109,7 +109,7 @@ Every contribution must honor Sila's foundational architectural invariants:
 
 ### Language & Dependencies
 
-- **Pure Go 1.27.1+:** We strictly enforce `CGO_ENABLED=0`. Never introduce dependencies requiring CGO or native C compilation.
+- **Pure Go 1.27.2+:** We strictly enforce `CGO_ENABLED=0`. Never introduce dependencies requiring CGO or native C compilation.
 - **Approved Permissive Licenses:** Direct and indirect dependencies must carry approved permissive open-source licenses (MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC). Copyleft dependencies (GPL, AGPL, LGPL, SSPL, MPL) are strictly prohibited.
 - **Zero Script Sprawl:** Do not write Python or Bash automation scripts for repo logic. Write all automation, checkers, and tooling in Go. The only exception is the root `build.sh` compilation wrapper.
 
