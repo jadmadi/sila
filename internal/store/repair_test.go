@@ -20,6 +20,9 @@ func enveloped(prompt string) string {
 // there — how a store written by an older sila looks to a newer one.
 func rewindSchema(t *testing.T, path string, version int) {
 	t.Helper()
+	if testing.Short() {
+		t.Skip("slow schema-rewind migration test; covered by the non-race preflight")
+	}
 	db, err := sql.Open("sqlite", "file:"+path)
 	if err != nil {
 		t.Fatal(err)

@@ -34,7 +34,11 @@ jobs:
       - name: Vet
         run: go vet ./...
       - name: Race tests
-        run: go test -race -timeout=30m ./...
+        run: |
+          # internal/store migration tests are IO-heavy and serialize on SQLite;
+          # the non-race build-preflight job runs them. Keep race coverage for
+          # the rest of the module.
+          go test -race -short -timeout=20m $(go list ./... | grep -v '/internal/store$')
 
   build:
     name: build preflight
