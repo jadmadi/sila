@@ -1,0 +1,58 @@
+name: Bug report
+description: Report a reproducible defect in Sila.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not include raw session transcripts, API keys, tokens, customer data,
+        or private repository contents. Redact paths and secrets.
+  - type: input
+    id: version
+    attributes:
+      label: Sila version
+      description: Output of `sila --version`.
+      placeholder: "v0.18.0"
+    validations:
+      required: true
+  - type: input
+    id: platform
+    attributes:
+      label: OS and architecture
+      placeholder: "macOS 15 arm64 / Ubuntu 24.04 amd64 / Windows 11 amd64"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+      description: Include the command, output, and exit code.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Minimal, deterministic steps. Mention if the issue reproduces in `sila demo`.
+    validations:
+      required: true
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Sanitized diagnostics
+      description: Output of `sila doctor --json` and `sila sources --json`, with secrets and personal paths removed.
+      render: shell
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Privacy check
+      options:
+        - label: I removed secrets, tokens, personal paths, and private repository content.
+          required: true

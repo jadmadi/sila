@@ -1,0 +1,15 @@
+{
+  "conversationId": "sess-antigravity",
+  "cwd": "/workspace/sila/cli",
+  "hookEventName": "PreToolUse",
+  "project_id": "sila-cli",
+  "toolCall": {
+    "arguments": {
+      "cmd": "go test"
+    },
+    "name": "run_command"
+  },
+  "workspacePaths": [
+    "/workspace/sila/cli"
+  ]
+}

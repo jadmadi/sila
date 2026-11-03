@@ -1,0 +1,9 @@
+# id: safety.dry-run
+# argv: sila save memo use WAL --dry-run
+# exit: 0
+--- stdout ---
+--- stderr ---
+sila · ccli dry-run
+  Canonical: sila memo "use WAL"
+  Target:    use WAL
+  Safety:    no changes applied

@@ -1,0 +1,14 @@
+{
+  "source": "synthetic",
+  "reason": "Command Code proxy trace unavailable in CI; shape mirrors the observed no-argument call",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 1,
+    "method": "initialize",
+    "params": {
+      "protocolVersion": "2024-11-05",
+      "capabilities": {},
+      "clientInfo": {"name": "command-code", "version": "test"}
+    }
+  }
+}

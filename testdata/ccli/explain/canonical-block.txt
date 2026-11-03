@@ -1,0 +1,15 @@
+# id: explain.canonical-block
+# argv: sila ccli explain sync rules
+# exit: 0
+--- stdout ---
+sila · ccli explain — sync rules
+  Tokens:      sync(KEYWORD) rules(KEYWORD)
+  Production:  sila_sync_rules
+  Action:      sync.rules
+  Tier:        MUTATION (implicit)
+  Canonical:   sila sync
+  Precedence:  phrase-only-via-do (canonical-first (first token "sync" is canonical command "sync"; use 'sila do "sync rules"' to route phrase))
+  Safety:      dry-run preview available; no confirmation
+  Exit Code:   0
+  Decision:    CANONICAL
+--- stderr ---

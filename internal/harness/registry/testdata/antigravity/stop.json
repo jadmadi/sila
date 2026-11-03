@@ -1,0 +1,9 @@
+{
+  "conversationId": "sess-antigravity",
+  "cwd": "/workspace/sila/cli",
+  "hookEventName": "Stop",
+  "project_id": "sila-cli",
+  "workspacePaths": [
+    "/workspace/sila/cli"
+  ]
+}

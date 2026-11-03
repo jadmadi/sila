@@ -1,0 +1,5 @@
+{
+  "exit_code": 1,
+  "stderr": "deny: GOAL_UNBOUND: no Sila goal binding or waiver | recovery: sila goals claim \u003cslug\u003e",
+  "stdout": ""
+}

@@ -1,0 +1,6 @@
+# id: safety.tier3-refusal
+# argv: sila drop goal alpha-goal
+# exit: 3
+--- stdout ---
+--- stderr ---
+✖ refusing destructive action without --yes in non-interactive mode

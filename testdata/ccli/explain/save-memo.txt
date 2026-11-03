@@ -1,0 +1,15 @@
+# id: explain.save-memo
+# argv: sila ccli explain save memo use WAL
+# exit: 0
+--- stdout ---
+sila · ccli explain — save memo use WAL
+  Tokens:      save(KEYWORD) memo(KEYWORD) use WAL(TARGET:directive)
+  Production:  sila_memo_save
+  Action:      memo.save
+  Tier:        MUTATION (explicit target)
+  Canonical:   sila memo "use WAL"
+  Precedence:  canonical-first (first token "save" is not canonical)
+  Safety:      dry-run preview available; no confirmation
+  Exit Code:   0
+  Decision:    ROUTE
+--- stderr ---

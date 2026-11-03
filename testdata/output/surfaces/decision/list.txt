@@ -1,0 +1,10 @@
+# surface: decision__list
+# argv: sila decision list
+# mode: human
+# exit: 0
+--- stdout ---
+· Epistemic Decisions for repo-<sha> (1 total):
+
+  ADDR   STATUS     REC   CHOICE  TITLE
+  ----   ------     ---   ------  -----
+  D1     open       A     -       Output Golden Format

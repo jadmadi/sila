@@ -1,0 +1,6 @@
+# id: safety.tier3-yes
+# argv: sila drop goal alpha-goal --yes
+# exit: 0
+--- stdout ---
+✔ Goal alpha-goal in repo released back to the pending queue.
+--- stderr ---

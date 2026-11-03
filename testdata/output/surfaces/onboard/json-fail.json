@@ -1,0 +1,86 @@
+# surface: onboard__json-fail
+# argv: sila onboard check --json
+# mode: json-envelope
+# exit: 1
+--- stdout ---
+{
+  "schema": "sila/json/v1",
+  "ok": false,
+  "data": {
+    "advisory": false,
+    "fail": 1,
+    "items": [
+      {
+        "name": "Registered project",
+        "status": "fail",
+        "detail": "not in the knowledge store",
+        "fix": "sila heal",
+        "critical": true
+      },
+      {
+        "name": "Canonical project id",
+        "status": "pass",
+        "detail": "one registration for this directory",
+        "critical": true
+      },
+      {
+        "name": "Agent rules",
+        "status": "warn",
+        "detail": "1 rule files would be updated: AGENTS.md",
+        "fix": "sila install",
+        "files": [
+          "AGENTS.md"
+        ]
+      },
+      {
+        "name": "Sila skill",
+        "status": "warn",
+        "detail": "not provisioned",
+        "fix": "sila install",
+        "files": [
+          ".agents/skills/sila/SKILL.md"
+        ]
+      },
+      {
+        "name": "Git hook",
+        "status": "pass",
+        "detail": "project-managed hooks (sila installs none here)"
+      },
+      {
+        "name": "MCP server",
+        "status": "warn",
+        "detail": "no sila MCP entry found in known client configs",
+        "fix": "sila install --no-hooks",
+        "critical": true
+      },
+      {
+        "name": "Goals",
+        "status": "pass",
+        "detail": "1 goals tracked"
+      },
+      {
+        "name": "Legacy inventory",
+        "status": "pass",
+        "detail": "no unmanaged task surfaces found"
+      },
+      {
+        "name": "Assistance consent",
+        "status": "pass",
+        "detail": "disabled; zero network calls"
+      }
+    ],
+    "pass": 5,
+    "project": "",
+    "ready": false,
+    "repo_root": "<sandbox>/repo",
+    "strict": false,
+    "warn": 3
+  },
+  "warnings": [],
+  "error": {
+    "code": "ONBOARDING_INCOMPLETE",
+    "message": "critical onboarding items are unresolved",
+    "fix": "sila heal"
+  },
+  "mutations": []
+}

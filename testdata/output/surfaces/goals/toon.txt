@@ -1,0 +1,17 @@
+# surface: goals__toon
+# argv: sila goals --toon
+# mode: toon
+# exit: 0
+--- stdout ---
+goals_summary:
+  project: repo
+  total: 1
+  implemented: 0
+  claimed: 0
+  ready: 1
+  blocked: 0
+  contested: 0
+  tasks: 0/1 (0%)
+
+goals[1]{slug,status,mode,shape,title,deps}:
+  alpha-goal,pending,independent,ship,Alpha Sandbox Goal,""

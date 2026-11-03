@@ -1,0 +1,42 @@
+# surface: help__core
+# argv: sila --help
+# mode: help
+# exit: 0
+--- stdout ---
+sila - one shared memory, rulebook, and plan for every AI coding agent.
+  Part of the devtools family by Jad Madi (@jadmadi on X.com)
+
+Usage:
+  sila <command> [args...] [flags]
+
+Core loop:
+  salam (alias: hi, hello, merhaba) [--assist] [--json]             Agent front door: 7-step working loop, ready goals & active claims
+  prime                             [--top=N] [--budget=<tokens>]   Session-start context briefing with declarative token compression
+  handoff                           [<summary>] [--open=...]        View or record structured session handoffs & open items
+  search                            <query> [--omni] | expand <id>  Search knowledge: omni-search, messages, claims, or docs
+  recall                            "<symptom|error>" [--top=N]     Fast cross-project solution lookup before web search
+  memo                              add|list|show [--text=] [--since=] [--limit=N] [--claim=] [--json]
+                                    Record, list, or show architectural directives; 'memo list' never writes
+  lesson                            add|list|show|distill [--since=] [--json]
+                                    Record, browse, show, or distill bug-cause-fix solution lessons
+  goals                             [claim|release|ready|review]    Roadmap matrix, claims, commit matching & Plannotator review
+  doctor                            [--repair] [--edge] [--skills]  End-to-end SQLite integrity, index sync, skill bloat & test audit
+  mcp                               [--profile=continuity|full] [--print-schema] [--trace-args]
+                                    Start Model Context Protocol (MCP) JSON-RPC stdio server, print its schema, or trace argument metadata
+
+Run 'sila help all' for the full command inventory, or 'sila <command> --help' for flags.
+
+Common Options:
+  -p, --project=<name>       Scope command to a specific project directory or ID
+      --json                 Emit machine-readable JSON output (for agents & scripting)
+  -v, --verbose              Display detailed output, inspection cards, and file checks
+  -n, --dry-run              Preview changes without writing files to disk
+      --no-color             Disable colored terminal output
+  -h, --help                 Show help for sila or any subcommand
+  -V, --version              Print version information and exit
+
+Conversational phrases:
+  sila say hello              -> sila salam
+  sila remember error <text>  -> sila recall <text>
+  sila save memo <text>       -> sila memo <text>
+  Run 'sila help phrases' for all 76 phrase families, or 'sila ccli explain ...' to preview.

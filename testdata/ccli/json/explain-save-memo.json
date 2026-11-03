@@ -1,0 +1,87 @@
+{
+  "action": "memo.save",
+  "canonical": [
+    "memo",
+    "use WAL"
+  ],
+  "data": {
+    "action": "memo.save",
+    "canonical": [
+      "memo",
+      "use WAL"
+    ],
+    "decided_by": "auto",
+    "decision": "ROUTE",
+    "exit_code": 0,
+    "explanation": "canonical-first (first token \"save\" is not canonical)",
+    "input": [
+      "save",
+      "memo",
+      "use WAL"
+    ],
+    "matched": true,
+    "phrase": "save memo use WAL",
+    "precedence": "canonical-first",
+    "production": "sila_memo_save",
+    "safety": "preview",
+    "target_policy": "required",
+    "tier": "MUTATION",
+    "tokens": [
+      {
+        "index": 0,
+        "raw": "save",
+        "class": "KEYWORD",
+        "slot_name": null
+      },
+      {
+        "index": 1,
+        "raw": "memo",
+        "class": "KEYWORD",
+        "slot_name": null
+      },
+      {
+        "index": 2,
+        "raw": "use WAL",
+        "class": "TARGET",
+        "slot_name": "directive"
+      }
+    ]
+  },
+  "decided_by": "auto",
+  "decision": "ROUTE",
+  "exit_code": 0,
+  "explanation": "canonical-first (first token \"save\" is not canonical)",
+  "input": [
+    "save",
+    "memo",
+    "use WAL"
+  ],
+  "matched": true,
+  "ok": true,
+  "phrase": "save memo use WAL",
+  "precedence": "canonical-first",
+  "production": "sila_memo_save",
+  "safety": "preview",
+  "target_policy": "required",
+  "tier": "MUTATION",
+  "tokens": [
+    {
+      "index": 0,
+      "raw": "save",
+      "class": "KEYWORD",
+      "slot_name": null
+    },
+    {
+      "index": 1,
+      "raw": "memo",
+      "class": "KEYWORD",
+      "slot_name": null
+    },
+    {
+      "index": 2,
+      "raw": "use WAL",
+      "class": "TARGET",
+      "slot_name": "directive"
+    }
+  ]
+}

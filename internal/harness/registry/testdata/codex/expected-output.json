@@ -1,0 +1,5 @@
+{
+  "exit_code": 2,
+  "stderr": "",
+  "stdout": "{\"decision\":\"block\",\"reason\":\"deny: GOAL_UNBOUND: no Sila goal binding or waiver | recovery: sila goals claim \\u003cslug\\u003e\"}\n"
+}

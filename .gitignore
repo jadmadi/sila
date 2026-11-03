@@ -1,0 +1,44 @@
+dist/
+/sila
+/bin/
+*.db
+*.db-wal
+*.db-shm
+/.cache/
+/.agents/*
+!/.agents/skills/
+/.worktrees/
+/.mimocode/
+/.jules/
+/.zcode/
+/rm/
+node_modules/
+.wrangler/
+
+# Agent rule spokes for other projects: compiled outputs that belong in their
+# own repositories (see 0a0439c). Only the Core Hub files stay tracked.
+/agents/AGENTS.*.md
+!/agents/AGENTS.latest.md
+!/agents/AGENTS.global.md
+!/agents/AGENTS.cloudflare.md
+!/agents/AGENTS.security.md
+!/agents/AGENTS.ui.md
+!/agents/AGENTS.testing.md
+!/agents/AGENTS.sila.md
+!/agents/AGENTS.compliance.md
+!/agents/AGENTS.web.md
+
+# Multi-repo workspace subfolders
+/research/
+/worker/
+/packages/
+/sila-skills/
+/sila-skills
+
+# Local working notes
+/handoffs/
+/.ui-craft/
+.sila/
+
+# Ephemeral goal claim locks (managed by sila)
+goals/*/claim.json

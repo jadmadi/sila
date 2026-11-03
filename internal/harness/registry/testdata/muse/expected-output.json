@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stderr": "muse hook output schema is unverified; run `sila gate` for enforcement (deny: GOAL_UNBOUND: no Sila goal binding or waiver | recovery: sila goals claim \u003cslug\u003e)",
+  "stdout": ""
+}

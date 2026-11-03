@@ -1,0 +1,154 @@
+{
+  "schema_version": "sila/ccli-goldens/v1",
+  "cases": [
+    {
+      "id": "explain.save-memo",
+      "surface": "explain",
+      "file": "explain/save-memo.txt",
+      "argv": [
+        "ccli",
+        "explain",
+        "save",
+        "memo",
+        "use WAL"
+      ],
+      "expected_exit": 0,
+      "stdout_class": "data",
+      "stderr_class": "none",
+      "sha256": "f71ba80ee9c0c608bd3d02d4c9e23a70eef25918c4d622351dd40aa13293533f"
+    },
+    {
+      "id": "explain.canonical-block",
+      "surface": "explain",
+      "file": "explain/canonical-block.txt",
+      "argv": [
+        "ccli",
+        "explain",
+        "sync",
+        "rules"
+      ],
+      "expected_exit": 0,
+      "stdout_class": "data",
+      "stderr_class": "none",
+      "sha256": "a70c401a41f6fd7332d0e9f383079827310249264d57b72531e3bffd0f6446fa"
+    },
+    {
+      "id": "do.save-memo",
+      "surface": "do",
+      "file": "do/save-memo.txt",
+      "argv": [
+        "do",
+        "save memo",
+        "use WAL"
+      ],
+      "expected_exit": 0,
+      "stdout_class": "data",
+      "stderr_class": "none",
+      "sha256": "0c8198e2c6a7c612c09c03d00abdbf922063b459a388125ad458ba05f0185263"
+    },
+    {
+      "id": "do.sync-rules",
+      "surface": "do",
+      "file": "do/sync-rules.txt",
+      "argv": [
+        "do",
+        "sync rules",
+        "--dry-run"
+      ],
+      "expected_exit": 0,
+      "stdout_class": "none",
+      "stderr_class": "diagnostic",
+      "sha256": "d3298f6b80402cfdea4b01584dcc558fd4fc1b9dcebd4b6e40faca5cc1990269"
+    },
+    {
+      "id": "safety.tier3-refusal",
+      "surface": "safety",
+      "file": "safety/tier3-refusal.txt",
+      "argv": [
+        "drop",
+        "goal",
+        "alpha-goal"
+      ],
+      "expected_exit": 3,
+      "stdout_class": "none",
+      "stderr_class": "diagnostic",
+      "sha256": "97a45a6ccd00f4abce80211b90b0e329e7dccef7b9c45d61ec24d80fbde38989"
+    },
+    {
+      "id": "safety.tier3-yes",
+      "surface": "safety",
+      "file": "safety/tier3-yes.txt",
+      "argv": [
+        "drop",
+        "goal",
+        "alpha-goal",
+        "--yes"
+      ],
+      "expected_exit": 0,
+      "stdout_class": "data",
+      "stderr_class": "none",
+      "sha256": "2f91afef634b3a803126dc32b1b575b9b79de2481377c0601113cee3b6198374"
+    },
+    {
+      "id": "safety.dry-run",
+      "surface": "safety",
+      "file": "safety/dry-run.txt",
+      "argv": [
+        "save",
+        "memo",
+        "use WAL",
+        "--dry-run"
+      ],
+      "expected_exit": 0,
+      "stdout_class": "none",
+      "stderr_class": "diagnostic",
+      "sha256": "66d51c544929042a2ad55dba75e3e4894ac4cd5ff51b92d8683578a24ecbd85f"
+    },
+    {
+      "id": "errors.unknown-phrase",
+      "surface": "errors",
+      "file": "errors/unknown-phrase.txt",
+      "argv": [
+        "do",
+        "frobnicate quantum flux"
+      ],
+      "expected_exit": 2,
+      "stdout_class": "none",
+      "stderr_class": "diagnostic",
+      "sha256": "8436e98a44c9b59710e768b736e9ac7c069ca9232bde2f2c337c8c5b2041d08e"
+    },
+    {
+      "id": "errors.secret",
+      "surface": "errors",
+      "file": "errors/secret.txt",
+      "argv": [
+        "set",
+        "config",
+        "github_token",
+        "to",
+        "SYNTHETIC_SECRET_SENTINEL_99X"
+      ],
+      "expected_exit": 3,
+      "stdout_class": "none",
+      "stderr_class": "diagnostic",
+      "sha256": "f8932e20b5c775950cfe4ae29842150ad2eb95731cade2baa5ed557d0e9abec6"
+    },
+    {
+      "id": "json.explain-save-memo",
+      "surface": "json",
+      "file": "json/explain-save-memo.json",
+      "argv": [
+        "ccli",
+        "explain",
+        "--json",
+        "save",
+        "memo",
+        "use WAL"
+      ],
+      "expected_exit": 0,
+      "stdout_class": "data",
+      "stderr_class": "none",
+      "sha256": "db150a4e89f06fdf8e2c8e056506755c0cfad4509187a5698c63795d99b4c6b4"
+    }
+  ]
+}

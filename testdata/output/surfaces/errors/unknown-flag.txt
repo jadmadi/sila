@@ -1,0 +1,9 @@
+# surface: errors__unknown-flag
+# argv: sila decision create --definitely-unknown-flag
+# mode: human
+# exit: 2
+--- stdout ---
+--- stderr ---
+flag provided but not defined: -definitely-unknown-flag
+sila decision create: flag provided but not defined: -definitely-unknown-flag
+run 'sila decision --help' for usage

@@ -1,0 +1,5 @@
+{
+  "source": "synthetic",
+  "reason": "Command Code proxy trace unavailable in CI",
+  "request": {"jsonrpc": "2.0", "id": 2, "method": "tools/list", "params": {}}
+}

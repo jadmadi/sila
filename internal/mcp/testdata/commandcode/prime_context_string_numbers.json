@@ -1,0 +1,13 @@
+{
+  "source": "synthetic",
+  "reason": "Observed failure shape: prime_context with string-encoded maxima returns Invalid params",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 4,
+    "method": "tools/call",
+    "params": {
+      "name": "prime_context",
+      "arguments": {"project": "compat", "max_facts": "2", "max_tokens": "2000", "disable_codebase_map": "true"}
+    }
+  }
+}

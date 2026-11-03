@@ -1,0 +1,13 @@
+{
+  "source": "synthetic",
+  "reason": "Observed failure shape: recall with a string-encoded numeric limit returns Invalid params",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 3,
+    "method": "tools/call",
+    "params": {
+      "name": "recall",
+      "arguments": {"query": "sqlite busy timeout", "limit": "3", "semantic": "true"}
+    }
+  }
+}

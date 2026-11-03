@@ -1,0 +1,63 @@
+# surface: goals__json-envelope
+# argv: sila goals --json-envelope
+# mode: json-envelope
+# exit: 0
+--- stdout ---
+{
+  "schema": "sila/json/v1",
+  "ok": true,
+  "data": {
+    "project": "repo",
+    "project_dir": "<sandbox>/repo",
+    "total": 1,
+    "implemented_count": 0,
+    "verified_count": 0,
+    "unverified_count": 0,
+    "claimed_count": 0,
+    "pending_count": 1,
+    "ready_count": 1,
+    "ready_independent_count": 1,
+    "ready_unblocked_count": 0,
+    "blocked_count": 0,
+    "contested_count": 0,
+    "independent_count": 1,
+    "draft_count": 0,
+    "immediate_count": 1,
+    "total_tasks": 1,
+    "goals": [
+      {
+        "slug": "alpha-goal",
+        "title": "Alpha Sandbox Goal",
+        "description": "Deterministic sandbox goal for output audit harness.",
+        "status": "pending",
+        "independent": true,
+        "sequence": 1,
+        "files_to_touch": [
+          "README.md"
+        ],
+        "blocked": false,
+        "has_goal_md": true,
+        "has_plan_md": true,
+        "has_facts_md": true,
+        "tasks_total": 1,
+        "launch_cmd": "/goal goals/alpha-goal/goal.md",
+        "shape": "ship",
+        "tier": "immediate",
+        "verification_status": "unverified",
+        "verification_label": "unverified",
+        "pending_reason": "ready to claim; awaiting implementation commit",
+        "state": "draft",
+        "state_label": "draft (not yet spec-audited)",
+        "isnad": {
+          "registered_by": "audit-bot",
+          "spec_audited_by": "Pending Spec Audit",
+          "implemented_by": "Pending Implementation"
+        },
+        "memory_protocol": "legacy"
+      }
+    ]
+  },
+  "warnings": [],
+  "error": null,
+  "mutations": []
+}

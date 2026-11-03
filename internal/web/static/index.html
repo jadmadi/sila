@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>sila · decision cockpit</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <!-- Top Navigation Header -->
+  <header>
+    <div class="brand">
+      <h1>sila</h1>
+      <span class="tagline">Cross-Harness Memory & Decisions</span>
+      <span id="header-project-badge" class="badge badge-purple">sila</span>
+    </div>
+    <div class="header-meta">
+      <div class="sse-status">
+        <span id="sse-indicator" class="sse-dot"></span>
+        <span id="sse-label">Connecting...</span>
+      </div>
+      <button id="theme-toggle" class="btn" title="Toggle theme">🌙 Dark</button>
+      <button id="btn-refresh" class="btn" title="Refresh all data">↻ Refresh</button>
+      <button id="btn-shutdown" class="btn btn-danger" title="Safely stop the Sila server (shortcut: 'q')">⏹️ Stop Cockpit</button>
+    </div>
+  </header>
+
+  <!-- Key Metrics Ribbon -->
+  <section class="stats-ribbon">
+    <div class="stat-item">💬 Messages: <strong id="stat-messages">-</strong></div>
+    <div class="stat-item">💡 Facts: <strong id="stat-facts">-</strong></div>
+    <div class="stat-item">✔ Verified: <strong id="stat-verified">-</strong></div>
+    <div class="stat-item">⚠️ Stale Claims: <strong id="stat-stale">-</strong></div>
+    <div class="stat-item">📁 Projects: <strong id="stat-projects">-</strong></div>
+    <div class="stat-item">💾 Freelist: <strong id="stat-freelist">-</strong></div>
+  </section>
+
+  <!-- Navigation Tab Bar -->
+  <nav class="tab-bar">
+    <button class="tab-btn active" data-tab="healing">🩺 Knowledge Healing</button>
+    <button class="tab-btn" data-tab="feedback">🎫 Feedback Board</button>
+    <button class="tab-btn" data-tab="adrs">🏛️ ADR Studio</button>
+    <button class="tab-btn" data-tab="vision">🔭 Strategic Vision</button>
+    <button class="tab-btn" data-tab="swarm">🛰️ Swarm & Roadmap</button>
+    <button class="tab-btn" data-tab="search">🔍 Omni-Search</button>
+  </nav>
+
+  <!-- Main Content Area -->
+  <main>
+    <!-- Tab 1: Knowledge Healing -->
+    <section id="panel-healing" class="tab-panel active">
+      <div class="guidance-banner">
+        <div class="icon">💡</div>
+        <div>
+          <h4>Knowledge Healing & Decision Guidance</h4>
+          <p>
+            Claims are raw assertions extracted from AI transcripts. When files are refactored or deleted, claims referencing them become <strong>stale</strong>.
+            <strong>What to do:</strong> (1) Click <strong>Re-verify On Disk</strong> to check physical files, (2) If a claim represents a timeless architectural decision (not tied to transient files), click <strong>Promote to Invariant</strong>, or (3) If obsolete, click <strong>Prune</strong>.
+          </p>
+        </div>
+      </div>
+
+      <div class="panel-header">
+        <div>
+          <h2>Knowledge Healing & Claim Grounding</h2>
+          <p class="card-meta">Detect ungrounded assertions, verify file references on disk, and promote durable claims.</p>
+        </div>
+        <div class="action-bar">
+          <label style="font-size:12.5px; cursor:pointer;"><input type="checkbox" id="chk-stale-only" checked> Show Stale Only</label>
+          <button id="btn-reverify-disk" class="btn btn-primary">⚡ Re-verify On Disk</button>
+          <button id="btn-add-invariant" class="btn">+ New Invariant</button>
+        </div>
+      </div>
+      <div id="claims-list" class="card-grid"></div>
+    </section>
+
+    <!-- Tab 2: Feedback Board -->
+    <section id="panel-feedback" class="tab-panel">
+      <div class="guidance-banner">
+        <div class="icon">💡</div>
+        <div>
+          <h4>Closed-Loop Feedback Protocol</h4>
+          <p>
+            Feedback items capture friction, ideas, and observations from AI agents.
+            <strong>What to do:</strong> Move tickets from <strong>Open</strong> to <strong>In Progress</strong> while actively investigating, then click <strong>Resolve</strong> with a resolution note and optional goal slug to close the loop in the knowledge store.
+          </p>
+        </div>
+      </div>
+
+      <div class="panel-header">
+        <div>
+          <h2>Closed-Loop Feedback Ledger</h2>
+          <p class="card-meta">Actionable agent observations, suggestions, and resolution tracking.</p>
+        </div>
+      </div>
+      <div class="kanban-grid">
+        <div class="kanban-col" data-status="open">
+          <div class="kanban-col-header">
+            <span class="kanban-col-title">💡 Open</span>
+            <span id="badge-count-open" class="badge badge-yellow">0</span>
+          </div>
+          <div id="col-feedback-open" class="kanban-cards"></div>
+        </div>
+        <div class="kanban-col" data-status="in_progress">
+          <div class="kanban-col-header">
+            <span class="kanban-col-title">⚙ In Progress</span>
+            <span id="badge-count-in_progress" class="badge badge-purple">0</span>
+          </div>
+          <div id="col-feedback-in_progress" class="kanban-cards"></div>
+        </div>
+        <div class="kanban-col" data-status="closed">
+          <div class="kanban-col-header">
+            <span class="kanban-col-title">✅ Closed</span>
+            <span id="badge-count-closed" class="badge badge-green">0</span>
+          </div>
+          <div id="col-feedback-closed" class="kanban-cards"></div>
+        </div>
+        <div class="kanban-col" data-status="wontfix">
+          <div class="kanban-col-header">
+            <span class="kanban-col-title">🚫 Wontfix</span>
+            <span id="badge-count-wontfix" class="badge badge-neutral">0</span>
+          </div>
+          <div id="col-feedback-wontfix" class="kanban-cards"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 3: ADR Studio -->
+    <section id="panel-adrs" class="tab-panel">
+      <div class="guidance-banner">
+        <div class="icon">💡</div>
+        <div>
+          <h4>Living Architecture Decision Records (MADR)</h4>
+          <p>
+            ADRs are living markdown decision records in <code>docs/adr/</code>. Sila continuously verifies that files backtick-quoted in <code>## References</code> exist on disk.
+            <strong>What to do:</strong> If an ADR is marked <strong>Drifted</strong>, inspect the missing file paths and update the ADR's references or restore the file. Use <strong>Promote Memo to ADR</strong> to elevate temporary memos into formal decisions.
+          </p>
+        </div>
+      </div>
+
+      <div class="panel-header">
+        <div>
+          <h2>Living Architecture Decision Records (ADRs)</h2>
+          <p class="card-meta">MADR-compatible decisions grounded in codebase reality.</p>
+        </div>
+      </div>
+      <div id="adrs-list" class="card-grid"></div>
+    </section>
+
+    <!-- Tab 4: Strategic Vision -->
+    <section id="panel-vision" class="tab-panel">
+      <div class="guidance-banner">
+        <div class="icon">💡</div>
+        <div>
+          <h4>Strategic Vision: Autonomous Product & Architecture Guardrail</h4>
+          <p>
+            <strong>What is this?</strong> In multi-agent projects, agents often propose ideas that break settled architecture (e.g., adding CGO, switching databases, or building out-of-scope features). Strategic Vision simulates proposals against your project's <strong>Non-Goals</strong> (what we refuse to build) and <strong>Durable Invariants</strong> (architectural tenets) <em>before</em> any code is written.
+          </p>
+        </div>
+      </div>
+
+      <!-- Explainer Card for New Users -->
+      <div class="card" style="margin-bottom: 20px;">
+        <div class="card-header">
+          <span class="card-title">📖 How Strategic Vision Works</span>
+          <span class="badge badge-purple">Research Preference Model (RPM)</span>
+        </div>
+        <div class="how-it-works-steps">
+          <div class="step-card">
+            <h5>1. ⛔ Stored Non-Goals</h5>
+            <p>Explicit negative constraints (e.g. <em>"Pure-Go SQLite: CGO_ENABLED=0"</em>) stored in Sila knowledge base.</p>
+          </div>
+          <div class="step-card">
+            <h5>2. ⚖️ Autonomous Triage</h5>
+            <p>Engine checks candidate proposals for negative keyword overlap, semantic conflicts, and active roadmap goals.</p>
+          </div>
+          <div class="step-card">
+            <h5>3. 🎯 Instant Verdict</h5>
+            <p>Outputs a 0–100 Fit Score with 🟢 APPROVED, 🔴 REJECTED, or 🟡 NEEDS_ALIGNMENT rationale.</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Project Guardrails Section -->
+      <div class="guardrails-grid">
+        <div class="guardrail-card">
+          <h3>⛔ Explicit Non-Goals <span class="badge badge-red" id="badge-nongoals-count">0</span></h3>
+          <p class="card-meta">Things this project explicitly refuses to build or adopt.</p>
+          <ul id="list-nongoals" class="guardrail-list">
+            <li class="guardrail-item card-meta">Loading project non-goals...</li>
+          </ul>
+        </div>
+        <div class="guardrail-card">
+          <h3>🏛️ Durable Invariants <span class="badge badge-green" id="badge-invariants-count">0</span></h3>
+          <p class="card-meta">Settled architectural tenets and engineering rules.</p>
+          <ul id="list-invariants" class="guardrail-list">
+            <li class="guardrail-item card-meta">Loading invariants...</li>
+          </ul>
+        </div>
+      </div>
+
+      <!-- Interactive Triage Simulator -->
+      <div class="panel-header">
+        <div>
+          <h2>Autonomous Proposal Triage Simulator</h2>
+          <p class="card-meta">Test an idea or refactor to verify if it aligns with project vision before coding.</p>
+        </div>
+      </div>
+
+      <div class="card" style="margin-bottom: 24px;">
+        <!-- Interactive Example Chips -->
+        <label style="font-size: 12px; font-weight: 600; color: var(--text-bright);">⚡ Try an Example Proposal (Click to simulate):</label>
+        <div class="example-chips">
+          <button type="button" class="chip-btn" data-sample="Implement CGO SQLite driver for maximum query speed">❌ Add CGO SQLite Driver</button>
+          <button type="button" class="chip-btn" data-sample="Introduce remote PostgreSQL server for cloud data sync">❌ Add Remote Cloud Database</button>
+          <button type="button" class="chip-btn" data-sample="Add real-time webhook event notifications when roadmap goals are completed">✔ Add Webhook Event Notifications</button>
+          <button type="button" class="chip-btn" data-sample="Support export rules for Neovim and Zed editors">✔ Support Neovim & Zed Rules Export</button>
+        </div>
+
+        <form id="form-triage">
+          <div class="form-group">
+            <label for="input-proposal">Candidate Proposal / Refactor Description</label>
+            <textarea id="input-proposal" placeholder="e.g. Implement CGO SQLite driver for performance or add cloud postgres sync..." required></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">⚖ Evaluate Proposal Alignment</button>
+        </form>
+      </div>
+      <div id="triage-result-container" style="display:none;"></div>
+    </section>
+
+    <!-- Tab 5: Swarm & Roadmap -->
+    <section id="panel-swarm" class="tab-panel">
+      <div class="guidance-banner">
+        <div class="icon">💡</div>
+        <div>
+          <h4>Swarm Radar & Roadmap Execution Protocol</h4>
+          <p>
+            Goals are organized under <code>goals/&lt;slug&gt;/</code>.
+            <strong>What to do:</strong> Unblocked goals marked <strong>⚡ Independent</strong> have zero file collisions and can be claimed and run immediately. Launch via <code>/goal goals/&lt;slug&gt;/goal.md</code> or spawn a First Mate crewmate via <code>sila crew spawn &lt;harness&gt; &lt;slug&gt;</code>.
+          </p>
+        </div>
+      </div>
+
+      <div class="panel-header">
+        <div>
+          <h2>Roadmap Matrix & Swarm Radar</h2>
+          <p class="card-meta">Multi-agent goal readiness, task checklists, and tmux crewmate liveness.</p>
+        </div>
+      </div>
+      <div style="margin-bottom: 24px;">
+        <h3 style="margin-bottom: 12px; color: var(--text-bright);">Active Crewmates (First Mate Swarm)</h3>
+        <div id="crew-list" class="card-grid"></div>
+      </div>
+      <div>
+        <h3 style="margin-bottom: 12px; color: var(--text-bright);">Goals Roadmap Matrix</h3>
+        <div id="goals-list" class="card-grid"></div>
+      </div>
+    </section>
+
+    <!-- Tab 6: Omni-Search -->
+    <section id="panel-search" class="tab-panel">
+      <div class="guidance-banner">
+        <div class="icon">💡</div>
+        <div>
+          <h4>Omni-Search & Conversation Unrolling</h4>
+          <p>
+            Search across verbatim conversation transcripts across all 7 AI CLI tools.
+            <strong>What to do:</strong> Enter search terms or keywords. Click <strong>Expand Context</strong> on any matching card to unroll preceding and following conversation turns in a full modal dialog.
+          </p>
+        </div>
+      </div>
+
+      <div class="panel-header">
+        <div>
+          <h2>Omni-Search & Conversation Unrolling</h2>
+          <p class="card-meta">Search transcripts across all AI CLI tools with surrounding turn context.</p>
+        </div>
+      </div>
+      <div class="card" style="margin-bottom: 24px;">
+        <form id="form-search" style="display: flex; gap: 12px;">
+          <input type="text" id="input-search-q" placeholder="Search prompts, tool outputs, decisions..." required style="flex:1;">
+          <select id="select-search-tool" style="width: 160px;">
+            <option value="">All Tools</option>
+            <option value="claude">Claude Code</option>
+            <option value="devin">Devin</option>
+            <option value="opencode">OpenCode</option>
+            <option value="mimocode">MiMoCode</option>
+            <option value="codex">Codex</option>
+            <option value="agy">Antigravity</option>
+            <option value="git">Git</option>
+          </select>
+          <button type="submit" class="btn btn-primary">Search</button>
+        </form>
+      </div>
+      <div id="search-results" class="card-grid"></div>
+    </section>
+  </main>
+
+  <!-- Reusable Guarded Confirmation Modal -->
+  <div id="modal-confirm" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3 id="modal-confirm-title">Confirm Action</h3>
+      </div>
+      <div id="modal-confirm-body" class="card-body"></div>
+      <div class="modal-footer">
+        <button id="modal-confirm-cancel" class="btn">Cancel</button>
+        <button id="modal-confirm-submit" class="btn btn-primary">Confirm</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Resolve Feedback Modal -->
+  <div id="modal-resolve" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Resolve Feedback Ticket</h3>
+      </div>
+      <form id="form-resolve-ticket">
+        <input type="hidden" id="resolve-ticket-id">
+        <div class="form-group">
+          <label>Resolving Agent</label>
+          <input type="text" id="resolve-agent" value="human" required>
+        </div>
+        <div class="form-group">
+          <label>Associated Goal Slug (Optional)</label>
+          <input type="text" id="resolve-goal" placeholder="e.g. web-knowledge-and-decision-interface">
+        </div>
+        <div class="form-group">
+          <label>Resolution Note</label>
+          <textarea id="resolve-note" placeholder="Explain what changes addressed this feedback..." required></textarea>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn modal-close">Cancel</button>
+          <button type="submit" class="btn btn-primary">Resolve Ticket</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Add Invariant Modal -->
+  <div id="modal-add-invariant" class="modal-overlay">
+    <div class="modal">
+      <div class="modal-header">
+        <h3>Record New Architectural Invariant</h3>
+      </div>
+      <form id="form-add-invariant">
+        <div class="form-group">
+          <label>Directive / Architectural Invariant</label>
+          <textarea id="invariant-claim" placeholder="e.g. Zero CGO dependencies: keep SQLite strictly pure-Go (modernc.org/sqlite)" required></textarea>
+        </div>
+        <div class="form-group">
+          <label>Kind</label>
+          <select id="invariant-kind">
+            <option value="invariant">Architectural Invariant</option>
+            <option value="nongoal">Explicit Non-Goal</option>
+            <option value="milestone">Roadmap Milestone</option>
+          </select>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn modal-close">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Invariant</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Transcript Context Expand Modal -->
+  <div id="modal-expand" class="modal-overlay">
+    <div class="modal" style="max-width: 800px;">
+      <div class="modal-header">
+        <h3>Conversation Context Unrolling</h3>
+      </div>
+      <div id="expand-content" style="max-height: 60vh; overflow-y: auto;"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn modal-close">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container"></div>
+
+  <script src="/app.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,45 @@
+# surface: help__gate
+# argv: sila gate --help
+# mode: help
+# exit: 0
+--- stdout ---
+sila gate  -  verify engineering discipline (tests, coverage, report card, format, changelog, binary, README) or run pre-push pipeline
+
+Usage
+  sila gate [--json] [--toon]                     Run engineering discipline checks in working tree
+  sila gate --pre-commit [--json] [--toon]        Fast pre-commit gate (<<duration> changed-package tests, format, secrets)
+  sila gate --full [--json] [--toon]              Full engineering discipline verification (race detector, coverage, SLSA)
+  sila gate --scar-tissue [--json] [--toon]       Audit git diff against historical architectural scar tissue and outlawed patterns
+  sila gate --doc-coverage [--json] [--toon]      Audit exported Go declarations for complete Go doc comments
+  sila gate --report-card [--json] [--toon]       Run local Go Report Card code quality analyzer
+  sila gate --coverage [--strict] [--json] [--toon] Evaluate test statement coverage against quality thresholds
+  sila gate install [--hook] [--remote]           Install pre-push hook or local remote proxy
+  sila gate pipeline [--branch=] [--forward=]     Run quality gate in disposable worktree
+  sila gate run-remote [--branch=] [--forward=]   Run gate in worktree and forward push to target
+
+Options
+  --pre-commit, --quick    Fast pre-commit gate (<<duration> changed-package tests, format, secrets) (gate)
+  --full                   Full quality gate verification with race detector, SLSA, and coverage (gate)
+  --scar-tissue            Audit git diff against historical architectural scar tissue and outlawed patterns (gate)
+  --doc-coverage           Audit exported Go declarations for complete Go doc comments (gate)
+  --report-card            Run local Go Report Card code quality analyzer (gate, reportcard)
+  --coverage               Evaluate test statement coverage against quality thresholds (gate, coverage)
+  --strict                 Enforce strict 80% global and 90% core coverage thresholds (coverage, gate)
+  --hook                   Install .git/hooks/pre-push script (gate install)
+  --remote                 Install local git remote proxy sila-gate (gate install)
+  --branch=<name>          Target git branch or ref (gate pipeline, gate run-remote)
+  --forward=<target>       Remote repository to forward push to upon green gate (default: origin)
+  --json                   Emit machine-readable verdict JSON on stdout
+  --toon                   Emit compact Token-Oriented Object Notation
+  --no-color               Disable colored terminal output
+
+Conversational
+  sila run gate                                (query - auto)
+  sila check gate                              (query - auto)
+  sila do "verify gate"                        (query - sila do; use 'sila do "verify gate"')
+
+Safety
+  Tier: query (read-only; executes immediately).
+  Precedence: canonical-first; overlapping phrases require 'sila do "<phrase>"'.
+  Phrase preview: pass --dry-run to a conversational phrase for a central preview without writing.
+  Secrets are not accepted in positional arguments.

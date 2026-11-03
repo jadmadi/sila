@@ -1,0 +1,164 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sila.jadmadi.net/schemas/adoption-case-v1.json",
+  "title": "SilaAdoptionEvalCatalog",
+  "description": "JSON Schema (draft 2020-12) for Sila adoption trigger-adherence evaluation catalogs and cases (sila/adoption-case/v1).",
+  "type": "object",
+  "required": ["schema_version", "catalog_version", "cases"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "sila/adoption-catalog/v1"
+    },
+    "catalog_version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "cases": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/AdoptionCase"
+      }
+    }
+  },
+  "$defs": {
+    "CaseSetup": {
+      "type": "object",
+      "required": ["fixture", "goal"],
+      "additionalProperties": false,
+      "properties": {
+        "fixture": {
+          "type": "string",
+          "minLength": 1
+        },
+        "goal": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "CaseAssertion": {
+      "type": "object",
+      "required": ["type"],
+      "additionalProperties": false,
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["tool_called", "tool_not_called", "tool_before", "sequence_prefix"]
+        },
+        "tool": {
+          "type": "string",
+          "minLength": 1
+        },
+        "first": {
+          "type": "string",
+          "minLength": 1
+        },
+        "second": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sequence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "AdoptionCase": {
+      "type": "object",
+      "required": [
+        "schema",
+        "id",
+        "prompt",
+        "expected_first_tool",
+        "expected_sequence",
+        "allowed_tools",
+        "forbidden_tools",
+        "max_turns",
+        "harness",
+        "profile",
+        "required_surface",
+        "timeout_ms",
+        "setup",
+        "assertions"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "schema": {
+          "type": "string",
+          "const": "sila/adoption-case/v1"
+        },
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+        },
+        "prompt": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_first_tool": {
+          "type": "string",
+          "minLength": 1
+        },
+        "expected_sequence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "allowed_tools": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "forbidden_tools": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "max_turns": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "harness": {
+          "type": "string",
+          "minLength": 1
+        },
+        "profile": {
+          "type": "string",
+          "enum": ["continuity", "full"]
+        },
+        "required_surface": {
+          "type": "string",
+          "enum": ["mcp", "cli", "skill"]
+        },
+        "timeout_ms": {
+          "type": "integer",
+          "minimum": 100
+        },
+        "setup": {
+          "$ref": "#/$defs/CaseSetup"
+        },
+        "assertions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/CaseAssertion"
+          }
+        }
+      }
+    }
+  }
+}

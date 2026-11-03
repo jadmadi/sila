@@ -1,0 +1,11 @@
+# surface: guide__case
+# argv: sila case list
+# mode: human
+# exit: 0
+--- stdout ---
+sila · cases · repo — 1 recorded
+┌────────────┬────────────────────────────────────────┬─────────────────────────────────────────────┬──────────┐
+│ date       │ intent                                 │ approach                                    │ grounded │
+├────────────┼────────────────────────────────────────┼─────────────────────────────────────────────┼──────────┤
+│ <date-iso> │ Deterministic CLI output audit harness │ Run every command in an isolated sandbox… │ yes      │
+└────────────┴────────────────────────────────────────┴─────────────────────────────────────────────┴──────────┘

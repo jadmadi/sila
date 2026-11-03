@@ -1,0 +1,10 @@
+{
+  "cwd": "/workspace/sila/cli",
+  "hook_event_name": "preToolUse",
+  "project_id": "sila-cli",
+  "session_id": "sess-cursor",
+  "tool_input": {
+    "command": "go test"
+  },
+  "tool_name": "Bash"
+}

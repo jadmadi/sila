@@ -1,0 +1,23 @@
+# surface: onboard__fail
+# argv: sila onboard check
+# mode: human
+# exit: 1
+--- stdout ---
+sila · onboard check · repo
+
+┌──────────────────────┬────────┬─────────────────────────────────────────────────┬─────────────────────────┐
+│ item                 │ status │ evidence                                        │ fix                     │
+├──────────────────────┼────────┼─────────────────────────────────────────────────┼─────────────────────────┤
+│ Registered project   │ fail * │ not in the knowledge store                      │ sila heal               │
+│ Canonical project id │ pass * │ one registration for this directory             │                         │
+│ Agent rules          │ warn   │ 1 rule files would be updated: AGENTS.md        │ sila install            │
+│ Sila skill           │ warn   │ not provisioned                                 │ sila install            │
+│ Git hook             │ pass   │ project-managed hooks (sila installs none here) │                         │
+│ MCP server           │ warn * │ no sila MCP entry found in known client configs │ sila install --no-hooks │
+│ Goals                │ pass   │ 1 goals tracked                                 │                         │
+│ Legacy inventory     │ pass   │ no unmanaged task surfaces found                │                         │
+│ Assistance consent   │ pass   │ disabled; zero network calls                    │                         │
+└──────────────────────┴────────┴─────────────────────────────────────────────────┴─────────────────────────┘
+* critical - must be resolved before onboarding is complete
+
+✖ Onboarding incomplete: 1 critical failure.

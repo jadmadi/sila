@@ -1,0 +1,100 @@
+# surface: help__goals
+# argv: sila goals --help
+# mode: help
+# exit: 0
+--- stdout ---
+sila goals  -  audit goals roadmap matrix, manage claim locks, match git commits, and trigger Plannotator
+
+Usage
+  sila goals [options]
+  sila goals list [--status=implemented|pending|ready|blocked|claimed] [--json] [--toon]
+  sila goal view <slug|index> [--json] [--toon]                (alias: sila goals view/show)
+  sila goals create <slug> [--title="..."] [--desc="..."] [--depends-on="..."] [--independent] [--seq=N] [--template-dir=path]
+  sila goals update <slug> [--title="..."] [--desc="..."] [--depends-on="..."] [--add-dep="..."] [--remove-dep="..."] [--independent] [--dependent] [--seq=N]
+  sila goals depend <slug> [add|remove|set|clear] [<dep...>]
+  sila goals contract <link|unlink|status|check|waive> [--session=<id>] [--goal=<slug>] [--json]
+  sila goals certify <slug> [--auto-run | --evidence=<file>] [--agent=<name>] [--note="..."]
+  sila goals audit <slug> [--evidence=<file>] [--agent=<name>] [--note="..."]
+  sila goals test <slug> [--json] [--toon]
+  sila goals import <slug> [--from=<dir>]
+  sila goals claim <slug> [--agent=<name>] [--note="..."] [--force]
+  sila goals focus <slug> --session=<id> [--agent=<name>] [--note="..."] [--force]
+  sila goals touch <slug> [--agent=<name>]
+  sila goals reopen <slug> [--reason="..."] [--agent=<name>] [--claim]
+  sila goals report <slug> "<progress note>"
+  sila goals commit <slug> -m "<commit-message>" [--no-build]
+  sila goals attribute <slug> --commit=<hash>                  (attribute completed goal to git commit)
+  sila goals release <slug>
+  sila goals release --stale [--older-than=72h] [--dry-run] [--global]
+  sila goals prune --claims [--dry-run] [--global]
+  sila goals ready
+  sila goals independent
+  sila goals blocked
+  sila goals claimed (alias: sila goals active)
+  sila goals implemented
+  sila goals pending
+  sila goals global [--ready|--pending|--claimed]
+  sila goals global stats [--json] [--toon]                    (tabular stats: ready, WIP, blocked, done)
+  sila goals stats [--global] [--json] [--toon]                (project or global goals statistics)
+  sila goals stats --line [--global]                           (one sidebar line: Ready, WIP, Blocked, Done)
+  sila goals stats live [--interval=<duration>] [--full] [--global]   (refresh until Ctrl-C; replaces watch)
+  sila goals tasks <slug>
+  sila goals task <slug> check|uncheck <index>
+  sila goals review [<slug>]
+
+Commit Attribution
+  A goal closes from a reachable commit containing `(goals/<slug>/goal.md)` or `Goal: <slug>`
+  with a feat, fix, refactor, perf, or chore subject. docs and test commits are ignored,
+  and pending goals list any skipped candidate commits so you can see why one did not close.
+
+Options
+  -p, --project=<dir>      Scope goals audit to a specific project directory
+  --stats                  Display tabular goals statistics (ready, WIP, blocked, done, total)
+  --title=<text>           Custom human-readable title for goal creation
+  --desc=<text>            Goal description or summary (alias: --description)
+  --depends-on=<slugs>     Comma-separated goal slugs this goal depends on (alias: --deps)
+  --add-dep=<slugs>        Comma-separated goal slugs to add as dependencies (alias: --add)
+  --remove-dep=<slugs>     Comma-separated goal slugs to remove from dependencies (alias: --remove)
+  --by=<slug>              Superseding goal slug or reference (goals supersede)
+  --evidence=<file>        Evidence report or test log file to certify a goal (goals certify)
+  --from=<dir>             Source directory containing Plannotator artifacts (goals import)
+  --independent            Explicitly mark goal as independent/disjoint
+  --dependent              Explicitly mark goal as dependent on prerequisites
+  --seq=<N>                Recommended sequence index for execution (alias: --sequence)
+  --agent=<name>           Agent identifier for goal claim (default: $SILA_AGENT or agent)
+  --session=<id>           Agent session id bound to a goal; read back with `sila goals active --session=<id> --json` (goals focus/claim/active)
+  --note=<msg>             Progress note or status message for claim/report
+  -m, --message=<msg>      Commit message for two-stage goal commit (goals commit)
+  --no-build               Skip target binary rebuild during two-stage goal commit (goals commit)
+  --reason=<text>          Reopening reason or remediation explanation (goals reopen)
+  --claim                  Immediately claim goal upon reopening (goals reopen)
+  --force, -f              Force override an existing active goal claim or overwrite existing goal package
+  --stale                  Release claims whose recorded process is gone or inactive (goals release)
+  --older-than=<age>       Minimum claim age for --stale (default 72h, e.g. 48h or 3d)
+  --claims                 Prune claim records left on implemented or superseded goals (goals prune)
+  --dry-run                Preview --stale releases or claim pruning without changing anything
+  --all                    Show full uncapped history of implemented goals alongside active goals
+  --no-sync                Preview the human matrix without reconciling goals/README.md
+  --ascii                  Use stable ASCII tags and #/- progress bars (alias: --plain)
+  --implemented            Only list verified implemented goals (alias: --done)
+  --ready                  Only list unblocked goals ready to execute now
+  --independent            Only list disjoint / parallelizable goals
+  --blocked                Only list goals blocked by unmet prerequisites
+  --claimed                Only list in-progress / claimed goals
+  --pending                Only list unclaimed goals
+  --status=<state>         Filter goals by state: implemented, pending, ready, independent, blocked, claimed, all
+  --global                 Audit goals across all registered repositories
+  --toon                   Emit compact Token-Oriented Object Notation on stdout
+  --json                   Emit machine-readable JSON on stdout
+  --no-color               Disable colored terminal output
+
+Conversational
+  sila list goals                              (query - auto)
+  sila show goals                              (query - auto)
+  sila do "release goal <slug>"                (destructive - sila do; use 'sila do "release goal <slug>"')
+
+Safety
+  Tier: destructive (interactive confirmation or --yes/--force required).
+  Precedence: canonical-first; overlapping phrases require 'sila do "<phrase>"'.
+  Phrase preview: pass --dry-run to a conversational phrase for a central preview without writing.
+  Secrets are not accepted in positional arguments.

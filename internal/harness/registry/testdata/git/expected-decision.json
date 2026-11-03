@@ -1,0 +1,8 @@
+{
+  "schema": "sila/harness-goal-contract/v1",
+  "decision": "deny",
+  "reason_code": "GOAL_UNBOUND",
+  "reason": "no Sila goal binding or waiver",
+  "recovery": "sila goals claim \u003cslug\u003e",
+  "checks": {}
+}

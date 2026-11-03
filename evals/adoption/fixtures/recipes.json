@@ -1,0 +1,17 @@
+{
+  "schema_version": "sila/adoption-fixtures/v1",
+  "fixtures": {
+    "repo-session-start": {"description": "Initialized git repository with AGENTS.md and one pending handoff"},
+    "go-busy-timeout": {"description": "Go repository with a historical SQLITE_BUSY lesson in the store"},
+    "prior-research-history": {"description": "Store seeded with prior session research on WAL checkpoint starvation"},
+    "goal-decision-memo": {"description": "Active goal session for store-wal-policy with internal/store/db.go"},
+    "goal-solved-lesson": {"description": "Active goal session for store-rows-close with internal/store/facts.go"},
+    "goal-pattern-case": {"description": "Active goal session for harness-adapter-registry with internal/harness/registry/"},
+    "session-end-handoff": {"description": "Active goal session ready for session-end handoff"},
+    "specialist-skill-routing": {"description": "Repository with .agents/skills/sila/SKILL.md provisioned"},
+    "symbol-blast-radius": {"description": "Go package with callers of ResolveWorkspaceIdentity"},
+    "temporal-standup-24h": {"description": "Store with recent session activity in the last 24 hours"},
+    "pre-commit-gate": {"description": "Staged Go change ready for pre-commit gate verification"},
+    "goals-ready-check": {"description": "Repository with goals/ directory containing ready and implemented goals"}
+  }
+}

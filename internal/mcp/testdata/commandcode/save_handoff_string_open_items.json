@@ -1,0 +1,18 @@
+{
+  "source": "synthetic",
+  "reason": "String-encoded open_items array through the Command Code proxy",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 8,
+    "method": "tools/call",
+    "params": {
+      "name": "save_handoff",
+      "arguments": {
+        "project": "compat",
+        "summary": "bridge handoff fixture",
+        "open_items": "[\"verify recall\",\"verify prime_context\"]",
+        "agent": "command-code"
+      }
+    }
+  }
+}

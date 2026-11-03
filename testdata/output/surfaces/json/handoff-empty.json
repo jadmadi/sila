@@ -1,0 +1,18 @@
+# surface: json__handoff-empty
+# argv: sila handoff --json
+# mode: json
+# exit: 0
+--- stdout ---
+{
+  "id": "",
+  "project_id": "repo-<sha>",
+  "agent": "",
+  "branch": "",
+  "summary": "",
+  "open_items": [],
+  "decisions": [],
+  "repo_files": [],
+  "file_refs_exist": false,
+  "created_at": "",
+  "status": "none"
+}

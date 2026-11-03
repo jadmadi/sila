@@ -1,0 +1,13 @@
+{
+  "source": "synthetic",
+  "reason": "String-encoded array field shape",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 5,
+    "method": "tools/call",
+    "params": {
+      "name": "save_memo",
+      "arguments": {"project": "compat", "content": "Compatibility fixture memo", "files": "[\"cmd/sila/workspace.go\"]"}
+    }
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "exit_code": 0,
+  "stderr": "",
+  "stdout": "{\"followup_message\":\"deny: GOAL_UNBOUND: no Sila goal binding or waiver | recovery: sila goals claim \\u003cslug\\u003e\",\"stop_continuation\":\"continue-only\"}\n"
+}

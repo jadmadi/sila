@@ -1,0 +1,14 @@
+# surface: agents__sync-dry-run
+# argv: sila agents sync --dry-run
+# mode: human
+# exit: 0
+--- stdout ---
+sila · agents sync · <sandbox>/repo (dry-run)
+  • create AGENTS.md (0 → 2989 bytes)
+  • skip CLAUDE.md — no Claude harness detected; unprompted file creation skipped (0 → 0 bytes)
+  • skip GEMINI.md — no Gemini or Antigravity harness detected; unprompted file creation skipped (0 → 0 bytes)
+  • skip .cursor/rules/000-sila-core.mdc — no Cursor harness detected; unprompted file creation skipped (0 → 0 bytes)
+  • skip .devin/setup.sh — no Devin harness detected; unprompted file creation skipped (0 → 0 bytes)
+
+  Summary: 0 written, 4 skipped, 0 failed.
+  nothing was written; re-run without --dry-run to apply

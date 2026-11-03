@@ -1,0 +1,11 @@
+# surface: guide__lesson
+# argv: sila lesson list
+# mode: human
+# exit: 0
+--- stdout ---
+sila · lessons · repo — 1 recorded
+┌────────────┬──────────────────────────────────────────┬──────────────────────────────────────┬──────────┐
+│ date       │ symptom                                  │ fix                                  │ grounded │
+├────────────┼──────────────────────────────────────────┼──────────────────────────────────────┼──────────┤
+│ <date-iso> │ Sandbox path leaked into golden snapshot │ Apply longest-path-first replacement │ yes      │
+└────────────┴──────────────────────────────────────────┴──────────────────────────────────────┴──────────┘

@@ -1,0 +1,7 @@
+# surface: goals__tasks
+# argv: sila goals tasks alpha-goal
+# mode: human
+# exit: 0
+--- stdout ---
+sila · goals · tasks — alpha-goal (0/1 completed) in repo:
+  [ ]  1. **Phase 1**: Update README.md

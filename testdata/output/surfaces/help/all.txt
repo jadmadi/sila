@@ -1,0 +1,134 @@
+# surface: help__all
+# argv: sila help all
+# mode: help
+# exit: 0
+--- stdout ---
+sila - one shared memory, rulebook, and plan for every AI coding agent.
+  Part of the devtools family by Jad Madi (@jadmadi on X.com)
+
+Usage:
+  sila <command> [args...] [flags]
+
+Agent Continuity & Working Loop:
+  salam (alias: hi, hello, merhaba) [--assist] [--json]                   Agent front door: 7-step working loop, ready goals & active claims
+  workspace                         status [--json]                       Resolve the active project identity from a workspace root, child repo, or subdirectory
+  prime                             [--top=N] [--budget=<tokens>]         Session-start context briefing with declarative token compression
+  preflight                         status|set off|warn|enforce [--user]  Inspect or set the Command Code preflight policy and marker validation
+  handoff                           [<summary>] [--open=...]              View or record structured session handoffs & open items
+  standup (deprecated alias: recap) [last <window>] [-g]                  Human morning standup: decisions, commits shipped, open items
+  hook                              [session-start|session-end]           Execute agent lifecycle hooks & git pre-commit quality gates
+  session                           start|status|env|end|list|prune       Resolve, export, bind, and track local agent session identity
+  memory                            report|prune                          Local-only memory adoption events, session rates, goal compliance, and gate outcomes
+  intro                             [--agent=<name>]                      Agent onboarding guide & AGENTS.md template block
+
+Knowledge, Recall & Memory:
+  search              <query> [--omni] | expand <id>     Search knowledge: omni-search, messages, claims, or docs
+  recall              "<symptom|error>" [--top=N]        Fast cross-project solution lookup before web search
+  doc                 <url|file|search|pkg|sites>        Ingest, crawl, search, serve, or query external docs & packages
+  memo                add|list|show [--text=] [--since=] [--limit=N] [--claim=] [--json]
+                      Record, list, or show architectural directives; 'memo list' never writes
+  lesson              add|list|show|distill [--since=] [--json]
+                      Record, browse, show, or distill bug-cause-fix solution lessons
+  case (alias: cases) add|list|show [--since=] [--json]  Record, browse, or show architectural procedural cases
+  facts               [verify|show <id>|list]            Cryptographic SHA-256 hash-chained fact ledger audit
+  guide               [domain] [--format=...] [--out=]   Compile and export living Developer Operational Guidebook (10 domains)
+  learn               [list|add|export] [domain]         Record, list, and export distilled operational learnings & guardrails
+
+Roadmap, Governance & Multi-Agent:
+  goals                     [claim|release|ready|review]      Roadmap matrix, claims, commit matching & Plannotator review
+  vision                    [compile|triage|add-nongoal]      Strategic North Star, VISION.md compiler & proposal triage
+  approve (alias: approval) [<id>] [--reject] [--pending]     Human-in-the-loop approval steering for autonomous AI agents
+  adr                       [new|list|compile|doctor]         Author, compile, ground, and doctor Architecture Decision Records
+  decision                  [create|resolve|list|view|check]  Epistemic addressed decision log (D#), options & collision check
+  opinions                  [compile|add|list] [--toon]       Living technical taste ledger & OPINIONS.md compilation
+  feedback                  [<msg>] [--type=...] [--issue]    Closed-loop feedback ticket ledger for agent suggestions & issues
+  crew                      [spawn|list|status|kill]          First Mate crew orchestrator: tmux sessions with zero-token supervision
+  worktree                  [create|list|clean|run]           Disposable Git worktree sandboxes with context seeding & gates
+  digest                    [--activity] [--since=24h]        Multi-agent activity digest & session ledger for AI coding agents
+  benchmark                 [--min-sessions=N] [--toon]       Cross-agent empirical scorecard: grounding rate & goal attribution
+
+Personas, Audits & Skill Authoring:
+  persona                                            list [--group=ID] | get <id|num>  Modular persona registry & edge vault across 31 specialist personas
+  hire                                               group <id> | <1,4,6,3,8> [url]    Autonomous multi-persona hiring, group audits, and goal package synthesis
+  reports                                            [list] | show <id>                Browse, inspect, and trace persona evaluation reports in .sila/reports/
+  audit                                              web <url> | squad | gap           Autonomous multi-agent groupthink audit & Sila goals synthesis
+  skill (alias: skills, skill-create, skills-create) preview | apply | remove | assess | list | show | create
+                                                     Project skill governance, filtering, assessment & bespoke skill authoring
+  plugins (alias: plugin)                            list | init | install | uninstall | link | unlink | lint
+                                                     Manage standalone Go plugins and tools
+
+Quality Gates, Verification & Health:
+  gate                            [pipeline|install|coverage]       Local quality gate pipeline: pre-commit/pre-push & sentries
+  doctor                          [--repair] [--edge] [--skills]    End-to-end SQLite integrity, index sync, skill bloat & test audit
+  verify                          [<project>] [--dry-run] [--json]  Re-verify referenced files on disk and detect stale claims
+  reportcard (alias: report-card) [--json] [--toon]                 Local Go Report Card analyzer (gofmt, govet, gocyclo, misspell)
+  coverage                        [--strict] [--profile=path]       Evaluate test statement coverage against package quality thresholds
+  eval                            [run|ablate|init|synthesize]      Universal epistemic evaluation, multi-harness runner & ablation
+
+Repository Setup, Rules & Onboarding:
+  install [--tools=...] [--no-hooks]           Provision agent rules, git quality gates, and tool configs
+  agents  [check|sync|compile|review] [--all]  Hub-and-spoke agent SOP rule compiler, drift auditor & multi-project sync
+  onboard [check|--convert-tasks]              Inventory legacy task systems and verify sila participation
+  heal    [--dry-run] [--json]                 Bring repository wiring, duplicate registrations & claims current
+  export  [rules] [--target=...]               Dump messages/claims as JSON or compile agent rules
+
+Sync, Ingestion & Store Operations:
+  sync     [--project=] [--since=] [--full]  Ingest from all tools + distill claims with live progress preview
+  live     [--interval=<duration>] [--compact]      Continuous live 9-box mission control cockpit & background sync
+  dream    [<project>] [--llm=...]           Distill claims and atomic facts from messages (query, reconcile)
+  status   [--scan]                          Sync health dashboard, tool metrics, and stale claim detection
+  ingest   [<tool>|all] [--since=...]        Incremental ingestion of normalized messages from AI CLI tools
+  assess   [<tool>|all]                      Dry-run preview of what ingest would pull in from local tools
+  projects [merge <keep> <drop> | rename <project> <new-id>]
+           Catalog indexed repositories and claim counts; merge path aliases or correct an id
+  overlaps [--project=...]                   List cross-tool overlaps and co-occurrence
+  store    [status|smoke|verify|migrate]     Inspect store metrics, verify invariants, and run Smoke A/B sandbox
+  storage  [--json]                          Show disk footprint: sila's store plus each source tool's data
+  clean    [--global|--repo] [-y]            Universal multi-toolchain disk hygiene and cache pruning
+  vacuum   [--stats] [--force]               Defragment SQLite store, reclaim free pages, and optimize planner
+  backup   [--out=<path>]                    Write a consistent snapshot of the knowledge store
+
+Surfaces, Services & Integrations:
+  ui                      [--port=7452] [--no-open]               Interactive local web cockpit for decisions & knowledge navigation
+  demo                    [--port=7452] [--no-open]               Ephemeral demo playground: pre-populated sandbox store for Web Cockpit
+  mcp                     [--profile=continuity|full] [--print-schema] [--trace-args]
+                          Start Model Context Protocol (MCP) JSON-RPC stdio server, print its schema, or trace argument metadata
+  cloud                   [status|pull|push]                      D1 edge bridge: probe connectivity, drain cloud mailbox
+  gateway                 [status|test|send]                      Pluggable external relay: Discord, Telegram, Gemini, and MCP
+  sources                 [--verbose] [--json]                    Discover installed AI tools on this host: log paths & setup guidance
+  config                  [set|get|path|explain]                  Manage settings, API keys, search engine credentials & doc sites
+  changelog               [<ver>] [--timeline] [--full] [--scan]  Display Sila release history or synthesize repo release notes
+  upgrade (alias: update) [--force] [--check]                     Self-upgrade sila binary to latest release
+  release                 [status|preflight|check|snapshot|metadata]
+                          Release status, readiness scorecard, compatibility checks, snapshots & metadata
+  credits                 [<query>] [--toon|--json]               Display project credits, research inspirations, and AXI attribution
+  completions             [bash|zsh|fish]                         Print a shell completion script
+
+Common Options:
+  -p, --project=<name>       Scope command to a specific project directory or ID
+  -g, --global               Run operation globally across all indexed projects
+      --json                 Emit machine-readable JSON output (for agents & scripting)
+      --toon                 Emit compact Token-Oriented Object Notation (~40% token savings)
+  -v, --verbose              Display detailed output, inspection cards, and file checks
+  -n, --dry-run              Preview changes without writing files to disk
+      --since=<time>         Filter by duration (e.g. 24h, 7d) or RFC3339 timestamp
+      --db=<path>            Knowledge store database path (default ~/.local/share/sila/sila.db)
+      --no-color             Disable colored terminal output
+  -h, --help                 Show help for sila or any subcommand
+  -V, --version              Print version information and exit
+
+Examples:
+  sila salam                     # Orient: working loop and repo status
+  sila prime                     # Prime: concise session-start context
+  sila recall "database locked"  # Recall: prior solutions before searching
+
+Conversational phrases:
+  sila say hello              -> sila salam
+  sila remember error <text>  -> sila recall <text>
+  sila save memo <text>       -> sila memo <text>
+  Run 'sila help phrases' for all 76 phrase families, or 'sila ccli explain ...' to preview.
+
+Learn More:
+  sila help phrases        All 76 conversational CLI phrase families
+  sila <command> --help    Flags and examples for one command
+  sila guide               Developer Operational Guidebook (10 domains)

@@ -1,0 +1,30 @@
+# surface: goals__default
+# argv: sila goals
+# mode: human
+# exit: 0
+--- stdout ---
+ℹ goals/README.md will be reconciled after this report (use --no-sync to preview only)
+
+sila · goals · repo — Goals Audit & Roadmap Matrix
+
+🟡 GOALS READY TO CLAIM & EXECUTE (1):
+---------------------------------------------------------------
+  ▶ alpha-goal 🚢 🎯 [Immediate] ⚡ [Independent] (Seq #1)
+    Title:  Alpha Sandbox Goal
+    Status: ready to claim; awaiting implementation commit
+    Claim:  sila goals claim alpha-goal --agent=<name>
+    Touch:  README.md
+    Plan:   [░░░░░░░░░░] 0/1 tasks (0%)
+    Launch: /goal goals/alpha-goal/goal.md
+
+---------------------------------------------------------------
+  📁 Project:       repo (<sandbox>/repo)
+  Total Goals:      1
+  🟡 Ready to Pick:  1 (1 independent ⚡, 0 unblocked 🔗)
+  🟢 Implemented:   0
+  🎯 By Tier:       1 immediate, 0 roadmap, 0 nice-to-have, 0 wont-fix
+  📋 Task Progress:  [░░░░░░░░░░] 0/1 completed (0%)
+Legend: 🚢 ship · 🗺️ roadmap · 🎯 immediate · ⚡ independent · 🔗 dependent · 🔒 claimed · ▶ ready
+---------------------------------------------------------------
+
+✨ Auto-synced goals/README.md (0 implemented [0 verified, 0 unverified], 0 claimed, 1 pending)

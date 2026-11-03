@@ -1,0 +1,6744 @@
+{
+  "schema_version": "sila/ccli-catalog/v1",
+  "catalog_version": "1.0.0",
+  "min_sila_version": "0.17.0",
+  "description": "Sila conversational command catalog (76-row CCLI inventory)",
+  "plan_rows": [
+    {
+      "plan_row": 1,
+      "domain": "Memory \u0026 Epistemic Core",
+      "command": "salam",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_salam_say"
+      ]
+    },
+    {
+      "plan_row": 2,
+      "domain": "Memory \u0026 Epistemic Core",
+      "command": "prime",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_prime_context",
+        "sila_prime_context_do"
+      ]
+    },
+    {
+      "plan_row": 3,
+      "domain": "Memory \u0026 Epistemic Core",
+      "command": "recall",
+      "row_status": "mixed",
+      "canonical_phrase": "recall \u003csymptom\u003e",
+      "production_ids": [
+        "sila_recall_symptom"
+      ]
+    },
+    {
+      "plan_row": 4,
+      "domain": "Memory \u0026 Epistemic Core",
+      "command": "search",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_search_query",
+        "sila_search_for_do",
+        "sila_search_transcripts_do"
+      ]
+    },
+    {
+      "plan_row": 5,
+      "domain": "Memory \u0026 Epistemic Core",
+      "command": "memo",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_memo_save"
+      ]
+    },
+    {
+      "plan_row": 6,
+      "domain": "Memory \u0026 Epistemic Core",
+      "command": "lesson",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_lesson_save"
+      ]
+    },
+    {
+      "plan_row": 7,
+      "domain": "Memory \u0026 Epistemic Core",
+      "command": "case",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_case_record"
+      ]
+    },
+    {
+      "plan_row": 8,
+      "domain": "Memory \u0026 Epistemic Core",
+      "command": "handoff",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_handoff_save"
+      ]
+    },
+    {
+      "plan_row": 9,
+      "domain": "Memory \u0026 Epistemic Core",
+      "command": "doc",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_doc_index",
+        "sila_doc_ingest_do"
+      ]
+    },
+    {
+      "plan_row": 10,
+      "domain": "Memory \u0026 Epistemic Core",
+      "command": "rules check",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_rules_check",
+        "sila_rules_verify_do"
+      ]
+    },
+    {
+      "plan_row": 11,
+      "domain": "Memory \u0026 Epistemic Core",
+      "command": "rules compile",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_rules_compile"
+      ]
+    },
+    {
+      "plan_row": 12,
+      "domain": "Goals \u0026 Coordination",
+      "command": "goals list",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_goals_list",
+        "sila_goals_ready",
+        "sila_goals_pending",
+        "sila_goals_claimed",
+        "sila_goals_done"
+      ]
+    },
+    {
+      "plan_row": 13,
+      "domain": "Goals \u0026 Coordination",
+      "command": "goals claim",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_goals_claim"
+      ]
+    },
+    {
+      "plan_row": 14,
+      "domain": "Goals \u0026 Coordination",
+      "command": "goals release",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_goals_release",
+        "sila_goals_release_do"
+      ]
+    },
+    {
+      "plan_row": 15,
+      "domain": "Goals \u0026 Coordination",
+      "command": "goals report",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_goals_report",
+        "sila_goals_report_do"
+      ]
+    },
+    {
+      "plan_row": 16,
+      "domain": "Goals \u0026 Coordination",
+      "command": "goals create",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_goals_create"
+      ]
+    },
+    {
+      "plan_row": 17,
+      "domain": "Goals \u0026 Coordination",
+      "command": "decision list",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_decision_list"
+      ]
+    },
+    {
+      "plan_row": 18,
+      "domain": "Goals \u0026 Coordination",
+      "command": "decision view",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_decision_view"
+      ]
+    },
+    {
+      "plan_row": 19,
+      "domain": "Goals \u0026 Coordination",
+      "command": "decision create",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_decision_create"
+      ]
+    },
+    {
+      "plan_row": 20,
+      "domain": "Goals \u0026 Coordination",
+      "command": "decision resolve",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_decision_resolve"
+      ]
+    },
+    {
+      "plan_row": 21,
+      "domain": "Goals \u0026 Coordination",
+      "command": "opinions list",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_opinions_list"
+      ]
+    },
+    {
+      "plan_row": 22,
+      "domain": "Goals \u0026 Coordination",
+      "command": "opinions add",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_opinions_add"
+      ]
+    },
+    {
+      "plan_row": 23,
+      "domain": "Goals \u0026 Coordination",
+      "command": "opinions compile",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_opinions_compile"
+      ]
+    },
+    {
+      "plan_row": 24,
+      "domain": "Goals \u0026 Coordination",
+      "command": "feedback",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_feedback_submit",
+        "sila_feedback_report_do"
+      ]
+    },
+    {
+      "plan_row": 25,
+      "domain": "Goals \u0026 Coordination",
+      "command": "crew list",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_crew_list"
+      ]
+    },
+    {
+      "plan_row": 26,
+      "domain": "Goals \u0026 Coordination",
+      "command": "crew spawn",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_crew_spawn"
+      ]
+    },
+    {
+      "plan_row": 27,
+      "domain": "Goals \u0026 Coordination",
+      "command": "crew kill",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_crew_kill"
+      ]
+    },
+    {
+      "plan_row": 28,
+      "domain": "Goals \u0026 Coordination",
+      "command": "worktree list",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_worktree_list"
+      ]
+    },
+    {
+      "plan_row": 29,
+      "domain": "Goals \u0026 Coordination",
+      "command": "worktree create",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_worktree_create"
+      ]
+    },
+    {
+      "plan_row": 30,
+      "domain": "Goals \u0026 Coordination",
+      "command": "worktree clean",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_worktree_remove",
+        "sila_worktree_clean_do",
+        "sila_worktree_prune_all"
+      ]
+    },
+    {
+      "plan_row": 31,
+      "domain": "Goals \u0026 Coordination",
+      "command": "digest",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_digest_show"
+      ]
+    },
+    {
+      "plan_row": 32,
+      "domain": "Goals \u0026 Coordination",
+      "command": "benchmark",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_benchmark_run"
+      ]
+    },
+    {
+      "plan_row": 33,
+      "domain": "Quality Gates \u0026 Health",
+      "command": "gate",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_gate_run",
+        "sila_gate_verify_do"
+      ]
+    },
+    {
+      "plan_row": 34,
+      "domain": "Quality Gates \u0026 Health",
+      "command": "doctor",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_doctor_run"
+      ]
+    },
+    {
+      "plan_row": 35,
+      "domain": "Quality Gates \u0026 Health",
+      "command": "doctor repair",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_doctor_repair"
+      ]
+    },
+    {
+      "plan_row": 36,
+      "domain": "Quality Gates \u0026 Health",
+      "command": "verify",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_verify_references",
+        "sila_verify_files_do"
+      ]
+    },
+    {
+      "plan_row": 37,
+      "domain": "Quality Gates \u0026 Health",
+      "command": "reportcard",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_reportcard_run"
+      ]
+    },
+    {
+      "plan_row": 38,
+      "domain": "Quality Gates \u0026 Health",
+      "command": "coverage",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_coverage_check",
+        "sila_coverage_test_do"
+      ]
+    },
+    {
+      "plan_row": 39,
+      "domain": "Quality Gates \u0026 Health",
+      "command": "eval",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_eval_run"
+      ]
+    },
+    {
+      "plan_row": 40,
+      "domain": "Quality Gates \u0026 Health",
+      "command": "release preflight",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_release_preflight",
+        "sila_release_verify_do"
+      ]
+    },
+    {
+      "plan_row": 41,
+      "domain": "Setup \u0026 Onboarding",
+      "command": "install",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_install_setup",
+        "sila_install_rules_do"
+      ]
+    },
+    {
+      "plan_row": 42,
+      "domain": "Setup \u0026 Onboarding",
+      "command": "agents check",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_agents_check",
+        "sila_agents_audit_do"
+      ]
+    },
+    {
+      "plan_row": 43,
+      "domain": "Setup \u0026 Onboarding",
+      "command": "agents sync",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_agents_deploy",
+        "sila_agents_sync_do",
+        "sila_agents_compile_preview"
+      ]
+    },
+    {
+      "plan_row": 44,
+      "domain": "Setup \u0026 Onboarding",
+      "command": "onboard check",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_onboard_check"
+      ]
+    },
+    {
+      "plan_row": 45,
+      "domain": "Setup \u0026 Onboarding",
+      "command": "heal",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_heal_rules",
+        "sila_heal_rules_do"
+      ]
+    },
+    {
+      "plan_row": 46,
+      "domain": "Setup \u0026 Onboarding",
+      "command": "export",
+      "row_status": "mixed",
+      "canonical_phrase": "export rules",
+      "production_ids": [
+        "sila_export_rules"
+      ]
+    },
+    {
+      "plan_row": 47,
+      "domain": "Store \u0026 Ingestion",
+      "command": "sync",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_sync_memory",
+        "sila_sync_rules"
+      ]
+    },
+    {
+      "plan_row": 48,
+      "domain": "Store \u0026 Ingestion",
+      "command": "live",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_live_start",
+        "sila_live_watch_do"
+      ]
+    },
+    {
+      "plan_row": 49,
+      "domain": "Store \u0026 Ingestion",
+      "command": "dream",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_dream_distill",
+        "sila_dream_claims_do"
+      ]
+    },
+    {
+      "plan_row": 50,
+      "domain": "Store \u0026 Ingestion",
+      "command": "status",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_status_show"
+      ]
+    },
+    {
+      "plan_row": 51,
+      "domain": "Store \u0026 Ingestion",
+      "command": "ingest",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_ingest_pull",
+        "sila_ingest_tool"
+      ]
+    },
+    {
+      "plan_row": 52,
+      "domain": "Store \u0026 Ingestion",
+      "command": "assess",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_assess_preview",
+        "sila_assess_tool_do"
+      ]
+    },
+    {
+      "plan_row": 53,
+      "domain": "Store \u0026 Ingestion",
+      "command": "projects list",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_projects_list"
+      ]
+    },
+    {
+      "plan_row": 54,
+      "domain": "Store \u0026 Ingestion",
+      "command": "projects merge",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_projects_merge"
+      ]
+    },
+    {
+      "plan_row": 55,
+      "domain": "Store \u0026 Ingestion",
+      "command": "overlaps",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_overlaps_show"
+      ]
+    },
+    {
+      "plan_row": 56,
+      "domain": "Store \u0026 Ingestion",
+      "command": "store status",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_store_status"
+      ]
+    },
+    {
+      "plan_row": 57,
+      "domain": "Store \u0026 Ingestion",
+      "command": "store verify",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_store_verify",
+        "sila_store_verify_do"
+      ]
+    },
+    {
+      "plan_row": 58,
+      "domain": "Store \u0026 Ingestion",
+      "command": "storage",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_storage_show"
+      ]
+    },
+    {
+      "plan_row": 59,
+      "domain": "Store \u0026 Ingestion",
+      "command": "clean",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_clean_caches",
+        "sila_clean_caches_do"
+      ]
+    },
+    {
+      "plan_row": 60,
+      "domain": "Store \u0026 Ingestion",
+      "command": "vacuum",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_vacuum_defragment",
+        "sila_vacuum_database_do"
+      ]
+    },
+    {
+      "plan_row": 61,
+      "domain": "Store \u0026 Ingestion",
+      "command": "vacuum force",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_vacuum_force"
+      ]
+    },
+    {
+      "plan_row": 62,
+      "domain": "Store \u0026 Ingestion",
+      "command": "backup",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_backup_store",
+        "sila_backup_database_do"
+      ]
+    },
+    {
+      "plan_row": 63,
+      "domain": "Store \u0026 Ingestion",
+      "command": "reconcile",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_reconcile_check",
+        "sila_reconcile_drift"
+      ]
+    },
+    {
+      "plan_row": 64,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "ui",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_ui_start"
+      ]
+    },
+    {
+      "plan_row": 65,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "demo",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_demo_launch"
+      ]
+    },
+    {
+      "plan_row": 66,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "mcp",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_mcp_serve"
+      ]
+    },
+    {
+      "plan_row": 67,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "cloud status",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_cloud_status",
+        "sila_cloud_test_do"
+      ]
+    },
+    {
+      "plan_row": 68,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "cloud pull",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_cloud_pull"
+      ]
+    },
+    {
+      "plan_row": 69,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "cloud push",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_cloud_push",
+        "sila_cloud_sync_do"
+      ]
+    },
+    {
+      "plan_row": 70,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "gateway status",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_gateway_status",
+        "sila_gateway_test_do"
+      ]
+    },
+    {
+      "plan_row": 71,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "sources",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_sources_list"
+      ]
+    },
+    {
+      "plan_row": 72,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "config get",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_config_get"
+      ]
+    },
+    {
+      "plan_row": 73,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "config path",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_config_path"
+      ]
+    },
+    {
+      "plan_row": 74,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "config explain",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_config_explain"
+      ]
+    },
+    {
+      "plan_row": 75,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "config set non-secret",
+      "row_status": "implemented",
+      "production_ids": [
+        "sila_config_set"
+      ]
+    },
+    {
+      "plan_row": 76,
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "command": "config set secret",
+      "row_status": "forbidden",
+      "forbidden_id": "sila_config_set_secret_forbidden"
+    }
+  ],
+  "forbidden_phrases": [
+    {
+      "id": "sila_config_set_secret_forbidden",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "plan_row": 76,
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "set"
+          },
+          {
+            "kind": "keyword",
+            "value": "config"
+          },
+          {
+            "kind": "target",
+            "slot": "secret_key"
+          },
+          {
+            "kind": "glue",
+            "value": "to"
+          },
+          {
+            "kind": "slot",
+            "slot": "secret_value"
+          }
+        ]
+      ],
+      "sensitive_keys": [
+        "brave_api_key",
+        "tavily_api_key",
+        "kagi_api_key",
+        "google_api_key",
+        "github_token",
+        "sourcegraph_token",
+        "stackoverflow_key",
+        "typesafe_api_key",
+        "cloud_token",
+        "cloudflare_api_token",
+        "alphaxiv_api_token",
+        "stitch_api_key",
+        "gateway_discord_webhook",
+        "gateway_telegram_token",
+        "gateway_gemini_token",
+        "gateway_mcp_token"
+      ],
+      "reason": "secret configuration values must not be passed in positional conversational CLI phrases",
+      "exit_code": 3,
+      "remediation": "Conversational secret assignment is not supported; configure secrets via environment variables or edit config.json directly (mode 0600)"
+    }
+  ],
+  "productions": [
+    {
+      "id": "sila_salam_say",
+      "action_id": "salam.say",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Display orientation greeting and live next steps",
+      "docs": "docs/reference.md#salam",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 1,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "say"
+          },
+          {
+            "kind": "keyword",
+            "value": "salam"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "say"
+          },
+          {
+            "kind": "keyword",
+            "value": "hello"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "greetings"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "salam"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila salam",
+        "conversational": "sila say salam"
+      }
+    },
+    {
+      "id": "sila_prime_context",
+      "action_id": "prime.context",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Prime agent context with project knowledge",
+      "docs": "docs/reference.md#prime",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 2,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "refresh"
+          },
+          {
+            "kind": "keyword",
+            "value": "context"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "load"
+          },
+          {
+            "kind": "keyword",
+            "value": "context"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "prime"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila prime",
+        "conversational": "sila refresh context"
+      }
+    },
+    {
+      "id": "sila_prime_context_do",
+      "action_id": "prime.context",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Prime agent context via explicit do",
+      "docs": "docs/reference.md#prime",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 2,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "prime"
+          },
+          {
+            "kind": "keyword",
+            "value": "context"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "prime"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_prime_context",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila prime",
+        "conversational": "sila do prime context"
+      }
+    },
+    {
+      "id": "sila_recall_symptom",
+      "action_id": "recall.symptom",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Recall prior resolutions for an error symptom",
+      "docs": "docs/reference.md#recall",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "specificity_witness": "remember error disk full",
+      "target_policy": "required",
+      "plan_row": 3,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "remember"
+          },
+          {
+            "kind": "keyword",
+            "value": "error"
+          },
+          {
+            "kind": "target",
+            "slot": "symptom"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "lookup"
+          },
+          {
+            "kind": "keyword",
+            "value": "fix"
+          },
+          {
+            "kind": "glue",
+            "value": "for"
+          },
+          {
+            "kind": "target",
+            "slot": "symptom"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "recall"
+      ],
+      "args_order": [
+        "symptom"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "symptom",
+          "type": "target",
+          "arity": "rest",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila recall \"disk full\"",
+        "conversational": "sila remember error disk full"
+      }
+    },
+    {
+      "id": "sila_search_query",
+      "action_id": "search.query",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Search project knowledge for a query",
+      "docs": "docs/reference.md#search",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 4,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "find"
+          },
+          {
+            "kind": "target",
+            "slot": "query"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "search"
+      ],
+      "args_order": [
+        "query"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "query",
+          "type": "target",
+          "arity": "rest",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila search \"sqlite wal\"",
+        "conversational": "sila find sqlite wal"
+      }
+    },
+    {
+      "id": "sila_search_for_do",
+      "action_id": "search.query",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Search project knowledge via explicit do",
+      "docs": "docs/reference.md#search",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "required",
+      "plan_row": 4,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "search"
+          },
+          {
+            "kind": "glue",
+            "value": "for"
+          },
+          {
+            "kind": "target",
+            "slot": "query"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "search"
+      ],
+      "args_order": [
+        "query"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "query",
+          "type": "target",
+          "arity": "rest",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "variant_of": "sila_search_query",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila search \"sqlite wal\"",
+        "conversational": "sila do search for sqlite wal"
+      }
+    },
+    {
+      "id": "sila_search_transcripts_do",
+      "action_id": "search.transcripts",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Search session transcripts and knowledge with omni search",
+      "docs": "docs/reference.md#search",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "required",
+      "plan_row": 4,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "search"
+          },
+          {
+            "kind": "keyword",
+            "value": "transcripts"
+          },
+          {
+            "kind": "glue",
+            "value": "for"
+          },
+          {
+            "kind": "target",
+            "slot": "query"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "search",
+        "--omni"
+      ],
+      "args_order": [
+        "query"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "query",
+          "type": "target",
+          "arity": "rest",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila search --omni \"sqlite wal\"",
+        "conversational": "sila do search transcripts for sqlite wal"
+      }
+    },
+    {
+      "id": "sila_memo_save",
+      "action_id": "memo.save",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Save a durable architectural memo or directive",
+      "docs": "docs/reference.md#memo",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "specificity_witness": "remember use WAL",
+      "target_policy": "required",
+      "plan_row": 5,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "save"
+          },
+          {
+            "kind": "keyword",
+            "value": "memo"
+          },
+          {
+            "kind": "target",
+            "slot": "directive"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "record"
+          },
+          {
+            "kind": "keyword",
+            "value": "memo"
+          },
+          {
+            "kind": "target",
+            "slot": "directive"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "remember"
+          },
+          {
+            "kind": "target",
+            "slot": "directive"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "memo"
+      ],
+      "args_order": [
+        "directive"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "directive",
+          "type": "target",
+          "arity": "rest",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila memo \"use WAL\"",
+        "conversational": "sila save memo use WAL"
+      }
+    },
+    {
+      "id": "sila_lesson_save",
+      "action_id": "lesson.save",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Record an empirical bug-cause-fix lesson",
+      "docs": "docs/reference.md#lesson",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 6,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "save"
+          },
+          {
+            "kind": "keyword",
+            "value": "lesson"
+          },
+          {
+            "kind": "target",
+            "slot": "symptom"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "record"
+          },
+          {
+            "kind": "keyword",
+            "value": "lesson"
+          },
+          {
+            "kind": "target",
+            "slot": "symptom"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "lesson"
+      ],
+      "args_order": [
+        "symptom"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "symptom",
+          "type": "target",
+          "arity": "rest",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila lesson \"race in cache\" --cause=\"unprotected map\" --fix=\"add mutex\"",
+        "conversational": "sila save lesson race in cache --cause=\"unprotected map\" --fix=\"add mutex\""
+      }
+    },
+    {
+      "id": "sila_case_record",
+      "action_id": "case.record",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Record an architectural design pattern or procedural case",
+      "docs": "docs/reference.md#case",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 7,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "record"
+          },
+          {
+            "kind": "keyword",
+            "value": "case"
+          },
+          {
+            "kind": "target",
+            "slot": "title"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "log"
+          },
+          {
+            "kind": "keyword",
+            "value": "case"
+          },
+          {
+            "kind": "target",
+            "slot": "title"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "case"
+      ],
+      "args_order": [
+        "title"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "title",
+          "type": "target",
+          "arity": "rest",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila case \"Pure Go SQLite\" --approach=\"modernc\" --invariant=\"CGO_ENABLED=0\"",
+        "conversational": "sila record case Pure Go SQLite --approach=\"modernc\" --invariant=\"CGO_ENABLED=0\""
+      }
+    },
+    {
+      "id": "sila_handoff_save",
+      "action_id": "handoff.save",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Record a structured session handoff summary",
+      "docs": "docs/reference.md#handoff",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 8,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "save"
+          },
+          {
+            "kind": "keyword",
+            "value": "handoff"
+          },
+          {
+            "kind": "target",
+            "slot": "summary"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "pass"
+          },
+          {
+            "kind": "keyword",
+            "value": "handoff"
+          },
+          {
+            "kind": "target",
+            "slot": "summary"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "handoff"
+      ],
+      "args_order": [
+        "summary"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "summary",
+          "type": "target",
+          "arity": "rest",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila handoff \"shipped catalog\"",
+        "conversational": "sila save handoff shipped catalog"
+      }
+    },
+    {
+      "id": "sila_doc_index",
+      "action_id": "doc.index",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Index a local documentation file or URL into the knowledge store",
+      "docs": "docs/reference.md#doc",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 9,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "index"
+          },
+          {
+            "kind": "keyword",
+            "value": "doc"
+          },
+          {
+            "kind": "target",
+            "slot": "path"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "doc"
+      ],
+      "args_order": [
+        "path"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "path",
+          "type": "path",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila doc docs/reference.md",
+        "conversational": "sila index doc docs/reference.md"
+      }
+    },
+    {
+      "id": "sila_doc_ingest_do",
+      "action_id": "doc.index",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Index a documentation file via explicit do",
+      "docs": "docs/reference.md#doc",
+      "tier": "MUTATION",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "required",
+      "plan_row": 9,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "ingest"
+          },
+          {
+            "kind": "keyword",
+            "value": "doc"
+          },
+          {
+            "kind": "target",
+            "slot": "path"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "doc"
+      ],
+      "args_order": [
+        "path"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "path",
+          "type": "path",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "variant_of": "sila_doc_index",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila doc docs/reference.md",
+        "conversational": "sila do ingest doc docs/reference.md"
+      }
+    },
+    {
+      "id": "sila_rules_check",
+      "action_id": "rules.check",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Check compiled agent rules for drift against source standards",
+      "docs": "docs/reference.md#agents",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 10,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "agents",
+        "check"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/agents.go:runAgents",
+      "correction": "Mapped phantom 'sila rules check' to real canonical 'sila agents check'",
+      "examples": {
+        "canonical": "sila agents check",
+        "conversational": "sila check rules"
+      }
+    },
+    {
+      "id": "sila_rules_verify_do",
+      "action_id": "rules.check",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Verify compiled agent rules via explicit do",
+      "docs": "docs/reference.md#agents",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 10,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "verify"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "agents",
+        "check"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "variant_of": "sila_rules_check",
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/agents.go:runAgents",
+      "correction": "Mapped phantom 'sila rules check' to 'sila agents check'; marked phrase-only-via-do because 'verify' is canonical",
+      "examples": {
+        "canonical": "sila agents check",
+        "conversational": "sila do verify rules"
+      }
+    },
+    {
+      "id": "sila_rules_compile",
+      "action_id": "rules.compile",
+      "domain": "Memory \u0026 Epistemic Core",
+      "description": "Compile and synchronize agent rule files across harnesses",
+      "docs": "docs/reference.md#agents",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "repository-agent-rules",
+      "plan_row": 11,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "compile"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "build"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "agents",
+        "sync"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/agents.go:runAgents",
+      "correction": "Mapped phantom 'sila rules compile' to real canonical 'sila agents sync'",
+      "examples": {
+        "canonical": "sila agents sync",
+        "conversational": "sila compile rules"
+      }
+    },
+    {
+      "id": "sila_goals_list",
+      "action_id": "goals.list",
+      "domain": "Goals \u0026 Coordination",
+      "description": "List project goals",
+      "docs": "docs/reference.md#goals",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 12,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "list"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "get"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "goals"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila goals",
+        "conversational": "sila list goals"
+      }
+    },
+    {
+      "id": "sila_goals_ready",
+      "action_id": "goals.ready",
+      "domain": "Goals \u0026 Coordination",
+      "description": "List unblocked goals ready to claim",
+      "docs": "docs/reference.md#goals",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 12,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "ready"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "list"
+          },
+          {
+            "kind": "keyword",
+            "value": "ready"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "ready"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "goals",
+        "--ready"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila goals --ready",
+        "conversational": "sila show ready goals"
+      }
+    },
+    {
+      "id": "sila_goals_pending",
+      "action_id": "goals.pending",
+      "domain": "Goals \u0026 Coordination",
+      "description": "List pending goals",
+      "docs": "docs/reference.md#goals",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 12,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "pending"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "list"
+          },
+          {
+            "kind": "keyword",
+            "value": "pending"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "pending"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "goals",
+        "--pending"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila goals --pending",
+        "conversational": "sila show pending goals"
+      }
+    },
+    {
+      "id": "sila_goals_claimed",
+      "action_id": "goals.claimed",
+      "domain": "Goals \u0026 Coordination",
+      "description": "List claimed in-progress goals",
+      "docs": "docs/reference.md#goals",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 12,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "claimed"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "list"
+          },
+          {
+            "kind": "keyword",
+            "value": "claimed"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "claimed"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "goals",
+        "--claimed"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila goals --claimed",
+        "conversational": "sila show claimed goals"
+      }
+    },
+    {
+      "id": "sila_goals_done",
+      "action_id": "goals.done",
+      "domain": "Goals \u0026 Coordination",
+      "description": "List implemented goals",
+      "docs": "docs/reference.md#goals",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 12,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "done"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "list"
+          },
+          {
+            "kind": "keyword",
+            "value": "done"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "implemented"
+          },
+          {
+            "kind": "keyword",
+            "value": "goals"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "goals",
+        "--done"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila goals --done",
+        "conversational": "sila show done goals"
+      }
+    },
+    {
+      "id": "sila_goals_claim",
+      "action_id": "goals.claim",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Claim and lock a roadmap goal for active work",
+      "docs": "docs/reference.md#goals",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 13,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "claim"
+          },
+          {
+            "kind": "keyword",
+            "value": "goal"
+          },
+          {
+            "kind": "target",
+            "slot": "slug"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "lock"
+          },
+          {
+            "kind": "keyword",
+            "value": "goal"
+          },
+          {
+            "kind": "target",
+            "slot": "slug"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "goals",
+        "claim"
+      ],
+      "args_order": [
+        "slug"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "slug",
+          "type": "slug",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila goals claim ccli-inventory-completion",
+        "conversational": "sila claim goal ccli-inventory-completion"
+      }
+    },
+    {
+      "id": "sila_goals_release",
+      "action_id": "goals.release",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Release an active claim lock on a roadmap goal",
+      "docs": "docs/reference.md#goals",
+      "tier": "DESTRUCTIVE",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 14,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "required-interactive",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "drop"
+          },
+          {
+            "kind": "keyword",
+            "value": "goal"
+          },
+          {
+            "kind": "target",
+            "slot": "slug"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "unlock"
+          },
+          {
+            "kind": "keyword",
+            "value": "goal"
+          },
+          {
+            "kind": "target",
+            "slot": "slug"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "goals",
+        "release"
+      ],
+      "args_order": [
+        "slug"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "slug",
+          "type": "slug",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "source_citation": "internal/cli/registry.go:release",
+      "correction": "Added direct non-overlapping phrases 'drop goal' and 'unlock goal' because 'release' is a canonical command",
+      "examples": {
+        "canonical": "sila goals release ccli-inventory-completion",
+        "conversational": "sila drop goal ccli-inventory-completion"
+      }
+    },
+    {
+      "id": "sila_goals_release_do",
+      "action_id": "goals.release",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Release an active goal claim via explicit do",
+      "docs": "docs/reference.md#goals",
+      "tier": "DESTRUCTIVE",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "required",
+      "plan_row": 14,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "required-interactive",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "release"
+          },
+          {
+            "kind": "keyword",
+            "value": "goal"
+          },
+          {
+            "kind": "target",
+            "slot": "slug"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "goals",
+        "release"
+      ],
+      "args_order": [
+        "slug"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "slug",
+          "type": "slug",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "variant_of": "sila_goals_release",
+      "source": "ccli-sila-plan",
+      "source_citation": "internal/cli/registry.go:release",
+      "correction": "Marked 'release goal \u003cslug\u003e' phrase-only-via-do because 'release' is a top-level canonical command",
+      "examples": {
+        "canonical": "sila goals release ccli-inventory-completion",
+        "conversational": "sila do release goal ccli-inventory-completion"
+      }
+    },
+    {
+      "id": "sila_goals_report",
+      "action_id": "goals.report",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Show detailed status and progress report for a goal",
+      "docs": "docs/reference.md#goals",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 15,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "goal"
+          },
+          {
+            "kind": "target",
+            "slot": "slug"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "goals",
+        "report"
+      ],
+      "args_order": [
+        "slug"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "slug",
+          "type": "slug",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila goals report ccli-inventory-completion",
+        "conversational": "sila show goal ccli-inventory-completion"
+      }
+    },
+    {
+      "id": "sila_goals_report_do",
+      "action_id": "goals.report",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Report goal status via explicit do",
+      "docs": "docs/reference.md#goals",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "required",
+      "plan_row": 15,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "report"
+          },
+          {
+            "kind": "keyword",
+            "value": "goal"
+          },
+          {
+            "kind": "target",
+            "slot": "slug"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "goals",
+        "report"
+      ],
+      "args_order": [
+        "slug"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "slug",
+          "type": "slug",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "variant_of": "sila_goals_report",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila goals report ccli-inventory-completion",
+        "conversational": "sila do report goal ccli-inventory-completion"
+      }
+    },
+    {
+      "id": "sila_goals_create",
+      "action_id": "goals.create",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Scaffold a new roadmap goal package",
+      "docs": "docs/reference.md#goals",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 16,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "create"
+          },
+          {
+            "kind": "keyword",
+            "value": "goal"
+          },
+          {
+            "kind": "target",
+            "slot": "slug"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "add"
+          },
+          {
+            "kind": "keyword",
+            "value": "goal"
+          },
+          {
+            "kind": "target",
+            "slot": "slug"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "goals",
+        "create"
+      ],
+      "args_order": [
+        "slug"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "slug",
+          "type": "slug",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila goals create new-feature",
+        "conversational": "sila create goal new-feature"
+      }
+    },
+    {
+      "id": "sila_decision_list",
+      "action_id": "decision.list",
+      "domain": "Goals \u0026 Coordination",
+      "description": "List epistemic addressed decisions",
+      "docs": "docs/reference.md#decision",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 17,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "list"
+          },
+          {
+            "kind": "keyword",
+            "value": "decisions"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "decisions"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "decision",
+        "list"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila decision list",
+        "conversational": "sila list decisions"
+      }
+    },
+    {
+      "id": "sila_decision_view",
+      "action_id": "decision.view",
+      "domain": "Goals \u0026 Coordination",
+      "description": "View an addressed architectural decision",
+      "docs": "docs/reference.md#decision",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 18,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "view"
+          },
+          {
+            "kind": "keyword",
+            "value": "decision"
+          },
+          {
+            "kind": "target",
+            "slot": "id"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "inspect"
+          },
+          {
+            "kind": "keyword",
+            "value": "decision"
+          },
+          {
+            "kind": "target",
+            "slot": "id"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "decision",
+        "view"
+      ],
+      "args_order": [
+        "id"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "id",
+          "type": "target",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila decision view D1",
+        "conversational": "sila view decision D1"
+      }
+    },
+    {
+      "id": "sila_decision_create",
+      "action_id": "decision.create",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Create an addressed decision with lettered options and recommendation",
+      "docs": "docs/reference.md#decision",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 19,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "create"
+          },
+          {
+            "kind": "keyword",
+            "value": "decision"
+          },
+          {
+            "kind": "target",
+            "slot": "title"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "log"
+          },
+          {
+            "kind": "keyword",
+            "value": "decision"
+          },
+          {
+            "kind": "target",
+            "slot": "title"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "decision",
+        "create"
+      ],
+      "args_order": [
+        "title"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "title",
+          "type": "target",
+          "arity": "rest",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/decisions.go:createDecisionCmd",
+      "correction": "Preserves -o/--option and -r/--recommend flags required by canonical 'sila decision create'",
+      "examples": {
+        "canonical": "sila decision create \"Storage Engine\" -o \"A: SQLite\" -o \"B: Postgres\" -r A",
+        "conversational": "sila create decision Storage Engine -o \"A: SQLite\" -o \"B: Postgres\" -r A"
+      }
+    },
+    {
+      "id": "sila_decision_resolve",
+      "action_id": "decision.resolve",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Resolve an open addressed decision with a chosen option",
+      "docs": "docs/reference.md#decision",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 20,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "resolve"
+          },
+          {
+            "kind": "keyword",
+            "value": "decision"
+          },
+          {
+            "kind": "target",
+            "slot": "id"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "close"
+          },
+          {
+            "kind": "keyword",
+            "value": "decision"
+          },
+          {
+            "kind": "target",
+            "slot": "id"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "decision",
+        "resolve"
+      ],
+      "args_order": [
+        "id"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "id",
+          "type": "target",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila decision resolve D1 --choice=A",
+        "conversational": "sila resolve decision D1 --choice=A"
+      }
+    },
+    {
+      "id": "sila_opinions_list",
+      "action_id": "opinions.list",
+      "domain": "Goals \u0026 Coordination",
+      "description": "List recorded technical taste and engineering opinions",
+      "docs": "docs/reference.md#opinions",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 21,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "list"
+          },
+          {
+            "kind": "keyword",
+            "value": "opinions"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "opinions"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "opinions",
+        "list"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila opinions list",
+        "conversational": "sila list opinions"
+      }
+    },
+    {
+      "id": "sila_opinions_add",
+      "action_id": "opinions.add",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Add a technical taste rule to the opinions ledger",
+      "docs": "docs/reference.md#opinions",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 22,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "add"
+          },
+          {
+            "kind": "keyword",
+            "value": "opinion"
+          },
+          {
+            "kind": "target",
+            "slot": "text"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "record"
+          },
+          {
+            "kind": "keyword",
+            "value": "opinion"
+          },
+          {
+            "kind": "target",
+            "slot": "text"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "opinions",
+        "add"
+      ],
+      "args_order": [
+        "text"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "text",
+          "type": "target",
+          "arity": "rest",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila opinions add \"Prefer stdlib over wrappers\"",
+        "conversational": "sila add opinion Prefer stdlib over wrappers"
+      }
+    },
+    {
+      "id": "sila_opinions_compile",
+      "action_id": "opinions.compile",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Compile the opinions ledger into OPINIONS.md",
+      "docs": "docs/reference.md#opinions",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "opinions-markdown",
+      "plan_row": 23,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "compile"
+          },
+          {
+            "kind": "keyword",
+            "value": "opinions"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "build"
+          },
+          {
+            "kind": "keyword",
+            "value": "opinions"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "opinions",
+        "compile"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila opinions compile",
+        "conversational": "sila compile opinions"
+      }
+    },
+    {
+      "id": "sila_feedback_submit",
+      "action_id": "feedback.submit",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Record an agent feedback ticket or issue",
+      "docs": "docs/reference.md#feedback",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 24,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "submit"
+          },
+          {
+            "kind": "keyword",
+            "value": "feedback"
+          },
+          {
+            "kind": "target",
+            "slot": "msg"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "record"
+          },
+          {
+            "kind": "keyword",
+            "value": "feedback"
+          },
+          {
+            "kind": "target",
+            "slot": "msg"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "feedback"
+      ],
+      "args_order": [
+        "msg"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "msg",
+          "type": "target",
+          "arity": "rest",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila feedback \"slow query on prime\"",
+        "conversational": "sila submit feedback slow query on prime"
+      }
+    },
+    {
+      "id": "sila_feedback_report_do",
+      "action_id": "feedback.submit",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Report a feedback issue via explicit do",
+      "docs": "docs/reference.md#feedback",
+      "tier": "MUTATION",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "required",
+      "plan_row": 24,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "report"
+          },
+          {
+            "kind": "keyword",
+            "value": "issue"
+          },
+          {
+            "kind": "target",
+            "slot": "msg"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "feedback"
+      ],
+      "args_order": [
+        "msg"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "msg",
+          "type": "target",
+          "arity": "rest",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "variant_of": "sila_feedback_submit",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila feedback \"slow query on prime\"",
+        "conversational": "sila do report issue slow query on prime"
+      }
+    },
+    {
+      "id": "sila_crew_list",
+      "action_id": "crew.list",
+      "domain": "Goals \u0026 Coordination",
+      "description": "List active First Mate crew tmux sessions",
+      "docs": "docs/reference.md#crew",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 25,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "list"
+          },
+          {
+            "kind": "keyword",
+            "value": "crew"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "crew"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "crew"
+          },
+          {
+            "kind": "keyword",
+            "value": "status"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "crew",
+        "list"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila crew list",
+        "conversational": "sila list crew"
+      }
+    },
+    {
+      "id": "sila_crew_spawn",
+      "action_id": "crew.spawn",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Spawn a supervised crewmate session for a harness and goal",
+      "docs": "docs/reference.md#crew",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 26,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "spawn"
+          },
+          {
+            "kind": "keyword",
+            "value": "crewmate"
+          },
+          {
+            "kind": "target",
+            "slot": "harness"
+          },
+          {
+            "kind": "glue",
+            "value": "for"
+          },
+          {
+            "kind": "slot",
+            "slot": "goal"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "start"
+          },
+          {
+            "kind": "keyword",
+            "value": "crewmate"
+          },
+          {
+            "kind": "target",
+            "slot": "harness"
+          },
+          {
+            "kind": "glue",
+            "value": "for"
+          },
+          {
+            "kind": "slot",
+            "slot": "goal"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "crew",
+        "spawn"
+      ],
+      "args_order": [
+        "harness",
+        "goal"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "harness",
+          "type": "target",
+          "arity": "until",
+          "until": "for",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        },
+        {
+          "name": "goal",
+          "type": "slug",
+          "arity": "single",
+          "required": true,
+          "is_target": false,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/crew.go:runCrewSpawn",
+      "correction": "Corrected one-slot 'crew spawn \u003crole\u003e' to two-slot 'crew spawn \u003charness\u003e \u003cgoal\u003e' matching real CLI",
+      "examples": {
+        "canonical": "sila crew spawn codex ccli-inventory-completion",
+        "conversational": "sila spawn crewmate codex for ccli-inventory-completion"
+      }
+    },
+    {
+      "id": "sila_crew_kill",
+      "action_id": "crew.kill",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Terminate an active crewmate session",
+      "docs": "docs/reference.md#crew",
+      "tier": "DESTRUCTIVE",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 27,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "required-interactive",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "kill"
+          },
+          {
+            "kind": "keyword",
+            "value": "crewmate"
+          },
+          {
+            "kind": "target",
+            "slot": "id"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "stop"
+          },
+          {
+            "kind": "keyword",
+            "value": "crewmate"
+          },
+          {
+            "kind": "target",
+            "slot": "id"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "crew",
+        "kill"
+      ],
+      "args_order": [
+        "id"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "id",
+          "type": "target",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila crew kill crew-1",
+        "conversational": "sila kill crewmate crew-1"
+      }
+    },
+    {
+      "id": "sila_worktree_list",
+      "action_id": "worktree.list",
+      "domain": "Goals \u0026 Coordination",
+      "description": "List active disposable git worktree sandboxes",
+      "docs": "docs/reference.md#worktree",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 28,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "list"
+          },
+          {
+            "kind": "keyword",
+            "value": "worktrees"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "worktrees"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "worktree",
+        "list"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila worktree list",
+        "conversational": "sila list worktrees"
+      }
+    },
+    {
+      "id": "sila_worktree_create",
+      "action_id": "worktree.create",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Create a disposable git worktree sandbox for a branch",
+      "docs": "docs/reference.md#worktree",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 29,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "create"
+          },
+          {
+            "kind": "keyword",
+            "value": "worktree"
+          },
+          {
+            "kind": "target",
+            "slot": "branch"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "add"
+          },
+          {
+            "kind": "keyword",
+            "value": "worktree"
+          },
+          {
+            "kind": "target",
+            "slot": "branch"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "worktree",
+        "create"
+      ],
+      "args_order": [
+        "branch"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "branch",
+          "type": "target",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila worktree create feat/ccli",
+        "conversational": "sila create worktree feat/ccli"
+      }
+    },
+    {
+      "id": "sila_worktree_remove",
+      "action_id": "worktree.clean",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Remove a named disposable git worktree sandbox",
+      "docs": "docs/reference.md#worktree",
+      "tier": "DESTRUCTIVE",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 30,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "required-interactive",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "remove"
+          },
+          {
+            "kind": "keyword",
+            "value": "worktree"
+          },
+          {
+            "kind": "target",
+            "slot": "name"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "worktree",
+        "clean"
+      ],
+      "args_order": [
+        "name"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "name",
+          "type": "target",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/worktree.go:runWorktreeClean",
+      "correction": "Required explicit \u003cname\u003e target or 'prune all worktrees' (--all); bare 'clean worktrees' exits 2",
+      "examples": {
+        "canonical": "sila worktree clean feat-ccli",
+        "conversational": "sila remove worktree feat-ccli"
+      }
+    },
+    {
+      "id": "sila_worktree_clean_do",
+      "action_id": "worktree.clean",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Clean a named worktree sandbox via explicit do",
+      "docs": "docs/reference.md#worktree",
+      "tier": "DESTRUCTIVE",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "required",
+      "plan_row": 30,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "required-interactive",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "clean"
+          },
+          {
+            "kind": "keyword",
+            "value": "worktree"
+          },
+          {
+            "kind": "target",
+            "slot": "name"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "worktree",
+        "clean"
+      ],
+      "args_order": [
+        "name"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "name",
+          "type": "target",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "variant_of": "sila_worktree_remove",
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/worktree.go:runWorktreeClean",
+      "correction": "Marked 'clean worktree \u003cname\u003e' phrase-only-via-do because 'clean' is a canonical cache-deletion command",
+      "examples": {
+        "canonical": "sila worktree clean feat-ccli",
+        "conversational": "sila do clean worktree feat-ccli"
+      }
+    },
+    {
+      "id": "sila_worktree_prune_all",
+      "action_id": "worktree.clean.all",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Prune all disposable git worktree sandboxes",
+      "docs": "docs/reference.md#worktree",
+      "tier": "DESTRUCTIVE",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "all worktrees",
+      "plan_row": 30,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "required-interactive",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "prune"
+          },
+          {
+            "kind": "keyword",
+            "value": "all"
+          },
+          {
+            "kind": "keyword",
+            "value": "worktrees"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "worktree",
+        "clean"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "static_flags": [
+        "--all"
+      ],
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/worktree.go:runWorktreeClean",
+      "correction": "Maps 'prune all worktrees' to 'worktree clean --all' with implicit scope 'all worktrees'",
+      "examples": {
+        "canonical": "sila worktree clean --all",
+        "conversational": "sila prune all worktrees"
+      }
+    },
+    {
+      "id": "sila_digest_show",
+      "action_id": "digest.show",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Show multi-agent activity digest across sessions",
+      "docs": "docs/reference.md#digest",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 31,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "digest"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "get"
+          },
+          {
+            "kind": "keyword",
+            "value": "activity"
+          },
+          {
+            "kind": "keyword",
+            "value": "digest"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "digest"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila digest",
+        "conversational": "sila show digest"
+      }
+    },
+    {
+      "id": "sila_benchmark_run",
+      "action_id": "benchmark.run",
+      "domain": "Goals \u0026 Coordination",
+      "description": "Run cross-agent empirical grounding and attribution scorecard",
+      "docs": "docs/reference.md#benchmark",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 32,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "run"
+          },
+          {
+            "kind": "keyword",
+            "value": "benchmark"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "scorecard"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "benchmark"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila benchmark",
+        "conversational": "sila run benchmark"
+      }
+    },
+    {
+      "id": "sila_gate_run",
+      "action_id": "gate.run",
+      "domain": "Quality Gates \u0026 Health",
+      "description": "Run quality and architectural gate checks",
+      "docs": "docs/reference.md#gate",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 33,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "run"
+          },
+          {
+            "kind": "keyword",
+            "value": "gate"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "gate"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "gate"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila gate",
+        "conversational": "sila run gate"
+      }
+    },
+    {
+      "id": "sila_gate_verify_do",
+      "action_id": "gate.run",
+      "domain": "Quality Gates \u0026 Health",
+      "description": "Verify quality gate via explicit do",
+      "docs": "docs/reference.md#gate",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 33,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "verify"
+          },
+          {
+            "kind": "keyword",
+            "value": "gate"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "gate"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "variant_of": "sila_gate_run",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila gate",
+        "conversational": "sila do verify gate"
+      }
+    },
+    {
+      "id": "sila_doctor_run",
+      "action_id": "doctor.run",
+      "domain": "Quality Gates \u0026 Health",
+      "description": "Run database and environment health checks",
+      "docs": "docs/reference.md#doctor",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 34,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "run"
+          },
+          {
+            "kind": "keyword",
+            "value": "doctor"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "system"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "diagnose"
+          },
+          {
+            "kind": "keyword",
+            "value": "system"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "doctor"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila doctor",
+        "conversational": "sila run doctor"
+      }
+    },
+    {
+      "id": "sila_doctor_repair",
+      "action_id": "doctor.repair",
+      "domain": "Quality Gates \u0026 Health",
+      "description": "Repair FTS5 indexes and database health issues",
+      "docs": "docs/reference.md#doctor",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "sqlite-store-indexes",
+      "plan_row": 35,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "repair"
+          },
+          {
+            "kind": "keyword",
+            "value": "system"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "repair"
+          },
+          {
+            "kind": "keyword",
+            "value": "database"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "doctor"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "static_flags": [
+        "--repair"
+      ],
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila doctor --repair",
+        "conversational": "sila repair database"
+      }
+    },
+    {
+      "id": "sila_verify_references",
+      "action_id": "verify.files",
+      "domain": "Quality Gates \u0026 Health",
+      "description": "Re-verify referenced files on disk and detect stale claims",
+      "docs": "docs/reference.md#verify",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 36,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "references"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "verify"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila verify",
+        "conversational": "sila check references"
+      }
+    },
+    {
+      "id": "sila_verify_files_do",
+      "action_id": "verify.files",
+      "domain": "Quality Gates \u0026 Health",
+      "description": "Verify file references via explicit do",
+      "docs": "docs/reference.md#verify",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 36,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "verify"
+          },
+          {
+            "kind": "keyword",
+            "value": "files"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "verify"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "variant_of": "sila_verify_references",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila verify",
+        "conversational": "sila do verify files"
+      }
+    },
+    {
+      "id": "sila_reportcard_run",
+      "action_id": "reportcard.run",
+      "domain": "Quality Gates \u0026 Health",
+      "description": "Run local Go Report Card code quality analyzer",
+      "docs": "docs/reference.md#reportcard",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 37,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "run"
+          },
+          {
+            "kind": "keyword",
+            "value": "reportcard"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "code"
+          },
+          {
+            "kind": "keyword",
+            "value": "quality"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "reportcard"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila reportcard",
+        "conversational": "sila check code quality"
+      }
+    },
+    {
+      "id": "sila_coverage_check",
+      "action_id": "coverage.check",
+      "domain": "Quality Gates \u0026 Health",
+      "description": "Evaluate test statement coverage against package thresholds",
+      "docs": "docs/reference.md#coverage",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 38,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "coverage"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "coverage"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila coverage",
+        "conversational": "sila check coverage"
+      }
+    },
+    {
+      "id": "sila_coverage_test_do",
+      "action_id": "coverage.check",
+      "domain": "Quality Gates \u0026 Health",
+      "description": "Evaluate test coverage via explicit do",
+      "docs": "docs/reference.md#coverage",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 38,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "test"
+          },
+          {
+            "kind": "keyword",
+            "value": "coverage"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "coverage"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "variant_of": "sila_coverage_check",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila coverage",
+        "conversational": "sila do test coverage"
+      }
+    },
+    {
+      "id": "sila_eval_run",
+      "action_id": "eval.run",
+      "domain": "Quality Gates \u0026 Health",
+      "description": "Run epistemic evaluation suite across harnesses",
+      "docs": "docs/reference.md#eval",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 39,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "run"
+          },
+          {
+            "kind": "keyword",
+            "value": "eval"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "evaluate"
+          },
+          {
+            "kind": "keyword",
+            "value": "agents"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "eval",
+        "run"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila eval run",
+        "conversational": "sila run eval"
+      }
+    },
+    {
+      "id": "sila_release_preflight",
+      "action_id": "release.preflight",
+      "domain": "Quality Gates \u0026 Health",
+      "description": "Run release readiness preflight checks",
+      "docs": "docs/reference.md#release",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 40,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "release"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "release",
+        "preflight"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila release preflight",
+        "conversational": "sila check release"
+      }
+    },
+    {
+      "id": "sila_release_verify_do",
+      "action_id": "release.preflight",
+      "domain": "Quality Gates \u0026 Health",
+      "description": "Verify release readiness via explicit do",
+      "docs": "docs/reference.md#release",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 40,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "verify"
+          },
+          {
+            "kind": "keyword",
+            "value": "release"
+          },
+          {
+            "kind": "keyword",
+            "value": "readiness"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "release",
+        "preflight"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "variant_of": "sila_release_preflight",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila release preflight",
+        "conversational": "sila do verify release readiness"
+      }
+    },
+    {
+      "id": "sila_install_setup",
+      "action_id": "install.setup",
+      "domain": "Setup \u0026 Onboarding",
+      "description": "Provision Sila agent rules and tool configurations in the repository",
+      "docs": "docs/reference.md#install",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "repository-setup",
+      "plan_row": 41,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "setup"
+          },
+          {
+            "kind": "keyword",
+            "value": "repository"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "install"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila install",
+        "conversational": "sila setup repository"
+      }
+    },
+    {
+      "id": "sila_install_rules_do",
+      "action_id": "install.setup",
+      "domain": "Setup \u0026 Onboarding",
+      "description": "Install repository rules via explicit do",
+      "docs": "docs/reference.md#install",
+      "tier": "MUTATION",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "implicit",
+      "target_scope": "repository-setup",
+      "plan_row": 41,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "install"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "install"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_install_setup",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila install",
+        "conversational": "sila do install rules"
+      }
+    },
+    {
+      "id": "sila_agents_check",
+      "action_id": "agents.check",
+      "domain": "Setup \u0026 Onboarding",
+      "description": "Check hub-and-spoke agent SOP rules for drift",
+      "docs": "docs/reference.md#agents",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 42,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "agent"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "agents",
+        "check"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila agents check",
+        "conversational": "sila check agent rules"
+      }
+    },
+    {
+      "id": "sila_agents_audit_do",
+      "action_id": "agents.check",
+      "domain": "Setup \u0026 Onboarding",
+      "description": "Audit agent rules via explicit do",
+      "docs": "docs/reference.md#agents",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 42,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "audit"
+          },
+          {
+            "kind": "keyword",
+            "value": "agent"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "agents",
+        "check"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "variant_of": "sila_agents_check",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila agents check",
+        "conversational": "sila do audit agent rules"
+      }
+    },
+    {
+      "id": "sila_agents_deploy",
+      "action_id": "agents.sync",
+      "domain": "Setup \u0026 Onboarding",
+      "description": "Deploy and synchronize compiled agent rules across harnesses",
+      "docs": "docs/reference.md#agents",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "repository-agent-rules",
+      "plan_row": 43,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "deploy"
+          },
+          {
+            "kind": "keyword",
+            "value": "agent"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "agents",
+        "sync"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/agents.go:runAgents",
+      "correction": "Added 'deploy agent rules' as direct non-overlapping Tier 2 write and mapped 'compile agent rules' to '--dry-run'",
+      "examples": {
+        "canonical": "sila agents sync",
+        "conversational": "sila deploy agent rules"
+      }
+    },
+    {
+      "id": "sila_agents_sync_do",
+      "action_id": "agents.sync",
+      "domain": "Setup \u0026 Onboarding",
+      "description": "Synchronize agent rules via explicit do",
+      "docs": "docs/reference.md#agents",
+      "tier": "MUTATION",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "implicit",
+      "target_scope": "repository-agent-rules",
+      "plan_row": 43,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "sync"
+          },
+          {
+            "kind": "keyword",
+            "value": "agent"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "agents",
+        "sync"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_agents_deploy",
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/agents.go:runAgents",
+      "correction": "Marked 'sync agent rules' phrase-only-via-do because 'sync' is a canonical command",
+      "examples": {
+        "canonical": "sila agents sync",
+        "conversational": "sila do sync agent rules"
+      }
+    },
+    {
+      "id": "sila_agents_compile_preview",
+      "action_id": "agents.compile.preview",
+      "domain": "Setup \u0026 Onboarding",
+      "description": "Compile and preview agent rules without writing to disk",
+      "docs": "docs/reference.md#agents",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "repository-agent-rules",
+      "plan_row": 43,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "compile"
+          },
+          {
+            "kind": "keyword",
+            "value": "agent"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "agents",
+        "sync"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "static_flags": [
+        "--dry-run"
+      ],
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/agents.go:runAgents",
+      "correction": "Mapped 'compile agent rules' to 'agents sync --dry-run' because 'agents compile' is preview-only",
+      "examples": {
+        "canonical": "sila agents sync --dry-run",
+        "conversational": "sila compile agent rules"
+      }
+    },
+    {
+      "id": "sila_onboard_check",
+      "action_id": "onboard.check",
+      "domain": "Setup \u0026 Onboarding",
+      "description": "Check repository onboarding status and scan legacy task files",
+      "docs": "docs/reference.md#onboard",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 44,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "onboarding"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "scan"
+          },
+          {
+            "kind": "keyword",
+            "value": "legacy"
+          },
+          {
+            "kind": "keyword",
+            "value": "tasks"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "onboard",
+        "check"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila onboard check",
+        "conversational": "sila check onboarding"
+      }
+    },
+    {
+      "id": "sila_heal_rules",
+      "action_id": "heal.rules",
+      "domain": "Setup \u0026 Onboarding",
+      "description": "Heal managed agent rules and repository wiring",
+      "docs": "docs/reference.md#heal",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "repository-rules",
+      "plan_row": 45,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "fix"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "heal"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila heal",
+        "conversational": "sila fix rules"
+      }
+    },
+    {
+      "id": "sila_heal_rules_do",
+      "action_id": "heal.rules",
+      "domain": "Setup \u0026 Onboarding",
+      "description": "Heal managed agent rules via explicit do",
+      "docs": "docs/reference.md#heal",
+      "tier": "MUTATION",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "implicit",
+      "target_scope": "repository-rules",
+      "plan_row": 45,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "heal"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "heal"
+          },
+          {
+            "kind": "keyword",
+            "value": "project"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "heal"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_heal_rules",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila heal",
+        "conversational": "sila do heal rules"
+      }
+    },
+    {
+      "id": "sila_export_rules",
+      "action_id": "export.rules",
+      "domain": "Setup \u0026 Onboarding",
+      "description": "Export compiled agent rules to stdout",
+      "docs": "docs/reference.md#export",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 46,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "dump"
+          },
+          {
+            "kind": "keyword",
+            "value": "agent"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "export",
+        "rules"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila export rules",
+        "conversational": "sila dump agent rules"
+      }
+    },
+    {
+      "id": "sila_sync_memory",
+      "action_id": "sync.rules",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Synchronize project memory and ingest transcripts",
+      "docs": "docs/reference.md#sync",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "project-transcripts",
+      "plan_row": 47,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "refresh"
+          },
+          {
+            "kind": "keyword",
+            "value": "memory"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "sync"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "source_citation": "internal/cli/registry.go:sync",
+      "correction": "Added non-overlapping 'refresh memory' direct phrase while keeping 'sync ...' phrases under phrase-only-via-do",
+      "examples": {
+        "canonical": "sila sync",
+        "conversational": "sila refresh memory"
+      }
+    },
+    {
+      "id": "sila_sync_rules",
+      "action_id": "sync.rules",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Synchronize project memory via explicit do",
+      "docs": "docs/reference.md#sync",
+      "tier": "MUTATION",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "implicit",
+      "target_scope": "project-transcripts",
+      "plan_row": 47,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "sync"
+          },
+          {
+            "kind": "keyword",
+            "value": "rules"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "sync"
+          },
+          {
+            "kind": "keyword",
+            "value": "project"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "sync"
+          },
+          {
+            "kind": "keyword",
+            "value": "memory"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "sync"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_sync_memory",
+      "source": "ccli-sila-plan",
+      "source_citation": "internal/cli/registry.go:sync",
+      "correction": "Marked 'sync rules/project/memory' phrase-only-via-do because 'sync' is canonical",
+      "examples": {
+        "canonical": "sila sync",
+        "conversational": "sila do sync memory"
+      }
+    },
+    {
+      "id": "sila_live_start",
+      "action_id": "live.start",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Start the live 9-box mission control cockpit",
+      "docs": "docs/reference.md#live",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 48,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "start"
+          },
+          {
+            "kind": "keyword",
+            "value": "live"
+          },
+          {
+            "kind": "keyword",
+            "value": "cockpit"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "live"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila live",
+        "conversational": "sila start live cockpit"
+      }
+    },
+    {
+      "id": "sila_live_watch_do",
+      "action_id": "live.start",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Watch live mission control cockpit via explicit do",
+      "docs": "docs/reference.md#live",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 48,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "watch"
+          },
+          {
+            "kind": "keyword",
+            "value": "live"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "live"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_live_start",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila live",
+        "conversational": "sila do watch live"
+      }
+    },
+    {
+      "id": "sila_dream_distill",
+      "action_id": "dream.distill",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Distill atomic claims and facts from ingested session messages",
+      "docs": "docs/reference.md#dream",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "project-claims",
+      "plan_row": 49,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "distill"
+          },
+          {
+            "kind": "keyword",
+            "value": "memory"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "dream"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila dream",
+        "conversational": "sila distill memory"
+      }
+    },
+    {
+      "id": "sila_dream_claims_do",
+      "action_id": "dream.distill",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Dream claims via explicit do",
+      "docs": "docs/reference.md#dream",
+      "tier": "MUTATION",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "implicit",
+      "target_scope": "project-claims",
+      "plan_row": 49,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "dream"
+          },
+          {
+            "kind": "keyword",
+            "value": "claims"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "dream"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_dream_distill",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila dream",
+        "conversational": "sila do dream claims"
+      }
+    },
+    {
+      "id": "sila_status_show",
+      "action_id": "status.show",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Show repository status and health",
+      "docs": "docs/reference.md#status",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 50,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "status"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "get"
+          },
+          {
+            "kind": "keyword",
+            "value": "status"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "status"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "status"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila status",
+        "conversational": "sila show status"
+      }
+    },
+    {
+      "id": "sila_ingest_pull",
+      "action_id": "ingest.tool",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Pull and ingest session messages from an AI coding tool",
+      "docs": "docs/reference.md#ingest",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 51,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "pull"
+          },
+          {
+            "kind": "keyword",
+            "value": "messages"
+          },
+          {
+            "kind": "glue",
+            "value": "from"
+          },
+          {
+            "kind": "target",
+            "slot": "tool"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "ingest"
+      ],
+      "args_order": [
+        "tool"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "tool",
+          "type": "tool",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila ingest codex",
+        "conversational": "sila pull messages from codex"
+      }
+    },
+    {
+      "id": "sila_ingest_tool",
+      "action_id": "ingest.tool",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Ingest session transcripts from an AI tool via explicit do",
+      "docs": "docs/reference.md#ingest",
+      "tier": "MUTATION",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "required",
+      "plan_row": 51,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "ingest"
+          },
+          {
+            "kind": "keyword",
+            "value": "transcripts"
+          },
+          {
+            "kind": "glue",
+            "value": "from"
+          },
+          {
+            "kind": "target",
+            "slot": "tool"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "ingest"
+      ],
+      "args_order": [
+        "tool"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "tool",
+          "type": "tool",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "variant_of": "sila_ingest_pull",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila ingest codex",
+        "conversational": "sila do ingest transcripts from codex"
+      }
+    },
+    {
+      "id": "sila_assess_preview",
+      "action_id": "assess.tool",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Preview transcript ingestion counts from an AI coding tool",
+      "docs": "docs/reference.md#assess",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 52,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "preview"
+          },
+          {
+            "kind": "keyword",
+            "value": "ingest"
+          },
+          {
+            "kind": "glue",
+            "value": "from"
+          },
+          {
+            "kind": "target",
+            "slot": "tool"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "assess"
+      ],
+      "args_order": [
+        "tool"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "tool",
+          "type": "tool",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila assess codex",
+        "conversational": "sila preview ingest from codex"
+      }
+    },
+    {
+      "id": "sila_assess_tool_do",
+      "action_id": "assess.tool",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Assess transcripts from an AI tool via explicit do",
+      "docs": "docs/reference.md#assess",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "required",
+      "plan_row": 52,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "assess"
+          },
+          {
+            "kind": "keyword",
+            "value": "transcripts"
+          },
+          {
+            "kind": "glue",
+            "value": "from"
+          },
+          {
+            "kind": "target",
+            "slot": "tool"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "assess"
+      ],
+      "args_order": [
+        "tool"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "tool",
+          "type": "tool",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "variant_of": "sila_assess_preview",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila assess codex",
+        "conversational": "sila do assess transcripts from codex"
+      }
+    },
+    {
+      "id": "sila_projects_list",
+      "action_id": "projects.list",
+      "domain": "Store \u0026 Ingestion",
+      "description": "List tracked repositories and projects",
+      "docs": "docs/reference.md#projects",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 53,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "list"
+          },
+          {
+            "kind": "keyword",
+            "value": "projects"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "projects"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "get"
+          },
+          {
+            "kind": "keyword",
+            "value": "projects"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "projects"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila projects",
+        "conversational": "sila list projects"
+      }
+    },
+    {
+      "id": "sila_projects_merge",
+      "action_id": "projects.merge",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Merge duplicate project registrations from keep into drop",
+      "docs": "docs/reference.md#projects",
+      "tier": "DESTRUCTIVE",
+      "directional": true,
+      "precedence": "canonical-first",
+      "target_policy": "directional",
+      "plan_row": 54,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "required-interactive",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "merge"
+          },
+          {
+            "kind": "keyword",
+            "value": "projects"
+          },
+          {
+            "kind": "target",
+            "slot": "source"
+          },
+          {
+            "kind": "glue",
+            "value": "into"
+          },
+          {
+            "kind": "target",
+            "slot": "destination"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "projects",
+        "merge"
+      ],
+      "args_order": [
+        "source",
+        "destination"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "source",
+          "type": "project",
+          "arity": "until",
+          "until": "into",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        },
+        {
+          "name": "destination",
+          "type": "project",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/projects.go:runProjects",
+      "correction": "Maps 'merge projects \u003ckeep\u003e into \u003cdrop\u003e' to two positional arguments 'projects merge \u003ckeep\u003e \u003cdrop\u003e'",
+      "examples": {
+        "canonical": "sila projects merge keep drop",
+        "conversational": "sila merge projects keep into drop"
+      }
+    },
+    {
+      "id": "sila_overlaps_show",
+      "action_id": "overlaps.show",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Show cross-tool session overlaps and co-occurrence",
+      "docs": "docs/reference.md#overlaps",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 55,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "overlaps"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "overlaps"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "overlaps"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila overlaps",
+        "conversational": "sila show overlaps"
+      }
+    },
+    {
+      "id": "sila_store_status",
+      "action_id": "store.status",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Inspect SQLite knowledge store metrics and page layout",
+      "docs": "docs/reference.md#store",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 56,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "inspect"
+          },
+          {
+            "kind": "keyword",
+            "value": "store"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "store"
+          },
+          {
+            "kind": "keyword",
+            "value": "status"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "store",
+        "status"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila store status",
+        "conversational": "sila inspect store"
+      }
+    },
+    {
+      "id": "sila_store_verify",
+      "action_id": "store.verify",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Check SQLite knowledge store integrity invariants",
+      "docs": "docs/reference.md#store",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 57,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "store"
+          },
+          {
+            "kind": "keyword",
+            "value": "invariants"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "store",
+        "verify"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila store verify",
+        "conversational": "sila check store invariants"
+      }
+    },
+    {
+      "id": "sila_store_verify_do",
+      "action_id": "store.verify",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Verify SQLite store invariants via explicit do",
+      "docs": "docs/reference.md#store",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 57,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "verify"
+          },
+          {
+            "kind": "keyword",
+            "value": "store"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "store",
+        "verify"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "preserve_exit": 1,
+      "variant_of": "sila_store_verify",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila store verify",
+        "conversational": "sila do verify store"
+      }
+    },
+    {
+      "id": "sila_storage_show",
+      "action_id": "storage.show",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Show disk usage breakdown for Sila and AI tool stores",
+      "docs": "docs/reference.md#storage",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 58,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "storage"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "disk"
+          },
+          {
+            "kind": "keyword",
+            "value": "usage"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "storage"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila storage",
+        "conversational": "sila show storage"
+      }
+    },
+    {
+      "id": "sila_clean_caches",
+      "action_id": "clean.caches",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Prune multi-toolchain disk caches and temporary artifacts",
+      "docs": "docs/reference.md#clean",
+      "tier": "DESTRUCTIVE",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "toolchain-disk-caches",
+      "plan_row": 59,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "required-interactive",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "prune"
+          },
+          {
+            "kind": "keyword",
+            "value": "disk"
+          },
+          {
+            "kind": "keyword",
+            "value": "caches"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "wipe"
+          },
+          {
+            "kind": "keyword",
+            "value": "cache"
+          },
+          {
+            "kind": "keyword",
+            "value": "files"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "clean"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "source_citation": "internal/cli/registry.go:clean",
+      "correction": "Added non-overlapping 'prune disk caches' and 'wipe cache files' direct phrases; marked 'clean caches' phrase-only-via-do",
+      "examples": {
+        "canonical": "sila clean",
+        "conversational": "sila prune disk caches"
+      }
+    },
+    {
+      "id": "sila_clean_caches_do",
+      "action_id": "clean.caches",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Clean disk caches via explicit do",
+      "docs": "docs/reference.md#clean",
+      "tier": "DESTRUCTIVE",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "implicit",
+      "target_scope": "toolchain-disk-caches",
+      "plan_row": 59,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "required-interactive",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "clean"
+          },
+          {
+            "kind": "keyword",
+            "value": "caches"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "clean"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_clean_caches",
+      "source": "ccli-sila-plan",
+      "source_citation": "internal/cli/registry.go:clean",
+      "correction": "Marked 'clean caches' phrase-only-via-do because 'clean' is a canonical command",
+      "examples": {
+        "canonical": "sila clean",
+        "conversational": "sila do clean caches"
+      }
+    },
+    {
+      "id": "sila_vacuum_defragment",
+      "action_id": "vacuum.store",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Defragment the SQLite knowledge store and optimize query planner",
+      "docs": "docs/reference.md#vacuum",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "sqlite-knowledge-store",
+      "plan_row": 60,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "defragment"
+          },
+          {
+            "kind": "keyword",
+            "value": "store"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "vacuum"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "source_citation": "internal/cli/registry.go:vacuum",
+      "correction": "Added non-overlapping 'defragment store' direct phrase; marked 'vacuum database' phrase-only-via-do",
+      "examples": {
+        "canonical": "sila vacuum",
+        "conversational": "sila defragment store"
+      }
+    },
+    {
+      "id": "sila_vacuum_database_do",
+      "action_id": "vacuum.store",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Vacuum SQLite database via explicit do",
+      "docs": "docs/reference.md#vacuum",
+      "tier": "MUTATION",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "implicit",
+      "target_scope": "sqlite-knowledge-store",
+      "plan_row": 60,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "vacuum"
+          },
+          {
+            "kind": "keyword",
+            "value": "database"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "vacuum"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_vacuum_defragment",
+      "source": "ccli-sila-plan",
+      "source_citation": "internal/cli/registry.go:vacuum",
+      "correction": "Marked 'vacuum database' phrase-only-via-do because 'vacuum' is a canonical command",
+      "examples": {
+        "canonical": "sila vacuum",
+        "conversational": "sila do vacuum database"
+      }
+    },
+    {
+      "id": "sila_vacuum_force",
+      "action_id": "vacuum.force",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Force full SQLite VACUUM and reclaim free database pages",
+      "docs": "docs/reference.md#vacuum",
+      "tier": "DESTRUCTIVE",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "sqlite-knowledge-store",
+      "plan_row": 61,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "required-interactive",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "force"
+          },
+          {
+            "kind": "keyword",
+            "value": "vacuum"
+          },
+          {
+            "kind": "keyword",
+            "value": "database"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "purge"
+          },
+          {
+            "kind": "keyword",
+            "value": "free"
+          },
+          {
+            "kind": "keyword",
+            "value": "store"
+          },
+          {
+            "kind": "keyword",
+            "value": "pages"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "vacuum"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "static_flags": [
+        "--force"
+      ],
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/vacuum.go:runVacuum",
+      "correction": "Mapped 'vacuum force' to 'vacuum --force' static flag instead of a phantom 'force' subcommand",
+      "examples": {
+        "canonical": "sila vacuum --force",
+        "conversational": "sila force vacuum database"
+      }
+    },
+    {
+      "id": "sila_backup_store",
+      "action_id": "backup.store",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Write a consistent VACUUM INTO store snapshot",
+      "docs": "docs/reference.md#backup",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 62,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "snapshot"
+          },
+          {
+            "kind": "keyword",
+            "value": "store"
+          },
+          {
+            "kind": "glue",
+            "value": "to"
+          },
+          {
+            "kind": "target",
+            "slot": "out_path"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "backup"
+      ],
+      "args_order": [
+        "out_path"
+      ],
+      "flag_mapping": {
+        "out_path": "--out"
+      },
+      "slots": [
+        {
+          "name": "out_path",
+          "type": "path",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/backup.go:runBackup",
+      "correction": "Mapped destination path to '--out=\u003cpath\u003e' via flag_mapping; marked 'backup database' phrase-only-via-do",
+      "examples": {
+        "canonical": "sila backup --out=/tmp/a.bak",
+        "conversational": "sila snapshot store to /tmp/a.bak"
+      }
+    },
+    {
+      "id": "sila_backup_database_do",
+      "action_id": "backup.default",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Backup SQLite knowledge store via explicit do",
+      "docs": "docs/reference.md#backup",
+      "tier": "MUTATION",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 62,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "backup"
+          },
+          {
+            "kind": "keyword",
+            "value": "database"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "backup"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "source_citation": "cmd/sila/backup.go:runBackup",
+      "correction": "Marked 'backup database' phrase-only-via-do because 'backup' is a canonical command",
+      "examples": {
+        "canonical": "sila backup",
+        "conversational": "sila do backup database"
+      }
+    },
+    {
+      "id": "sila_reconcile_check",
+      "action_id": "reconcile.drift",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Check and reconcile drift between store claims and disk reality",
+      "docs": "docs/reference.md#verify",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 63,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "drift"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "reconcile"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "source_citation": "internal/cli/registry.go:verify",
+      "correction": "Split direct 'check drift' from canonical-overlapping 'reconcile drift' (phrase-only-via-do)",
+      "examples": {
+        "canonical": "sila reconcile",
+        "conversational": "sila check drift"
+      }
+    },
+    {
+      "id": "sila_reconcile_drift",
+      "action_id": "reconcile.drift",
+      "domain": "Store \u0026 Ingestion",
+      "description": "Reconcile drift between reality and memory via explicit do",
+      "docs": "docs/reference.md#verify",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 63,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "reconcile"
+          },
+          {
+            "kind": "keyword",
+            "value": "drift"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "reconcile"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_reconcile_check",
+      "source": "ccli-sila-plan",
+      "source_citation": "internal/cli/registry.go:verify",
+      "correction": "Marked 'reconcile drift' phrase-only-via-do because 'reconcile' is a canonical alias for verify",
+      "examples": {
+        "canonical": "sila reconcile",
+        "conversational": "sila do reconcile drift"
+      }
+    },
+    {
+      "id": "sila_ui_start",
+      "action_id": "ui.start",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Start local web cockpit UI server",
+      "docs": "docs/reference.md#ui",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 64,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "start"
+          },
+          {
+            "kind": "keyword",
+            "value": "web"
+          },
+          {
+            "kind": "keyword",
+            "value": "ui"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "launch"
+          },
+          {
+            "kind": "keyword",
+            "value": "cockpit"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "ui"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila ui",
+        "conversational": "sila start web ui"
+      }
+    },
+    {
+      "id": "sila_demo_launch",
+      "action_id": "demo.launch",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Launch ephemeral demo playground with sandbox store",
+      "docs": "docs/reference.md#demo",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 65,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "launch"
+          },
+          {
+            "kind": "keyword",
+            "value": "demo"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "run"
+          },
+          {
+            "kind": "keyword",
+            "value": "demo"
+          },
+          {
+            "kind": "keyword",
+            "value": "playground"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "demo"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila demo",
+        "conversational": "sila launch demo"
+      }
+    },
+    {
+      "id": "sila_mcp_serve",
+      "action_id": "mcp.serve",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Start Model Context Protocol JSON-RPC stdio server",
+      "docs": "docs/reference.md#mcp",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 66,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "start"
+          },
+          {
+            "kind": "keyword",
+            "value": "mcp"
+          },
+          {
+            "kind": "keyword",
+            "value": "server"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "serve"
+          },
+          {
+            "kind": "keyword",
+            "value": "mcp"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "mcp"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila mcp",
+        "conversational": "sila start mcp server"
+      }
+    },
+    {
+      "id": "sila_cloud_status",
+      "action_id": "cloud.status",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Check Cloudflare D1 edge bridge connectivity and status",
+      "docs": "docs/reference.md#cloud",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 67,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "cloud"
+          },
+          {
+            "kind": "keyword",
+            "value": "status"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "cloud",
+        "status"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila cloud status",
+        "conversational": "sila check cloud status"
+      }
+    },
+    {
+      "id": "sila_cloud_test_do",
+      "action_id": "cloud.status",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Test cloud connection via explicit do",
+      "docs": "docs/reference.md#cloud",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 67,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "test"
+          },
+          {
+            "kind": "keyword",
+            "value": "cloud"
+          },
+          {
+            "kind": "keyword",
+            "value": "connection"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "cloud",
+        "status"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_cloud_status",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila cloud status",
+        "conversational": "sila do test cloud connection"
+      }
+    },
+    {
+      "id": "sila_cloud_pull",
+      "action_id": "cloud.pull",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Drain inbound Cloudflare D1 edge mailbox into local store",
+      "docs": "docs/reference.md#cloud",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "cloud-edge-mailbox",
+      "plan_row": 68,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "drain"
+          },
+          {
+            "kind": "keyword",
+            "value": "cloud"
+          },
+          {
+            "kind": "keyword",
+            "value": "mailbox"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "pull"
+          },
+          {
+            "kind": "keyword",
+            "value": "cloud"
+          },
+          {
+            "kind": "keyword",
+            "value": "records"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "cloud",
+        "pull"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila cloud pull",
+        "conversational": "sila drain cloud mailbox"
+      }
+    },
+    {
+      "id": "sila_cloud_push",
+      "action_id": "cloud.push",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Push local knowledge records to Cloudflare D1 edge bridge",
+      "docs": "docs/reference.md#cloud",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "implicit",
+      "target_scope": "cloud-edge-store",
+      "plan_row": 69,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "push"
+          },
+          {
+            "kind": "keyword",
+            "value": "cloud"
+          },
+          {
+            "kind": "keyword",
+            "value": "sync"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "cloud",
+        "push"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila cloud push",
+        "conversational": "sila push cloud sync"
+      }
+    },
+    {
+      "id": "sila_cloud_sync_do",
+      "action_id": "cloud.push",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Sync cloud records via explicit do",
+      "docs": "docs/reference.md#cloud",
+      "tier": "MUTATION",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "implicit",
+      "target_scope": "cloud-edge-store",
+      "plan_row": 69,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "sync"
+          },
+          {
+            "kind": "keyword",
+            "value": "cloud"
+          },
+          {
+            "kind": "keyword",
+            "value": "records"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "cloud",
+        "push"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_cloud_push",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila cloud push",
+        "conversational": "sila do sync cloud records"
+      }
+    },
+    {
+      "id": "sila_gateway_status",
+      "action_id": "gateway.status",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Check external notification relay gateway status",
+      "docs": "docs/reference.md#gateway",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 70,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "check"
+          },
+          {
+            "kind": "keyword",
+            "value": "gateway"
+          },
+          {
+            "kind": "keyword",
+            "value": "status"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "gateway",
+        "status"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila gateway status",
+        "conversational": "sila check gateway status"
+      }
+    },
+    {
+      "id": "sila_gateway_test_do",
+      "action_id": "gateway.status",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Test relay gateway via explicit do",
+      "docs": "docs/reference.md#gateway",
+      "tier": "QUERY",
+      "precedence": "phrase-only-via-do",
+      "target_policy": "permitted-default",
+      "plan_row": 70,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "test"
+          },
+          {
+            "kind": "keyword",
+            "value": "relay"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "gateway",
+        "status"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "variant_of": "sila_gateway_status",
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila gateway status",
+        "conversational": "sila do test relay"
+      }
+    },
+    {
+      "id": "sila_sources_list",
+      "action_id": "sources.list",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Discover installed AI coding tools and transcript log paths",
+      "docs": "docs/reference.md#sources",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 71,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "discover"
+          },
+          {
+            "kind": "keyword",
+            "value": "tools"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "list"
+          },
+          {
+            "kind": "keyword",
+            "value": "tool"
+          },
+          {
+            "kind": "keyword",
+            "value": "sources"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "sources"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila sources",
+        "conversational": "sila discover tools"
+      }
+    },
+    {
+      "id": "sila_config_get",
+      "action_id": "config.get",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Get a configuration setting value (redacting secrets by default)",
+      "docs": "docs/reference.md#config",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "specificity_witness": "show config search_provider",
+      "target_policy": "required",
+      "plan_row": 72,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "config"
+          },
+          {
+            "kind": "target",
+            "slot": "key"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "get"
+          },
+          {
+            "kind": "keyword",
+            "value": "config"
+          },
+          {
+            "kind": "target",
+            "slot": "key"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "config",
+        "get"
+      ],
+      "args_order": [
+        "key"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "key",
+          "type": "target",
+          "arity": "single",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila config get search_provider",
+        "conversational": "sila show config search_provider"
+      }
+    },
+    {
+      "id": "sila_config_path",
+      "action_id": "config.path",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Show active configuration file path",
+      "docs": "docs/reference.md#config",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "specificity_witness": "show config path",
+      "target_policy": "permitted-default",
+      "plan_row": 73,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "show"
+          },
+          {
+            "kind": "keyword",
+            "value": "config"
+          },
+          {
+            "kind": "keyword",
+            "value": "path"
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "get"
+          },
+          {
+            "kind": "keyword",
+            "value": "config"
+          },
+          {
+            "kind": "keyword",
+            "value": "path"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "config",
+        "path"
+      ],
+      "args_order": [],
+      "flag_mapping": {},
+      "slots": [],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila config path",
+        "conversational": "sila show config path"
+      }
+    },
+    {
+      "id": "sila_config_explain",
+      "action_id": "config.explain",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Explain configuration schema and keys",
+      "docs": "docs/reference.md#config",
+      "tier": "QUERY",
+      "precedence": "canonical-first",
+      "target_policy": "permitted-default",
+      "plan_row": 74,
+      "dry_run_policy": "none",
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "explain"
+          },
+          {
+            "kind": "keyword",
+            "value": "config"
+          },
+          {
+            "kind": "slot",
+            "slot": "key",
+            "optional": true
+          }
+        ],
+        [
+          {
+            "kind": "keyword",
+            "value": "describe"
+          },
+          {
+            "kind": "keyword",
+            "value": "config"
+          },
+          {
+            "kind": "slot",
+            "slot": "key",
+            "optional": true
+          }
+        ]
+      ],
+      "canonical_base": [
+        "config",
+        "explain"
+      ],
+      "args_order": [
+        "key"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "key",
+          "type": "string",
+          "arity": "optional",
+          "required": false,
+          "has_default": true,
+          "is_target": false,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila config explain",
+        "conversational": "sila explain config"
+      }
+    },
+    {
+      "id": "sila_config_set",
+      "action_id": "config.set",
+      "domain": "Surfaces, Cloud \u0026 Configuration",
+      "description": "Set a non-secret configuration key to a value",
+      "docs": "docs/reference.md#config",
+      "tier": "MUTATION",
+      "precedence": "canonical-first",
+      "target_policy": "required",
+      "plan_row": 75,
+      "dry_run_policy": "preview",
+      "dry_run_aliases": [
+        "--dry-run",
+        "--preview",
+        "-n"
+      ],
+      "confirmation_policy": "none",
+      "phrases": [
+        [
+          {
+            "kind": "keyword",
+            "value": "set"
+          },
+          {
+            "kind": "keyword",
+            "value": "config"
+          },
+          {
+            "kind": "target",
+            "slot": "key"
+          },
+          {
+            "kind": "glue",
+            "value": "to"
+          },
+          {
+            "kind": "slot",
+            "slot": "value"
+          }
+        ]
+      ],
+      "canonical_base": [
+        "config",
+        "set"
+      ],
+      "args_order": [
+        "key",
+        "value"
+      ],
+      "flag_mapping": {},
+      "slots": [
+        {
+          "name": "key",
+          "type": "target",
+          "arity": "until",
+          "until": "to",
+          "required": true,
+          "is_target": true,
+          "sensitive": false
+        },
+        {
+          "name": "value",
+          "type": "string",
+          "arity": "rest",
+          "required": true,
+          "is_target": false,
+          "sensitive": false
+        }
+      ],
+      "source": "ccli-sila-plan",
+      "examples": {
+        "canonical": "sila config set search_provider brave",
+        "conversational": "sila set config search_provider to brave"
+      }
+    }
+  ]
+}

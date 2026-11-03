@@ -1,0 +1,6 @@
+{
+  "cwd": "/workspace/sila/cli",
+  "hook_event_name": "turn_end",
+  "project_id": "sila-cli",
+  "session_id": "sess-codewhale"
+}

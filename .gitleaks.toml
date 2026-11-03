@@ -1,0 +1,15 @@
+[extend]
+useDefault = true
+
+# Sila's tests deliberately contain synthetic tokens and private-key strings to
+# prove that the redaction and privacy boundaries work. They are not live
+# credentials. Keep the allowlist narrow: only test files and fixtures.
+[allowlist]
+description = "Synthetic credentials used by redaction and privacy tests"
+paths = [
+  '''(^|/)testdata/''',
+  '''_test\.go$''',
+  '''internal/testutil/''',
+  '''internal/assist/testdata/''',
+  '''scripts/feature-scorecard/fixtures/''',
+]

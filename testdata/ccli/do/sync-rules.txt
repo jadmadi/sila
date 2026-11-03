@@ -1,0 +1,10 @@
+# id: do.sync-rules
+# argv: sila do sync rules --dry-run
+# exit: 0
+--- stdout ---
+--- stderr ---
+sila · ccli dry-run
+  Canonical: sila sync
+  Target:    project-transcripts
+  Scope:     project-transcripts
+  Safety:    no changes applied

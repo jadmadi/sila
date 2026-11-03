@@ -1,0 +1,126 @@
+{
+  "schema_version": "sila/adoption-surface-map/v1",
+  "map_version": "1.0.0",
+  "mappings": [
+    {
+      "case_id": "session-start-prime",
+      "moment": "session start",
+      "cli_command": "sila prime",
+      "mcp_tool": "prime_context",
+      "skill_line": "prime_context",
+      "rulebook_line": "sila prime",
+      "salam_line": "sila prime",
+      "mcp_trigger": "Call this ONCE at the start of a session"
+    },
+    {
+      "case_id": "recall-before-web-search",
+      "moment": "failure/error",
+      "cli_command": "sila recall",
+      "mcp_tool": "recall",
+      "skill_line": "sila recall",
+      "rulebook_line": "sila recall",
+      "salam_line": "sila recall",
+      "mcp_trigger": "Find prior resolutions for a problem before searching the web"
+    },
+    {
+      "case_id": "prior-research-omni-search",
+      "moment": "where did we research X?",
+      "cli_command": "sila search --omni",
+      "mcp_tool": "omni_search",
+      "skill_line": "omni_search",
+      "rulebook_line": "omni_search",
+      "salam_line": "omni_search",
+      "mcp_trigger": "Call BEFORE running raw grep, find, or git log"
+    },
+    {
+      "case_id": "decision-made-save-memo",
+      "moment": "decision made",
+      "cli_command": "sila memo",
+      "mcp_tool": "save_memo",
+      "skill_line": "save_memo",
+      "rulebook_line": "sila memo",
+      "salam_line": "sila memo",
+      "mcp_trigger": "Call immediately when an architectural decision"
+    },
+    {
+      "case_id": "problem-solved-save-lesson",
+      "moment": "problem solved",
+      "cli_command": "sila lesson",
+      "mcp_tool": "save_lesson",
+      "skill_line": "save_lesson",
+      "rulebook_line": "sila lesson",
+      "salam_line": "sila lesson",
+      "mcp_trigger": "Call this the moment a fix is proven"
+    },
+    {
+      "case_id": "reusable-pattern-save-case",
+      "moment": "reusable pattern",
+      "cli_command": "sila case",
+      "mcp_tool": "save_case",
+      "skill_line": "save_case",
+      "rulebook_line": "sila case",
+      "salam_line": "sila case",
+      "mcp_trigger": "Call when introducing a reusable architectural pattern"
+    },
+    {
+      "case_id": "session-end-save-handoff",
+      "moment": "session end",
+      "cli_command": "sila handoff",
+      "mcp_tool": "save_handoff",
+      "skill_line": "save_handoff",
+      "rulebook_line": "sila handoff",
+      "salam_line": "sila handoff",
+      "mcp_trigger": "Call before ending a session"
+    },
+    {
+      "case_id": "specialist-routing-skill-load",
+      "moment": "specialist routing",
+      "cli_command": "sila skill load",
+      "mcp_tool": "skill_load",
+      "skill_line": "skill_load",
+      "rulebook_line": "skill_load",
+      "salam_line": "skill_load",
+      "mcp_trigger": "Retrieve complete instructions, metadata, and optional resources"
+    },
+    {
+      "case_id": "symbol-rename-blast-radius",
+      "moment": "rename/delete a symbol",
+      "cli_command": "sila edit-check",
+      "mcp_tool": "check_symbol_blast_radius",
+      "skill_line": "check_symbol_blast_radius",
+      "rulebook_line": "sila edit-check",
+      "salam_line": "sila edit-check",
+      "mcp_trigger": "Run an in-memory edit-check or safe-delete contract analysis"
+    },
+    {
+      "case_id": "temporal-query-activity-digest",
+      "moment": "temporal query",
+      "cli_command": "sila standup",
+      "mcp_tool": "get_activity_digest",
+      "skill_line": "get_activity_digest",
+      "rulebook_line": "sila standup",
+      "salam_line": "sila standup",
+      "mcp_trigger": "Summarize recent activity and time-windowed progress"
+    },
+    {
+      "case_id": "pre-commit-gate-pipeline",
+      "moment": "pre-commit",
+      "cli_command": "sila gate",
+      "mcp_tool": "run_gate_pipeline",
+      "skill_line": "run_gate_pipeline",
+      "rulebook_line": "sila gate",
+      "salam_line": "sila gate",
+      "mcp_trigger": "Execute the sila quality gate validation"
+    },
+    {
+      "case_id": "goal-status-list-goals",
+      "moment": "goal status",
+      "cli_command": "sila goals",
+      "mcp_tool": "list_goals",
+      "skill_line": "list_goals",
+      "rulebook_line": "sila goals",
+      "salam_line": "sila goals",
+      "mcp_trigger": "List goal packages in the project's goals/ directory"
+    }
+  ]
+}

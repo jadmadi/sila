@@ -1,0 +1,14 @@
+# surface: decision__view
+# argv: sila decision view D1
+# mode: human
+# exit: 0
+--- stdout ---
+
+  · D1: Output Golden Format
+  Status:         open
+  Recommendation: Option A
+  Rationale:      Human and git diff friendly
+
+  Options:
+    ★ [A] Plain UTF-8 text files
+      [B] Binary blobs

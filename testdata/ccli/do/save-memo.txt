@@ -1,0 +1,9 @@
+# id: do.save-memo
+# argv: sila do save memo use WAL
+# exit: 0
+--- stdout ---
+✔ Recorded memo <id>
+  Directive: use WAL
+  Project:   repo
+  Files:     none
+--- stderr ---

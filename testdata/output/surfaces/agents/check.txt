@@ -1,0 +1,19 @@
+# surface: agents__check
+# argv: sila agents check
+# mode: human
+# exit: 1
+--- stdout ---
+sila · agents check · <sandbox>/repo
+  managed rev=0 hash= hub=<sha>
+  hash: mismatch
+  principles: absent
+  target agents AGENTS.md: absent
+  target claude CLAUDE.md: absent
+  target gemini GEMINI.md: absent
+  target cursor .cursor/rules/000-sila-core.mdc: absent
+  target devin .devin/setup.sh: absent
+  ✖ DRIFT DETECTED (missing_target)
+    ▲ AGENTS.md is missing from repository root
+    ✖ missing file: AGENTS.md
+
+  tip: run sila agents sync to reconcile.

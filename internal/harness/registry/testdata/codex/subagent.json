@@ -1,0 +1,8 @@
+{
+  "cwd": "/workspace/sila/cli",
+  "hook_event_name": "SubagentStart",
+  "parent_session_id": "sess-parent-codex",
+  "project_id": "sila-cli",
+  "session_id": "sess-codex",
+  "subagent_id": "sub-codex"
+}

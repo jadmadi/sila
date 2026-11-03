@@ -1,0 +1,8 @@
+# id: errors.unknown-phrase
+# argv: sila do frobnicate quantum flux
+# exit: 2
+--- stdout ---
+--- stderr ---
+✖ unknown conversational phrase: "frobnicate quantum flux"
+  did you mean: sila do "compile agent rules"
+  run 'sila help phrases' or 'sila ccli list' for supported conversational phrases.

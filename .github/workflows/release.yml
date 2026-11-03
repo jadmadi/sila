@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  release:
+    name: build and publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Build all release assets
+        run: ./build.sh --all --release-artifact --no-install
+      - name: Verify, snapshot, and checksum
+        run: |
+          ./dist/sila-linux-amd64 release check
+          ./dist/sila-linux-amd64 release metadata --out dist/release-metadata.json
+          ./dist/sila-linux-amd64 release snapshot --out dist/mcp-contract.json
+          cd dist
+          sha256sum sila-* mcp-contract.json release-metadata.json > checksums.txt
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-path: dist/sila-*
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" \
+            dist/sila-* \
+            dist/checksums.txt \
+            dist/mcp-contract.json \
+            dist/release-metadata.json \
+            --repo "$GITHUB_REPOSITORY" \
+            --generate-notes

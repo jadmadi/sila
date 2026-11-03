@@ -1,0 +1,6 @@
+# surface: goals__porcelain
+# argv: sila goals --porcelain
+# mode: porcelain
+# exit: 0
+--- stdout ---
+alpha-goal	pending	immediate	0	0/1	Alpha Sandbox Goal

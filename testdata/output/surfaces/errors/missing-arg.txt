@@ -1,0 +1,11 @@
+# surface: errors__missing-arg
+# argv: sila memo show
+# mode: human
+# exit: 2
+--- stdout ---
+--- stderr ---
+usage: sila memo "<decision>"
+       sila memo add "<decision>"
+       sila memo --text="<decision>"
+       sila memo list [--since=<duration|RFC3339>] [--limit=N] [--claim=<text>] [--json|--toon]
+       sila memo show <fact-id> [--json]

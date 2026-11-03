@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sila v0.18.0 — Local-first continuity for AI coding agents</title>
+  <style>
+    :root { color-scheme: light dark; --accent: #6b4eff; --muted: #6b7280; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.6 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 860px; margin: 0 auto; padding: 4rem 1.5rem; }
+    h1 { font-size: clamp(2rem, 6vw, 3.5rem); line-height: 1.1; margin: 0 0 1rem; }
+    h2 { margin-top: 2.5rem; }
+    a { color: var(--accent); }
+    code, pre { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    pre { padding: 1rem; overflow-x: auto; border: 1px solid #8883; border-radius: 12px; }
+    .tag { color: var(--muted); letter-spacing: .08em; text-transform: uppercase; font-size: .78rem; }
+    .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+    .card { border: 1px solid #8883; border-radius: 14px; padding: 1rem 1.2rem; }
+    footer { margin-top: 3rem; color: var(--muted); font-size: .9rem; }
+  </style>
+</head>
+<body>
+<main>
+  <p class="tag">Sila v0.18.0 · The Continuity Release</p>
+  <h1>One thread across every agent.</h1>
+  <p>Sila is a local-first continuity engine for AI coding agents. It reads the
+  session stores you already have, grounds claims against the files they cite,
+  and serves memory, handoffs, goals, and gates through a CLI and a native MCP
+  server. No cloud account. No telemetry. No CGO.</p>
+
+  <h2>Quickstart</h2>
+  <pre><code>curl -fsSL https://raw.githubusercontent.com/jadmadi/sila/main/install.sh | sh
+sila sources
+sila demo
+sila sync
+sila prime</code></pre>
+
+  <h2>Documentation</h2>
+  <div class="grid">
+    <div class="card"><a href="../README.md">README</a><br>Install, quickstart, MCP setup.</div>
+    <div class="card"><a href="../docs/reference.md">Command reference</a><br>Every CLI command and flag.</div>
+    <div class="card"><a href="../docs/mcp.md">MCP guide</a><br>Clients, profiles, and 76 tools.</div>
+    <div class="card"><a href="../docs/verification.md">Verification</a><br>What is and is not verified.</div>
+    <div class="card"><a href="../docs/roadmap.md">Roadmap</a><br>Public direction, no private ledger.</div>
+    <div class="card"><a href="../docs/covenant.md">Covenant</a><br>Local custody and privacy boundaries.</div>
+  </div>
+
+  <h2>Principle</h2>
+  <p><strong>Logs record claims; code is truth.</strong> A claim that quotes a
+  real file is still a claim. Sila surfaces grounding and staleness instead of
+  presenting raw session text as verified architecture.</p>
+
+  <footer>
+    MIT License · <a href="https://github.com/jadmadi/sila">github.com/jadmadi/sila</a>
+    · <a href="https://jadmadi.net">jadmadi.net</a>
+    · <a href="https://x.com/jadmadi">@jadmadi</a>
+    · <a href="https://paypal.me/madise">support</a>
+  </footer>
+</main>
+</body>
+</html>

@@ -1,0 +1,87 @@
+{
+  "$schema": "https://jadmadi.net/schemas/project.schema.json",
+  // Timestamp of the last metadata revision (Format: YY-MM-DD-HH-MM)
+  "lastEdit": "26-11-03-16-45",
+  "id": "sila",
+  "title": "Sila (صِلَة)",
+  "tagline": "Local-first continuity, memory, and governance for AI coding agents",
+  "version": "0.18.0",
+  "summary": "A single Pure-Go binary that unifies the session stores of 12 AI coding harnesses into one local SQLite knowledge store, grounds claims against repository files, and exposes continuity through a CLI and a native MCP server.",
+  "description": "Sila is a local-first continuity engine for AI coding agents. It reads the session stores of Claude Code, Codex, OpenCode, MiMoCode, Devin, Command Code, Codewhale, Antigravity, ZCode, Muse, Zed, and Git into one SQLite WAL + FTS5 store; grounds claims against the files they cite; and serves handoffs, recall, goals, gates, and project skills through a 76-tool MCP server and a dual-syntax CLI. No cloud account, telemetry, or CGO.",
+  "status": "stable",
+  "year": "2026",
+  "tech_stack": {
+    "languages": [
+      "Go",
+      "SQLite"
+    ],
+    "frameworks": [
+      "Model Context Protocol (MCP)",
+      "modernc.org/sqlite",
+      "FTS5"
+    ],
+    "architecture": "Single static binary (CGO_ENABLED=0) with read-only session loaders, local SQLite WAL + FTS5 storage, native stdio MCP server, and optional Cloudflare D1 edge mailbox",
+    "license": "MIT",
+    "license_type": "mit"
+  },
+  "stats": "76 MCP Tools · 12 Session Sources · Pure-Go SQLite · 6 Target Platforms",
+  "badges": [
+    "Go Core",
+    "76 MCP Tools",
+    "Cross-Harness Continuity",
+    "Local-First",
+    "Data Sovereignty",
+    "MIT"
+  ],
+  "install_command": "curl -fsSL https://raw.githubusercontent.com/jadmadi/sila/main/install.sh | sh",
+  "install_commands": {
+    "linux_macos": "curl -fsSL https://raw.githubusercontent.com/jadmadi/sila/main/install.sh | sh",
+    "windows": "irm https://raw.githubusercontent.com/jadmadi/sila/main/install.ps1 | iex"
+  },
+  "links": {
+    "github": "https://github.com/jadmadi/sila",
+    "website": "https://sila.jadmadi.net",
+    "docs": "https://github.com/jadmadi/sila#readme",
+    "package": null
+  },
+  "problem_statement": "AI coding agents operate in isolated session silos. Switching harnesses or starting a new session loses architectural decisions, bug root causes, failed approaches, and open work. Cloud memory services solve this by taking custody of the developer's data.",
+  "solution": "Sila keeps continuity local: read-only ingestion of existing harness stores, grounded claims, local SQLite FTS5 search, explicit memory writes, session handoffs, goal and gate governance, project skill governance, and a native MCP server. Network access is opt-in.",
+  "features": [
+    "Cross-session and cross-harness continuity through sila prime, handoff, recall, and salam",
+    "Read-only loaders for 12 session sources plus Git history",
+    "Grounded claims with file-reference drift reconciliation",
+    "Local SQLite WAL + FTS5 search with transcript expansion and provenance",
+    "76-tool native MCP server with a focused 36-tool continuity profile",
+    "Goal lifecycle, claim leases, task contracts, acceptance packets, and audits",
+    "Pre-commit quality gates, rule compilation, and harness hook adapters",
+    "Project skill governor with atomic apply, rollback, and on-demand MCP loading",
+    "Universal multi-toolchain disk hygiene across nine ecosystems",
+    "Optional Cloudflare D1 edge mailbox for asynchronous task intake"
+  ],
+  "faq": [
+    {
+      "question": "How do I install Sila?",
+      "answer": "On Linux or macOS run `curl -fsSL https://raw.githubusercontent.com/jadmadi/sila/main/install.sh | sh`. On Windows PowerShell run `irm https://raw.githubusercontent.com/jadmadi/sila/main/install.ps1 | iex`. You can also use `go install github.com/jadmadi/sila/cmd/sila@v0.18.0` or build from source with `./build.sh`."
+    },
+    {
+      "question": "Which AI tools does Sila support?",
+      "answer": "Sila ingests Claude Code, Codex, OpenCode, MiMoCode, Devin, Command Code, Codewhale, Antigravity, ZCode, Muse, Zed, and Git. Cursor, Grok CLI, and Droid are detected but not indexed because their stores lack the required timestamps or assistant output. Run `sila sources` for live status."
+    },
+    {
+      "question": "Does Sila send my data anywhere?",
+      "answer": "No by default. Core commands run locally, sources are opened read-only, and the store is a 0600 SQLite file you own. Optional web search, semantic assistance, and the Cloudflare D1 edge mailbox require explicit configuration and consent."
+    },
+    {
+      "question": "What is the difference between the continuity and full MCP profiles?",
+      "answer": "The default continuity profile exposes 36 tools for orientation, search, recall, memory writes, handoffs, goals, gates, skills, and activity. The full profile exposes all 76 tools, including administrative, external-network, and multi-agent coordination surfaces."
+    },
+    {
+      "question": "Is every feature verified?",
+      "answer": "No. Sila separates implementation from verification. The local test suite is the release gate; hosted model quality, live harness behavior, and production-scale performance are not claimed unless separately measured. See docs/verification.md."
+    },
+    {
+      "question": "What license is Sila under?",
+      "answer": "MIT. See LICENSE in the repository."
+    }
+  ]
+}

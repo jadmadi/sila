@@ -1,0 +1,7 @@
+{
+  "cwd": "/workspace/sila/cli",
+  "hook_event_name": "PostCompaction",
+  "project_id": "sila-cli",
+  "sequence": "1",
+  "session_id": "sess-devin"
+}

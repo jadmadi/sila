@@ -1,0 +1,8 @@
+# surface: errors__unknown-command
+# argv: sila definitely-not-a-command
+# mode: human
+# exit: 2
+--- stdout ---
+--- stderr ---
+sila: unknown command "definitely-not-a-command"
+run 'sila --help' for usage, or 'sila help phrases' for conversational phrases.

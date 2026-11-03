@@ -1,0 +1,19 @@
+{
+  "source": "synthetic",
+  "reason": "String-encoded evidence array through the Command Code proxy",
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 7,
+    "method": "tools/call",
+    "params": {
+      "name": "save_lesson",
+      "arguments": {
+        "project": "compat",
+        "symptom": "bridge lesson fixture",
+        "cause": "proxy envelope",
+        "fix": "normalize declared array fields",
+        "files": "[\"internal/mcp/server.go\"]"
+      }
+    }
+  }
+}

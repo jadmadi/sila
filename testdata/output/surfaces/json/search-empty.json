@@ -1,0 +1,6 @@
+# surface: json__search-empty
+# argv: sila search nonexistent_token_xyz987 --json
+# mode: json
+# exit: 0
+--- stdout ---
+[]

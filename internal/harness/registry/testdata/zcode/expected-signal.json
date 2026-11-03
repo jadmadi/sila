@@ -1,0 +1,9 @@
+{
+  "schema_version": "sila/harness-signal/v1",
+  "harness": "zcode",
+  "session_id": "sess-zcode",
+  "project_id": "sila-cli",
+  "cwd": "/workspace/sila/cli",
+  "phase": "stop",
+  "timestamp": "2026-10-23T00:00:00Z"
+}
