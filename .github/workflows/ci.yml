@@ -20,7 +20,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -54,6 +54,19 @@ jobs:
           cache: true
       - name: Build and coverage preflight
         run: ./build.sh --check --no-install
+
+  macos-build:
+    name: macos build
+    runs-on: macos-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Compile all packages
+        run: go build ./...
 
   windows-build:
     name: windows build

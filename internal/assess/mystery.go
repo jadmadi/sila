@@ -1026,6 +1026,11 @@ func RunProbe(ctx context.Context, sandbox *BlindfoldSandbox, probe Probe) Probe
 		wg.Wait()
 
 		for _, r := range results {
+			if sandbox != nil && !r.UsedBwrap {
+				sandbox.BlindfoldVerified = false
+			}
+		}
+		for _, r := range results {
 			if !r.Passed {
 				return r
 			}
@@ -1035,7 +1040,11 @@ func RunProbe(ctx context.Context, sandbox *BlindfoldSandbox, probe Probe) Probe
 		}
 	}
 
-	return runSingleProbe(ctx, sandbox, probe)
+	res := runSingleProbe(ctx, sandbox, probe)
+	if sandbox != nil && !res.UsedBwrap {
+		sandbox.BlindfoldVerified = false
+	}
+	return res
 }
 
 func runSingleProbe(ctx context.Context, sandbox *BlindfoldSandbox, probe Probe) ProbeResult {
@@ -1100,9 +1109,6 @@ func runSingleProbe(ctx context.Context, sandbox *BlindfoldSandbox, probe Probe)
 	result.Stderr = nsRes.Stderr
 	result.ExitCode = nsRes.ExitCode
 	result.UsedBwrap = nsRes.UsedBwrap
-	if !nsRes.UsedBwrap && sandbox != nil {
-		sandbox.BlindfoldVerified = false
-	}
 
 	if err != nil && nsRes.ExitCode == 0 {
 		result.FailureReason = fmt.Sprintf("command execution failed: %v", err)
