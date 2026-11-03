@@ -5,7 +5,7 @@
   "id": "sila",
   "title": "Sila (صِلَة)",
   "tagline": "Local-first continuity, memory, and governance for AI coding agents",
-  "version": "0.18.0",
+  "version": "0.18.1",
   "summary": "A single Pure-Go binary that unifies the session stores of 12 AI coding harnesses into one local SQLite knowledge store, grounds claims against repository files, and exposes continuity through a CLI and a native MCP server.",
   "description": "Sila is a local-first continuity engine for AI coding agents. It reads the session stores of Claude Code, Codex, OpenCode, MiMoCode, Devin, Command Code, Codewhale, Antigravity, ZCode, Muse, Zed, and Git into one SQLite WAL + FTS5 store; grounds claims against the files they cite; and serves handoffs, recall, goals, gates, and project skills through a 76-tool MCP server and a dual-syntax CLI. No cloud account, telemetry, or CGO.",
   "status": "stable",

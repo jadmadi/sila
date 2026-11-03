@@ -7,6 +7,13 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.18.1] - 2026-11-03
+
+### Fixed
+
+- Use an inert synthetic Slack fixture in the MCP redaction test so the
+  release preflight passes without resembling a live token. No runtime change.
+
 ## [0.18.0] - 2026-11-03
 
 ### Added

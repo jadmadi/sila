@@ -852,7 +852,7 @@ func TestSanitizeEgressArgs_SafeScrub(t *testing.T) {
 		"keywords": []any{
 			"/home/charlie/data",
 			"glpat-0123456789abcdefghij",
-			"xoxb-EXAMPLE-TOKEN-123",
+			"xoxb-EXAMPLE1234567890ABCDEF",
 			"harmless-keyword",
 		},
 		"metadata": map[string]any{

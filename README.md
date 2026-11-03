@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 [![Go](https://img.shields.io/badge/Go-1.27-00ADD8?logo=go)](go.mod)
 [![MCP](https://img.shields.io/badge/MCP-Native%20Server-8A2BE2)](docs/mcp.md)
-[![Release](https://img.shields.io/badge/Release-v0.18.0-orange)](https://github.com/jadmadi/sila/releases)
+[![Release](https://img.shields.io/badge/Release-v0.18.1-orange)](https://github.com/jadmadi/sila/releases)
 
 Sila is a single static Go binary that reads the session stores of the AI coding
 tools you already use, normalizes them into one local SQLite store, grounds
@@ -58,7 +58,7 @@ opens every external source read-only and never modifies another tool's data.
 | :--- | :--- |
 | Linux & macOS | `curl -fsSL https://raw.githubusercontent.com/jadmadi/sila/main/install.sh \| sh` |
 | Windows (PowerShell) | `irm https://raw.githubusercontent.com/jadmadi/sila/main/install.ps1 \| iex` |
-| Go toolchain | `go install github.com/jadmadi/sila/cmd/sila@v0.18.0` |
+| Go toolchain | `go install github.com/jadmadi/sila/cmd/sila@v0.18.1` |
 | From source | `git clone https://github.com/jadmadi/sila.git && cd sila && ./build.sh` |
 | Release assets | [GitHub Releases](https://github.com/jadmadi/sila/releases) |
 
