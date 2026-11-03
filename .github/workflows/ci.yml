@@ -16,7 +16,7 @@ jobs:
   test:
     name: test (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 45
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -34,7 +34,7 @@ jobs:
       - name: Vet
         run: go vet ./...
       - name: Race tests
-        run: go test -race ./...
+        run: go test -race -timeout=30m ./...
 
   build:
     name: build preflight

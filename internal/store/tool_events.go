@@ -61,7 +61,7 @@ func (s *Store) RecordToolEvent(ev ToolEvent) error {
 	}
 	sum := sha256.Sum256([]byte(ev.SessionID + "\x00" + ev.Source + "\x00" + ev.ToolName + "\x00" + ev.CreatedAt.Format(time.RFC3339)))
 	ev.ID = "tev_" + hex.EncodeToString(sum[:8])
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
 	_, err := s.DB.ExecContext(ctx, `INSERT OR IGNORE INTO tool_events
 		(id, project_id, session_id, agent, source, tool_name, category, outcome, duration_ms, goal_slug, args_shape, created_at)
