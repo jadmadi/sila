@@ -45,7 +45,7 @@ func promptAssistanceHandshake(ui render.UI, repoRoot, project string, opts Hand
 			isTerm = isatty.IsTerminal(f.Fd()) || isatty.IsCygwinTerminal(f.Fd())
 		}
 	}
-	if !isTerm || os.Getenv("CI") != "" || os.Getenv("DEBIAN_FRONTEND") == "noninteractive" {
+	if !isTerm || (!opts.ForcePrompt && (os.Getenv("CI") != "" || os.Getenv("DEBIAN_FRONTEND") == "noninteractive")) {
 		return false
 	}
 

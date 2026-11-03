@@ -7,6 +7,17 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [0.18.2] - 2026-11-03
+
+### Fixed
+
+- Honor explicit `ForcePrompt` in the `sila salam` assistance handshake even
+  when `CI` is set, so non-interactive test harnesses can exercise the prompt.
+- Fetch annotated tags in CI and release workflows so `build.sh
+  --release-artifact` can resolve the release identity.
+- Build release assets with Go 1.27.2 to clear standard-library vulnerability
+  findings.
+
 ## [0.18.1] - 2026-11-03
 
 ### Fixed
