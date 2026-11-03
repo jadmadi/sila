@@ -91,6 +91,9 @@ Provide a public ping endpoint for health checks.
 }
 
 func TestMysteryAuditCLI_HireAuditGoal(t *testing.T) {
+	if !assess.IsBubblewrapAvailable() {
+		t.Skip("bubblewrap not available; PASS receipts require blindfold verification")
+	}
 	tempDir := t.TempDir()
 	slug := "test-hire-audit-goal"
 	goalDir := filepath.Join(tempDir, "goals", slug)

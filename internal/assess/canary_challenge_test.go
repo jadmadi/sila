@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"testing"
 	"time"
@@ -11,6 +12,9 @@ import (
 
 // TestCanaryAdversarialDiscrimination stress tests canary discrimination under various binary failure modes.
 func TestCanaryAdversarialDiscrimination(t *testing.T) {
+	if _, err := exec.LookPath("sila"); err != nil {
+		t.Skip("sila binary not on PATH; canary discrimination requires a candidate binary")
+	}
 	contract := &StrippedContract{
 		Slug:         "challenge-canary",
 		Requirements: []string{"R1", "R2"},

@@ -323,6 +323,9 @@ func TestRunProbeCLI(t *testing.T) {
 }
 
 func TestExecuteMysteryAudit_PassAndReject(t *testing.T) {
+	if !IsBubblewrapAvailable() {
+		t.Skip("bubblewrap not available; PASS receipts require blindfold verification")
+	}
 	tempDir := t.TempDir()
 	goalDir := filepath.Join(tempDir, "goals", "test-eval")
 	if err := os.MkdirAll(goalDir, 0755); err != nil {

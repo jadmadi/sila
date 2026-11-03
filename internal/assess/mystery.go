@@ -1026,7 +1026,7 @@ func RunProbe(ctx context.Context, sandbox *BlindfoldSandbox, probe Probe) Probe
 		wg.Wait()
 
 		for _, r := range results {
-			if sandbox != nil && !r.UsedBwrap {
+			if sandbox != nil && probe.Surface == SurfaceCLIBinary && !r.UsedBwrap {
 				sandbox.BlindfoldVerified = false
 			}
 		}
@@ -1041,7 +1041,7 @@ func RunProbe(ctx context.Context, sandbox *BlindfoldSandbox, probe Probe) Probe
 	}
 
 	res := runSingleProbe(ctx, sandbox, probe)
-	if sandbox != nil && !res.UsedBwrap {
+	if sandbox != nil && probe.Surface == SurfaceCLIBinary && !res.UsedBwrap {
 		sandbox.BlindfoldVerified = false
 	}
 	return res
