@@ -281,6 +281,9 @@ func TestDoctor_RuleBudgetAudit(t *testing.T) {
 }
 
 func TestDoctor_CFCleanAudit(t *testing.T) {
+	if _, err := exec.LookPath("cfclean"); err != nil {
+		t.Skip("cfclean binary not installed; skipping repair-path test")
+	}
 	tempDir := t.TempDir()
 
 	findCheck := func(rep *store.DoctorReport, name string) (store.CheckResult, bool) {

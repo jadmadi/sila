@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,6 +16,12 @@ import (
 )
 
 func TestMysteryAuditCLI_GoalsAudit(t *testing.T) {
+	if _, err := exec.LookPath("sila"); err != nil {
+		t.Skip("sila binary not on PATH; mystery audit CLI test requires an installed binary")
+	}
+	if !assess.IsBubblewrapAvailable() {
+		t.Skip("bubblewrap not available; PASS receipts require blindfold verification")
+	}
 	tempDir := t.TempDir()
 	slug := "test-mystery-cli-goal"
 	goalDir := filepath.Join(tempDir, "goals", slug)

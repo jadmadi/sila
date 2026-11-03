@@ -172,6 +172,9 @@ func TestScrubEightChannels(t *testing.T) {
 }
 
 func TestCanaryMutantGeneratorAndTrial(t *testing.T) {
+	if _, err := exec.LookPath("sila"); err != nil {
+		t.Skip("sila binary not on PATH; canary trial requires a candidate binary")
+	}
 	contract := &StrippedContract{
 		Slug:         "test-goal",
 		Requirements: []string{"R1", "R2"},
