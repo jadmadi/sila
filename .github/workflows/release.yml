@@ -24,8 +24,16 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Ensure tag identity
+        run: |
+          git fetch --tags --force
+          git describe --tags --always
+      - name: Preflight
+        run: ./build.sh --check --no-install
       - name: Build all release assets
-        run: ./build.sh --all --release-artifact --no-install
+        env:
+          SILA_BUILD_VERSION: ${{ github.ref_name }}
+        run: ./build.sh --all --no-install
       - name: Verify, snapshot, and checksum
         run: |
           ./dist/sila-linux-amd64 release check
