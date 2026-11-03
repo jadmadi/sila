@@ -149,6 +149,8 @@ func TestRenderStatsLine(t *testing.T) {
 }
 
 func TestRenderStatsLineColour(t *testing.T) {
+	t.Setenv("COLORTERM", "truecolor")
+	t.Setenv("SILA_FORCE_COLOR", "1")
 	// /dev/null is a character device, so render.New enables colour for it.
 	dev, err := os.OpenFile(os.DevNull, os.O_WRONLY, 0)
 	if err != nil {
