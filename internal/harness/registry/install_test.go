@@ -537,6 +537,7 @@ func TestUserScopeLifecycleRoundTrip(t *testing.T) {
 			home := t.TempDir()
 			projectDir := t.TempDir()
 			t.Setenv("HOME", home)
+			t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 
 			res, err := InstallUser(tc.harness, home, false, false)
 			if err != nil || !res.Installed || res.Refused {
@@ -734,6 +735,7 @@ func TestInstallUserCodewhaleTOML(t *testing.T) {
 
 func TestPluginBridgeStatusFlagsV1OnlyBridge(t *testing.T) {
 	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	bridgePath := filepath.Join(home, ".config", "opencode", "plugins", pluginbridge.BridgeFilename)
 	if err := os.MkdirAll(filepath.Dir(bridgePath), 0o755); err != nil {
 		t.Fatal(err)
