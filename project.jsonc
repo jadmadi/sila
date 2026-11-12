@@ -7,7 +7,7 @@
   "tagline": "Local-first continuity, memory, and governance for AI coding agents",
   "version": "0.18.2",
   "summary": "A single Pure-Go binary that unifies the session stores of 12 AI coding harnesses into one local SQLite knowledge store, grounds claims against repository files, and exposes continuity through a CLI and a native MCP server.",
-  "description": "Sila is a local-first continuity engine for AI coding agents. It reads the session stores of Claude Code, Codex, OpenCode, MiMoCode, Devin, Command Code, Codewhale, Antigravity, ZCode, Muse, Zed, and Git into one SQLite WAL + FTS5 store; grounds claims against the files they cite; and serves handoffs, recall, goals, gates, and project skills through a 76-tool MCP server and a dual-syntax CLI. No cloud account, telemetry, or CGO.",
+  "description": "Sila is a local-first continuity engine for AI coding agents. It reads the session stores of Claude Code, Codex, OpenCode, MiMoCode, Devin, Command Code, Codewhale, Antigravity, ZCode, Muse, Zed, and Git into one SQLite WAL + FTS5 store; grounds claims against the files they cite; and serves handoffs, recall, goals, gates, and project skills through a 90-tool MCP server and a dual-syntax CLI. No cloud account, telemetry, or CGO.",
   "status": "stable",
   "year": "2026",
   "tech_stack": {
@@ -24,10 +24,10 @@
     "license": "MIT",
     "license_type": "mit"
   },
-  "stats": "76 MCP Tools · 12 Session Sources · Pure-Go SQLite · 6 Target Platforms",
+  "stats": "90 MCP Tools · 12 Session Sources · Pure-Go SQLite · 6 Target Platforms",
   "badges": [
     "Go Core",
-    "76 MCP Tools",
+    "90 MCP Tools",
     "Cross-Harness Continuity",
     "Local-First",
     "Data Sovereignty",
@@ -48,10 +48,11 @@
   "solution": "Sila keeps continuity local: read-only ingestion of existing harness stores, grounded claims, local SQLite FTS5 search, explicit memory writes, session handoffs, goal and gate governance, project skill governance, and a native MCP server. Network access is opt-in.",
   "features": [
     "Cross-session and cross-harness continuity through sila prime, handoff, recall, and salam",
+    "Context-Aware Recall Packs: sila recall --task and --context-file assemble a bounded pack; prime_context carries it over MCP",
     "Read-only loaders for 12 session sources plus Git history",
     "Grounded claims with file-reference drift reconciliation",
     "Local SQLite WAL + FTS5 search with transcript expansion and provenance",
-    "76-tool native MCP server with a focused 36-tool continuity profile",
+    "90-tool native MCP server with a focused 36-tool continuity profile",
     "Goal lifecycle, claim leases, task contracts, acceptance packets, and audits",
     "Pre-commit quality gates, rule compilation, and harness hook adapters",
     "Project skill governor with atomic apply, rollback, and on-demand MCP loading",
@@ -73,7 +74,7 @@
     },
     {
       "question": "What is the difference between the continuity and full MCP profiles?",
-      "answer": "The default continuity profile exposes 36 tools for orientation, search, recall, memory writes, handoffs, goals, gates, skills, and activity. The full profile exposes all 76 tools, including administrative, external-network, and multi-agent coordination surfaces."
+      "answer": "The default continuity profile exposes 36 tools for orientation, search, recall, memory writes, handoffs, goals, gates, skills, and activity. The full profile exposes all 90 tools, including administrative, external-network, and multi-agent coordination surfaces."
     },
     {
       "question": "Is every feature verified?",

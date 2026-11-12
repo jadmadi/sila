@@ -21,6 +21,12 @@ func isStoreInitContention(err error) bool {
 		return true
 	}
 	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "malformed") || strings.Contains(msg, "corrupt") {
+		// A concurrent first-run migration can expose a partially-written
+		// database to a read-only opener. It becomes valid once the creator
+		// commits; retry within the bounded window.
+		return true
+	}
 	return strings.Contains(msg, "failed smoke a/b validation") &&
 		(strings.Contains(msg, "database is locked") || strings.Contains(msg, "sqlite_busy"))
 }

@@ -53,6 +53,12 @@ func TestDocumentedMCPToolCountsMatchRegistry(t *testing.T) {
 		{"HANDOFF.md", "HANDOFF.md", regexp.MustCompile(`canonical (\d+)-tool MCP inventory`)},
 	}
 	for _, s := range surfaces {
+		if s.file == "HANDOFF.md" {
+			if _, err := os.Stat(filepath.Join("..", "..", s.file)); err != nil {
+				t.Logf("HANDOFF.md is private; skipping its MCP count surface")
+				continue
+			}
+		}
 		content := repoFile(t, s.file)
 		m := s.pattern.FindStringSubmatch(content)
 		if m == nil {

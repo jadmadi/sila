@@ -7,6 +7,12 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Changed
+- The public release preflight uses `./build.sh --check --public`; the private-only goal-receipt tests are excluded and documented in `docs/release-preflight.md`.
+
+### Added
+- Context-aware recall packs: `sila recall --task` and `--context-file` assemble a bounded `recall-pack/v1`; `prime_context` carries the same pack over MCP.
+
 ## [1.0.2] - 2026-11-12
 
 ### Fixed

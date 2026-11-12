@@ -13,7 +13,7 @@ and buildable with `go build ./...`.
 - `scripts/` — release, installer, and evaluation tooling.
 - `testdata/`, `test/` — fixtures and end-to-end tests.
 
-The 76-tool Model Context Protocol server lives in `internal/mcp`; the default
+The 90-tool Model Context Protocol server lives in `internal/mcp`; the default
 continuity profile exposes 36 tools. Tier-0 orientation tools are `salam`,
 `prime_context`, `list_goals`, and `run_gate_pipeline`. Use `sila goals` to
 inspect goal status before starting a structured change.

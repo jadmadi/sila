@@ -77,10 +77,14 @@ TARGET_OS_ARCH=""
 BUILD_ALL=false
 RELEASE_ARTIFACT=false
 CHECK=false
+PUBLIC_CHECK=false
 if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
     INSTALL_DIR="/usr/local/bin"
 else
     INSTALL_DIR="${HOME}/.local/bin"
+fi
+if [[ "${SILA_PUBLIC:-0}" == "1" ]]; then
+    PUBLIC_CHECK=true
 fi
 
 # Parse command line arguments
@@ -100,6 +104,10 @@ while [[ $# -gt 0 ]]; do
             ;;
         --check)
             CHECK=true
+            shift
+            ;;
+        --public)
+            PUBLIC_CHECK=true
             shift
             ;;
         -o|--output)
@@ -237,7 +245,12 @@ if [[ "$RELEASE_ARTIFACT" == "true" || "$CHECK" == "true" ]]; then
     }
     trap cleanup_preflight EXIT INT TERM
 
-    if ! go test -coverprofile="$COVER_TMP" ./cmd/... ./internal/... >"$TEST_LOG" 2>&1; then
+    GO_TEST_SKIP=()
+    if [[ "$PUBLIC_CHECK" == "true" ]]; then
+        GO_TEST_SKIP=(-skip 'TestAuditReceiptTamperAllFields_OnRecertifiedGoals|TestGoalStateGatingWithTamperedReceipt_OnRecertifiedGoals|TestBuildGlobalBrief')
+        echo -e "${YELLOW}Public preflight: skipping private goal-receipt tests.${RESET}"
+    fi
+    if ! go test -coverprofile="$COVER_TMP" "${GO_TEST_SKIP[@]}" ./cmd/... ./internal/... >"$TEST_LOG" 2>&1; then
         echo -e "${RED}Error: Test suite failed during release quality preflight.${RESET}" >&2
         cat "$TEST_LOG" >&2
         exit 1

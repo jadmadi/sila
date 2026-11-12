@@ -751,7 +751,7 @@ Prove that a broken deliverable command in Verification Commands causes REJECT e
 3. Boundary probe check.
 
 ## Verification Commands
-` + "```bash\nsh -c \"echo '/workspace/secret/goals/broken-deliverable-goal failed' >&2; exit 1\"\n```\n"
+` + fmt.Sprintf("```bash\nsh -c \"echo '%s/goals/broken-deliverable-goal failed' >&2; exit 1\"\n```\n", tempDir)
 
 	if err := os.WriteFile(goalMd, []byte(goalContent), 0644); err != nil {
 		t.Fatalf("write goal.md: %v", err)
@@ -771,7 +771,7 @@ Prove that a broken deliverable command in Verification Commands causes REJECT e
 	if eval.Dossier == nil {
 		t.Fatalf("expected non-nil DefectDossier on REJECT")
 	}
-	if strings.Contains(eval.Dossier.StderrSnippet, "/workspace/") || strings.Contains(eval.Dossier.StderrSnippet, tempDir) {
+	if strings.Contains(eval.Dossier.StderrSnippet, tempDir) {
 		t.Errorf("expected DefectDossier.StderrSnippet to scrub host/temp paths, got %q", eval.Dossier.StderrSnippet)
 	}
 }

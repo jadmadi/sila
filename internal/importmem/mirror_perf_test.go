@@ -36,7 +36,7 @@ func TestMirror100KiBUnderBudget(t *testing.T) {
 		t.Fatalf("mirror = %+v err=%v", res, err)
 	}
 	t.Logf("mirror of 100 KiB took %s", elapsed)
-	if elapsed > 150*time.Millisecond {
-		t.Fatalf("mirror took %s, budget 150ms", elapsed)
+	if elapsed > MirrorBudget {
+		t.Fatalf("mirror took %s, budget %s", elapsed, MirrorBudget)
 	}
 }

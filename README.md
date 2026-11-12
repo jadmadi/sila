@@ -12,7 +12,7 @@
 Sila is a single static Go binary that reads the session stores of the AI coding
 tools you already use, normalizes them into one local SQLite store, grounds
 claims against the files they cite, and serves the result back through a CLI and
-a native Model Context Protocol server. No cloud account, no telemetry, no CGO.
+a native Model Context Protocol (MCP) Server (90 Tools). No cloud account, no telemetry, no CGO.
 
 ## Why Sila
 
@@ -23,9 +23,18 @@ and failed approaches. Sila gives every harness one local, inspectable memory:
 - **Cross-session continuity** — handoffs, active goals, and prior decisions.
 - **Cross-harness ingestion** — read-only loaders for 12 session sources.
 - **Grounded recall** — claims cite files; drift is surfaced, not hidden.
-- **Native MCP** — 76 tools in the full profile, 36 in the continuity profile.
+- **Native MCP** — 90 tools in the full profile, 36 in the continuity profile. The full profile exposes all 90 tools; see the 90-tool MCP reference.
 - **Governance** — goals, leases, gates, audits, and task contracts.
 - **Local custody** — SQLite on your disk; network commands are opt-in.
+
+## Context-aware recall
+
+Recall packs carry a bounded task and context into one result:
+
+- `sila recall --task "..." --context-file path` assembles a `recall-pack/v1`.
+- The same pack is available over MCP as `prime_context`.
+
+Packs are tiered, budgeted, and marked with an empty reason when no candidates fit.
 
 ## Quickstart
 
@@ -71,7 +80,7 @@ Sila exposes a native JSON-RPC 2.0 server over stdio:
 
 ```bash
 claude mcp add sila -- sila mcp
-# or, for the full 76-tool surface:
+# or, for the full 90-tool surface:
 sila mcp --profile=full
 ```
 
