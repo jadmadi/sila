@@ -7,7 +7,6 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/jadmadi/sila/internal/store"
@@ -113,7 +112,7 @@ func RunMCPDoctor(opts MCPDoctorOptions) *MCPDoctorReport {
 					report.Actions = append(report.Actions, fmt.Sprintf("would terminate pid %d", proc.PID))
 					continue
 				}
-				if err := syscall.Kill(proc.PID, syscall.SIGTERM); err != nil {
+				if err := terminateProcess(proc.PID); err != nil {
 					report.add("orphans", "fail", fmt.Sprintf("signal pid %d: %v", proc.PID, err))
 					continue
 				}
@@ -169,12 +168,12 @@ func orphanedMCPProcesses(processes []Proc) []Proc {
 func waitForExit(pid int, budget time.Duration) bool {
 	deadline := time.Now().Add(budget)
 	for time.Now().Before(deadline) {
-		if err := syscall.Kill(pid, 0); err != nil {
+		if !processAlive(pid) {
 			return true
 		}
 		time.Sleep(25 * time.Millisecond)
 	}
-	return syscall.Kill(pid, 0) != nil
+	return !processAlive(pid)
 }
 
 // ScanProcesses reads the process table on Linux; other platforms yield none.
