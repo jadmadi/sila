@@ -7,6 +7,11 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-12
+
+### Fixed
+- `sila changelog` now shows released sections instead of Unreleased. The private changelog was cut for v1.0.0 and v1.0.1, the `# Changelog` header was restored, and the embedded changelog copy was synchronized. No runtime changes.
+
 ## [1.0.1] - 2026-11-12
 
 ### Changed
