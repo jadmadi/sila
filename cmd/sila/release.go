@@ -207,7 +207,7 @@ func releaseCheck() (releaseCheckResult, error) {
 	if out, err := exec.Command("git", "cat-file", "-t", version.Version).Output(); err != nil || strings.TrimSpace(string(out)) != "tag" {
 		return result, fmt.Errorf("release preflight requires %s to be an annotated tag", version.Version)
 	}
-	if out, err := exec.Command("git", "status", "--porcelain").Output(); err != nil || strings.TrimSpace(string(out)) != "" {
+	if out, err := exec.Command("git", "status", "--porcelain", "--untracked-files=no").Output(); err != nil || strings.TrimSpace(string(out)) != "" {
 		return result, fmt.Errorf("release preflight requires a clean worktree")
 	}
 	changelog, err := os.ReadFile("CHANGELOG.md")
