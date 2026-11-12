@@ -204,8 +204,8 @@ func TestSplitPath(t *testing.T) {
 		{"foo", []string{"foo"}},
 		{"foo/bar/baz", []string{"foo", "bar", "baz"}},
 		{"foo\\bar\\baz", []string{"foo", "bar", "baz"}},
-		{"C:\\Users\\Jad", []string{"C:", "Users", "Jad"}},
-		{"/home/user/project", []string{"home", "jad", "project"}},
+		{"C:\\Users\\Example", []string{"C:", "Users", "Example"}},
+		{"/home/example/project", []string{"home", "example", "project"}},
 	}
 
 	for _, tt := range tests {

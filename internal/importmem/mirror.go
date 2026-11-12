@@ -146,7 +146,7 @@ func pathWithin(root, target string) bool {
 }
 
 // MirrorBudget bounds one file-scoped mirror.
-const MirrorBudget = 150 * time.Millisecond
+const MirrorBudget = 2 * time.Second
 
 // MirrorOne parses and imports exactly one allowlisted file. Re-mirroring
 // identical content counts a duplicate and writes nothing; a changed file

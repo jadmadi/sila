@@ -78,16 +78,16 @@ func TestQueryStoreFactsCaseInsensitiveAndPartialProject(t *testing.T) {
 	}
 	defer st.Close()
 
-	if _, err := st.EnsureProject("/home/user/github/example-app-App"); err != nil {
+	if _, err := st.EnsureProject("/home/user/github/example-app"); err != nil {
 		t.Fatal(err)
 	}
 	st.UpsertFact(store.Fact{
-		ID: "fact_1", ProjectID: "example-app-App", Claim: "Auth route uses refresh tokens with 7d expiry",
+		ID: "fact_1", ProjectID: "example-app", Claim: "Auth route uses refresh tokens with 7d expiry",
 		Confidence: "high", Verified: true, RepoFiles: []string{"auth.go"}, Tools: []string{"devin"},
 		SessionRef: "s1", FirstSeen: "2026-08-01T00:00:00Z", PromotedAt: "2026-08-01T00:00:00Z",
 	})
 
-	selectors := []string{"example-app-App", "almatjar-app", "/home/user/github/example-app-App"}
+	selectors := []string{"Example-App", "example-app", "/home/user/github/example-app"}
 	for _, sel := range selectors {
 		facts, err := QueryStoreFacts(st, []string{"tokens"}, sel, "", false, false, false, 0)
 		if err != nil {
@@ -99,7 +99,7 @@ func TestQueryStoreFactsCaseInsensitiveAndPartialProject(t *testing.T) {
 	}
 
 	// Test staleOnly filters out verified facts
-	staleFacts, err := QueryStoreFacts(st, []string{"tokens"}, "example-app-App", "", false, true, false, 0)
+	staleFacts, err := QueryStoreFacts(st, []string{"tokens"}, "example-app", "", false, true, false, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestQueryStoreFactsCaseInsensitiveAndPartialProject(t *testing.T) {
 	}
 
 	// Test factsOnly filters out un-distilled claims
-	onlyFacts, err := QueryStoreFacts(st, []string{"tokens"}, "example-app-App", "", false, false, true, 0)
+	onlyFacts, err := QueryStoreFacts(st, []string{"tokens"}, "example-app", "", false, false, true, 0)
 	if err != nil {
 		t.Fatal(err)
 	}

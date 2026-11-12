@@ -30,7 +30,7 @@ jobs:
           git fetch --tags --force
           git describe --tags --always
       - name: Preflight
-        run: ./build.sh --check --no-install
+        run: ./build.sh --check --public --no-install
       - name: Build all release assets
         env:
           SILA_BUILD_VERSION: ${{ github.ref_name }}

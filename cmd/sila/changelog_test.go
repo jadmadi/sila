@@ -439,7 +439,7 @@ func TestRunChangelogTimeline(t *testing.T) {
 			t.Errorf("expected timeline table header %q in output:\n%s", header, out)
 		}
 	}
-	if !strings.Contains(out, "v0.11.0") || !strings.Contains(out, "v0.10.0") {
+	if !strings.Contains(out, "v0.17.5") || !strings.Contains(out, "v0.16.0") {
 		t.Errorf("expected multiple releases in timeline matrix, got:\n%s", out)
 	}
 }

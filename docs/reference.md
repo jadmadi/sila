@@ -2,7 +2,7 @@
 
 Detailed feature guide, design rationale, and the complete CLI command reference.
 New users should start with [README.md](../README.md); agents working on this
-repository should read [AGENTS.md](../AGENTS.md) and [HANDOFF.md](../HANDOFF.md).
+repository should read [AGENTS.md](../AGENTS.md) and [HANDOFF.md](../README.md).
 
 Contents:
 
