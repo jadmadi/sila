@@ -11,12 +11,12 @@ func TestDetectWorkspaceProjectID(t *testing.T) {
 
 	// Create a mock multi-root workspace layout:
 	// tmp/
-	//   sila.code-workspace
+	//   example.code-workspace
 	//   cli/
 	//     cmd/sila/
 	//   worker/
 	//   research/
-	wsPath := filepath.Join(tmp, "sila.code-workspace")
+	wsPath := filepath.Join(tmp, "example.code-workspace")
 	wsContent := `{
   "folders": [
     {
@@ -38,7 +38,7 @@ func TestDetectWorkspaceProjectID(t *testing.T) {
 	}
 
 	cliDir := filepath.Join(tmp, "cli")
-	subCliDir := filepath.Join(tmp, "cli", "cmd", "sila")
+	subCliDir := filepath.Join(tmp, "cli", "cmd", "example")
 	workerDir := filepath.Join(tmp, "worker")
 	researchDir := filepath.Join(tmp, "research")
 	for _, d := range []string{cliDir, subCliDir, workerDir, researchDir} {
@@ -49,37 +49,37 @@ func TestDetectWorkspaceProjectID(t *testing.T) {
 
 	// 1. Workspace root itself
 	id, ok := DetectWorkspaceProjectID(tmp)
-	if !ok || id != "sila" {
-		t.Errorf("DetectWorkspaceProjectID(root) = (%q, %v), want (%q, true)", id, ok, "sila")
+	if !ok || id != "example" {
+		t.Errorf("DetectWorkspaceProjectID(root) = (%q, %v), want (%q, true)", id, ok, "example")
 	}
-	if got := ProjectID(tmp); got != "sila" {
-		t.Errorf("ProjectID(root) = %q, want %q", got, "sila")
+	if got := ProjectID(tmp); got != "example" {
+		t.Errorf("ProjectID(root) = %q, want %q", got, "example")
 	}
 
 	// 2. Direct workspace folder: cli
 	id, ok = DetectWorkspaceProjectID(cliDir)
-	if !ok || id != "sila-cli" {
-		t.Errorf("DetectWorkspaceProjectID(cli) = (%q, %v), want (%q, true)", id, ok, "sila-cli")
+	if !ok || id != "example-cli" {
+		t.Errorf("DetectWorkspaceProjectID(cli) = (%q, %v), want (%q, true)", id, ok, "example-cli")
 	}
-	if got := ProjectID(cliDir); got != "sila-cli" {
-		t.Errorf("ProjectID(cli) = %q, want %q", got, "sila-cli")
+	if got := ProjectID(cliDir); got != "example-cli" {
+		t.Errorf("ProjectID(cli) = %q, want %q", got, "example-cli")
 	}
 
 	// 3. Nested subdirectory inside cli: cli/cmd/sila
 	id, ok = DetectWorkspaceProjectID(subCliDir)
-	if !ok || id != "sila-cli" {
-		t.Errorf("DetectWorkspaceProjectID(subCliDir) = (%q, %v), want (%q, true)", id, ok, "sila-cli")
+	if !ok || id != "example-cli" {
+		t.Errorf("DetectWorkspaceProjectID(subCliDir) = (%q, %v), want (%q, true)", id, ok, "example-cli")
 	}
-	if got := ProjectID(subCliDir); got != "sila-cli" {
-		t.Errorf("ProjectID(subCliDir) = %q, want %q", got, "sila-cli")
+	if got := ProjectID(subCliDir); got != "example-cli" {
+		t.Errorf("ProjectID(subCliDir) = %q, want %q", got, "example-cli")
 	}
 
 	// 4. Other declared folders: worker & research
-	if got := ProjectID(workerDir); got != "sila-worker" {
-		t.Errorf("ProjectID(worker) = %q, want %q", got, "sila-worker")
+	if got := ProjectID(workerDir); got != "example-worker" {
+		t.Errorf("ProjectID(worker) = %q, want %q", got, "example-worker")
 	}
-	if got := ProjectID(researchDir); got != "research" {
-		t.Errorf("ProjectID(research) = %q, want %q", got, "research")
+	if got := ProjectID(researchDir); got != "example-research" {
+		t.Errorf("ProjectID(research) = %q, want %q", got, "example-research")
 	}
 
 	// 5. Unrelated folder outside workspace
@@ -92,7 +92,7 @@ func TestDetectWorkspaceProjectID(t *testing.T) {
 
 func TestDetectWorkspaceProjectID_DotRoot(t *testing.T) {
 	tmp := t.TempDir()
-	wsPath := filepath.Join(tmp, "example.workspace.app.code-workspace")
+	wsPath := filepath.Join(tmp, "example-app.code-workspace")
 	wsContent := `{"folders": [{"path": "."}]}`
 	if err := os.WriteFile(wsPath, []byte(wsContent), 0o644); err != nil {
 		t.Fatal(err)
@@ -103,28 +103,28 @@ func TestDetectWorkspaceProjectID_DotRoot(t *testing.T) {
 	}
 
 	id, ok := DetectWorkspaceProjectID(tmp)
-	if !ok || id != "example.workspace.app" {
-		t.Errorf("DetectWorkspaceProjectID(dotRoot) = (%q, %v), want (%q, true)", id, ok, "example.workspace.app")
+	if !ok || id != "example-app" {
+		t.Errorf("DetectWorkspaceProjectID(dotRoot) = (%q, %v), want (%q, true)", id, ok, "example-app")
 	}
-	if got := ProjectID(tmp); got != "example.workspace.app" {
-		t.Errorf("ProjectID(dotRoot) = %q, want %q", got, "example.workspace.app")
+	if got := ProjectID(tmp); got != "example-app" {
+		t.Errorf("ProjectID(dotRoot) = %q, want %q", got, "example-app")
 	}
 }
 
 func TestDetectWorkspaceProjectID_AlreadyPrefixed(t *testing.T) {
 	tmp := t.TempDir()
-	wsPath := filepath.Join(tmp, "sila.code-workspace")
-	wsContent := `{"folders": [{"path": "sila-cli"}]}`
+	wsPath := filepath.Join(tmp, "example.code-workspace")
+	wsContent := `{"folders": [{"path": "example-cli"}]}`
 	if err := os.WriteFile(wsPath, []byte(wsContent), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	folder := filepath.Join(tmp, "sila-cli")
+	folder := filepath.Join(tmp, "example-cli")
 	if err := os.MkdirAll(folder, 0o755); err != nil {
 		t.Fatal(err)
 	}
 
 	id, ok := DetectWorkspaceProjectID(folder)
-	if !ok || id != "sila-cli" {
-		t.Errorf("DetectWorkspaceProjectID(alreadyPrefixed) = (%q, %v), want (%q, true)", id, ok, "sila-cli")
+	if !ok || id != "example-cli" {
+		t.Errorf("DetectWorkspaceProjectID(alreadyPrefixed) = (%q, %v), want (%q, true)", id, ok, "example-cli")
 	}
 }

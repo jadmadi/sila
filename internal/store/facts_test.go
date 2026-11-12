@@ -203,11 +203,11 @@ func TestSearchFactsFTSProjectCaseInsensitiveAndPartial(t *testing.T) {
 	}
 	defer s.Close()
 
-	if _, err := s.EnsureProject("/home/user/github/example-app-App"); err != nil {
+	if _, err := s.EnsureProject("/home/user/github/example-app"); err != nil {
 		t.Fatal(err)
 	}
 	f := Fact{
-		ID: "fact_almatjar", ProjectID: "example-app-App", Claim: "Auth route uses refresh tokens with 7d expiry",
+		ID: "fact_example", ProjectID: "example-app", Claim: "Auth route uses refresh tokens with 7d expiry",
 		Confidence: "high", Verified: true, RepoFiles: []string{"auth.go"}, Tools: []string{"devin"},
 		SessionRef: "s1", FirstSeen: "2026-08-01T00:00:00Z", PromotedAt: "2026-08-01T00:00:00Z",
 	}
@@ -215,14 +215,14 @@ func TestSearchFactsFTSProjectCaseInsensitiveAndPartial(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	selectors := []string{"example-app-App", "almatjar-app", "/home/user/github/example-app-App"}
+	selectors := []string{"Example-App", "example-app", "/home/user/github/example-app"}
 	for _, sel := range selectors {
 		// Test FTS search with project selector
 		ftsRes, err := s.SearchFactsFTS("tokens", sel, false, 0)
 		if err != nil {
 			t.Fatalf("selector %q failed: %v", sel, err)
 		}
-		if len(ftsRes) != 1 || ftsRes[0].ID != "fact_almatjar" {
+		if len(ftsRes) != 1 || ftsRes[0].ID != "fact_example" {
 			t.Fatalf("SearchFactsFTS selector %q failed to match, got %v", sel, ftsRes)
 		}
 
@@ -231,7 +231,7 @@ func TestSearchFactsFTSProjectCaseInsensitiveAndPartial(t *testing.T) {
 		if err != nil {
 			t.Fatalf("FactsByProject selector %q failed: %v", sel, err)
 		}
-		if len(byProjRes) != 1 || byProjRes[0].ID != "fact_almatjar" {
+		if len(byProjRes) != 1 || byProjRes[0].ID != "fact_example" {
 			t.Fatalf("FactsByProject selector %q failed to match, got %v", sel, byProjRes)
 		}
 	}
