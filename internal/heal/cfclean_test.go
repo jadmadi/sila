@@ -11,6 +11,9 @@ import (
 )
 
 func TestNeedsCFGitFilter(t *testing.T) {
+	if _, err := exec.LookPath("cfclean"); err != nil {
+		t.Skip("cfclean not installed; skipping git filter integration")
+	}
 	tempDir := t.TempDir()
 
 	// 1. Non-worker project returns false

@@ -140,6 +140,7 @@ func TestMiMoCodeInstallVerificationAndForeignPreservation(t *testing.T) {
 
 func TestUserScopeOpenCodeBridgeRoundTrip(t *testing.T) {
 	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", filepath.Join(home, ".config"))
 	foreignPath := filepath.Join(home, ".config", "opencode", "plugins", "foreign-plugin.js")
 	if err := os.MkdirAll(filepath.Dir(foreignPath), 0o755); err != nil {
 		t.Fatal(err)
