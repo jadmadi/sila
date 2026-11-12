@@ -92,10 +92,10 @@ func FilterValidProjects(candidates []CandidateProject) []CandidateProject {
 			realPath = filepath.Clean(abs)
 		}
 
-		if realPath == "/" || realPath == "." {
+		if realPath == "/" || realPath == "." || realPath == "/tmp" || realPath == "/var/tmp" {
 			continue
 		}
-		if cleanHome != "" && realPath == cleanHome {
+		if cleanHome != "" && (realPath == cleanHome || isNonRepoHomeDir(cleanHome, realPath)) {
 			continue
 		}
 
@@ -136,6 +136,30 @@ func FilterValidProjects(candidates []CandidateProject) []CandidateProject {
 	}
 
 	return valid
+}
+
+var nonRepoHomePrefixes = []string{
+	".agents", ".gemini", ".claude", ".cursor", ".devin", ".zcode",
+	".config", ".local", ".cache", "Downloads", "Pictures", "Documents",
+	"Music", "Videos", "Desktop", "temp", "temp-agy", "temp-mise", "tmp",
+}
+
+func isNonRepoHomeDir(cleanHome, cleanDir string) bool {
+	rel, err := filepath.Rel(cleanHome, cleanDir)
+	if err != nil {
+		return false
+	}
+	relSlash := filepath.ToSlash(rel)
+	if relSlash == ".." || strings.HasPrefix(relSlash, "../") {
+		return false
+	}
+	for _, p := range nonRepoHomePrefixes {
+		if relSlash == p || strings.HasPrefix(relSlash, p+"/") {
+			_, gitErr := os.Stat(filepath.Join(cleanDir, ".git"))
+			return gitErr != nil
+		}
+	}
+	return false
 }
 
 // SyncAllProjects executes DeployTargets across all provided valid projects.

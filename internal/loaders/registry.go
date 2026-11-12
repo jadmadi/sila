@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"time"
 )
 
 func homeDir() string {
@@ -33,7 +34,7 @@ func AllSources() map[string]*Source {
 			New: NewMiMoCodeLoader,
 		},
 		"opencode": {
-			Name: "opencode", DBPath: filepath.Join(home, ".local", "share", "opencode", "opencode.db"),
+			Name: "opencode", DBPath: defaultOpenCodeDBPath(home),
 			New: NewOpenCodeLoader,
 		},
 		"devin": {
@@ -156,4 +157,56 @@ func SortedNames(m map[string]*Source) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// OpenCodeDBPaths returns the existing non-empty OpenCode SQLite stores for a
+// home directory, ordered by effective modification time (a newer -wal file
+// wins). It covers XDG_DATA_HOME, the native install, and the Flathub Flatpak
+// sandbox.
+func OpenCodeDBPaths(home string) []string {
+	candidates := make([]string, 0, 3)
+	if xdg := strings.TrimSpace(os.Getenv("XDG_DATA_HOME")); xdg != "" {
+		candidates = append(candidates, filepath.Join(xdg, "opencode", "opencode.db"))
+	}
+	candidates = append(candidates,
+		filepath.Join(home, ".local", "share", "opencode", "opencode.db"),
+		filepath.Join(home, ".var", "app", "ai.opencode.opencode", "data", "opencode", "opencode.db"),
+	)
+	type store struct {
+		path  string
+		mtime time.Time
+	}
+	var live []store
+	seen := make(map[string]bool, len(candidates))
+	for _, candidate := range candidates {
+		clean := filepath.Clean(candidate)
+		if seen[clean] {
+			continue
+		}
+		seen[clean] = true
+		fi, err := os.Stat(clean)
+		if err != nil || fi.IsDir() || fi.Size() == 0 {
+			continue
+		}
+		mtime := fi.ModTime()
+		if wal, werr := os.Stat(clean + "-wal"); werr == nil && !wal.IsDir() && wal.ModTime().After(mtime) {
+			mtime = wal.ModTime()
+		}
+		live = append(live, store{path: clean, mtime: mtime})
+	}
+	sort.Slice(live, func(i, j int) bool { return live[i].mtime.After(live[j].mtime) })
+	paths := make([]string, len(live))
+	for i, entry := range live {
+		paths[i] = entry.path
+	}
+	return paths
+}
+
+// defaultOpenCodeDBPath returns the newest existing OpenCode store, or the
+// native path when no store exists yet.
+func defaultOpenCodeDBPath(home string) string {
+	if paths := OpenCodeDBPaths(home); len(paths) > 0 {
+		return paths[0]
+	}
+	return filepath.Join(home, ".local", "share", "opencode", "opencode.db")
 }

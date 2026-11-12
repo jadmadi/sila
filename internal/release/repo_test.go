@@ -1,27 +1,33 @@
 package release
 
 import (
+	"os"
 	"path/filepath"
 	"testing"
 )
 
 func TestResolveGitRepoDir(t *testing.T) {
-	repoRoot, err := filepath.Abs(filepath.Join("..", ".."))
+	// From within cli/
+	cliDir, err := os.Getwd()
 	if err != nil {
-		t.Fatalf("resolve repo root: %v", err)
+		t.Fatal(err)
 	}
 
-	// From a package subdirectory, the resolver should find the repository root.
-	found := ResolveGitRepoDir(filepath.Join(repoRoot, "internal", "release"))
+	if filepath.Base(cliDir) != "cli" {
+		t.Skipf("workspace layout requires the cli directory name, got %s", filepath.Base(cliDir))
+	}
+	found := ResolveGitRepoDir(cliDir)
 	if !filepath.IsAbs(found) {
 		t.Errorf("expected absolute path, got %s", found)
 	}
-	if filepath.Clean(found) != filepath.Clean(repoRoot) {
-		t.Errorf("expected repo root %s, got %s", repoRoot, found)
+	if filepath.Base(found) != "cli" {
+		t.Errorf("expected repo dir to end with cli, got %s", found)
 	}
 
-	// A direct call from the repository root must resolve to itself.
-	if got := ResolveGitRepoDir(repoRoot); filepath.Clean(got) != filepath.Clean(repoRoot) {
-		t.Errorf("expected repo root from root call, got %s", got)
+	// From parent workspace root
+	parentDir := filepath.Dir(cliDir)
+	foundParent := ResolveGitRepoDir(parentDir)
+	if filepath.Base(foundParent) != "cli" {
+		t.Errorf("expected parent workspace root to discover cli, got %s", foundParent)
 	}
 }

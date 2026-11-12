@@ -18,7 +18,8 @@ Agent Continuity & Working Loop:
   standup (deprecated alias: recap) [last <window>] [-g]                  Human morning standup: decisions, commits shipped, open items
   hook                              [session-start|session-end]           Execute agent lifecycle hooks & git pre-commit quality gates
   session                           start|status|env|end|list|prune       Resolve, export, bind, and track local agent session identity
-  memory                            report|prune                          Local-only memory adoption events, session rates, goal compliance, and gate outcomes
+  memory                            add|validate|show|list|digest|archive|restore|history|report|prune
+                                    Typed sila/memory/v1 envelopes, reversible archive/restore lifecycle, validation, digests, and adoption reports
   intro                             [--agent=<name>]                      Agent onboarding guide & AGENTS.md template block
 
 Knowledge, Recall & Memory:
@@ -33,19 +34,28 @@ Knowledge, Recall & Memory:
   facts               [verify|show <id>|list]            Cryptographic SHA-256 hash-chained fact ledger audit
   guide               [domain] [--format=...] [--out=]   Compile and export living Developer Operational Guidebook (10 domains)
   learn               [list|add|export] [domain]         Record, list, and export distilled operational learnings & guardrails
+  graph               build | report | query | slice | path | affected | stats | doctor
+                      Build, audit, query, slice, blast-radius, and inspect the code + memory graph
 
 Roadmap, Governance & Multi-Agent:
-  goals                     [claim|release|ready|review]      Roadmap matrix, claims, commit matching & Plannotator review
-  vision                    [compile|triage|add-nongoal]      Strategic North Star, VISION.md compiler & proposal triage
-  approve (alias: approval) [<id>] [--reject] [--pending]     Human-in-the-loop approval steering for autonomous AI agents
-  adr                       [new|list|compile|doctor]         Author, compile, ground, and doctor Architecture Decision Records
-  decision                  [create|resolve|list|view|check]  Epistemic addressed decision log (D#), options & collision check
-  opinions                  [compile|add|list] [--toon]       Living technical taste ledger & OPINIONS.md compilation
-  feedback                  [<msg>] [--type=...] [--issue]    Closed-loop feedback ticket ledger for agent suggestions & issues
-  crew                      [spawn|list|status|kill]          First Mate crew orchestrator: tmux sessions with zero-token supervision
-  worktree                  [create|list|clean|run]           Disposable Git worktree sandboxes with context seeding & gates
-  digest                    [--activity] [--since=24h]        Multi-agent activity digest & session ledger for AI coding agents
-  benchmark                 [--min-sessions=N] [--toon]       Cross-agent empirical scorecard: grounding rate & goal attribution
+  goals                     [claim|release|ready|review]           Roadmap matrix, claims, commit matching & Plannotator review
+  vision                    [compile|triage|add-nongoal]           Strategic North Star, VISION.md compiler & proposal triage
+  approve (alias: approval) [<id>] [--reject] [--pending]          Human-in-the-loop approval steering for autonomous AI agents
+  adr                       [new|list|compile|doctor]              Author, compile, ground, and doctor Architecture Decision Records
+  decision                  [create|resolve|list|view|check]       Epistemic addressed decision log (D#), options & collision check
+  opinions                  [compile|add|list] [--toon]            Living technical taste ledger & OPINIONS.md compilation
+  feedback                  [<msg>] [--type=...] [--issue]         Closed-loop feedback ticket ledger for agent suggestions & issues
+  crew                      [spawn|list|status|kill]               First Mate crew orchestrator: tmux sessions with zero-token supervision
+  worktree                  [create|list|clean|run]                Disposable Git worktree sandboxes with context seeding & gates
+  man                       [topic] [--search=<term>] [--json]     Read the embedded manual pages
+  daemon                    start|stop|status [--foreground] [--socket=<path>]
+                            Run the local Unix-socket daemon with one store and a proxied MCP path
+  commits                   [--since=<dur>] [--json] | show <sha>  Commit-to-session receipts from the local store
+  digest                    [--activity] [--since=24h]             Multi-agent activity digest & session ledger for AI coding agents
+  benchmark                 [--min-sessions=N] [--toon]            Cross-agent empirical scorecard: grounding rate & goal attribution
+  pause                     [--global] [--reason=<text>]           Pause hook and MCP capture; reads stay available
+  resume                    [--global]                             Resume capture and clear a forget exclusion
+  forget                    [--include-transcripts] [--yes]        Archive captured knowledge and exclude it from reads
 
 Personas, Audits & Skill Authoring:
   persona                                            list [--group=ID] | get <id|num>  Modular persona registry & edge vault across 31 specialist personas
@@ -61,6 +71,7 @@ Quality Gates, Verification & Health:
   gate                            [pipeline|install|coverage]       Local quality gate pipeline: pre-commit/pre-push & sentries
   doctor                          [--repair] [--edge] [--skills]    End-to-end SQLite integrity, index sync, skill bloat & test audit
   verify                          [<project>] [--dry-run] [--json]  Re-verify referenced files on disk and detect stale claims
+  soak                            [--json|--toon]                   Release soak progress and the exact actions still needed
   reportcard (alias: report-card) [--json] [--toon]                 Local Go Report Card analyzer (gofmt, govet, gocyclo, misspell)
   coverage                        [--strict] [--profile=path]       Evaluate test statement coverage against package quality thresholds
   eval                            [run|ablate|init|synthesize]      Universal epistemic evaluation, multi-harness runner & ablation
@@ -73,6 +84,8 @@ Repository Setup, Rules & Onboarding:
   export  [rules] [--target=...]               Dump messages/claims as JSON or compile agent rules
 
 Sync, Ingestion & Store Operations:
+  import   [--from=claude|codex|grok|all] [--project=] [--dry-run|--yes] [--json|--toon]
+           Import durable memory files from Claude Code, Codex, and Grok; dry-run by default
   sync     [--project=] [--since=] [--full]  Ingest from all tools + distill claims with live progress preview
   live     [--interval=<duration>] [--compact]      Continuous live 9-box mission control cockpit & background sync
   dream    [<project>] [--llm=...]           Distill claims and atomic facts from messages (query, reconcile)
@@ -90,12 +103,16 @@ Sync, Ingestion & Store Operations:
 
 Surfaces, Services & Integrations:
   ui                      [--port=7452] [--no-open]               Interactive local web cockpit for decisions & knowledge navigation
-  demo                    [--port=7452] [--no-open]               Ephemeral demo playground: pre-populated sandbox store for Web Cockpit
+  demo                    [--step=<list>] [--keep] [--web]        7-stage continuity walkthrough; --web opens the Web Cockpit
   mcp                     [--profile=continuity|full] [--print-schema] [--trace-args]
                           Start Model Context Protocol (MCP) JSON-RPC stdio server, print its schema, or trace argument metadata
   cloud                   [status|pull|push]                      D1 edge bridge: probe connectivity, drain cloud mailbox
   gateway                 [status|test|send]                      Pluggable external relay: Discord, Telegram, Gemini, and MCP
   sources                 [--verbose] [--json]                    Discover installed AI tools on this host: log paths & setup guidance
+  connect                 [list|add|verify|demo|remove] [<harness>]
+                          Connect, verify, and remove sila MCP in a second harness
+  cards                   [list|show] [<card-id|session-id>] [--limit=N]
+                          Inspect typed session cards written at session end
   config                  [set|get|path|explain]                  Manage settings, API keys, search engine credentials & doc sites
   changelog               [<ver>] [--timeline] [--full] [--scan]  Display Sila release history or synthesize repo release notes
   upgrade (alias: update) [--force] [--check]                     Self-upgrade sila binary to latest release

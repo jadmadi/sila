@@ -250,7 +250,7 @@ func TestCreateGoalWorkPackage(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		out, err := runSubprocessGoals(repoDir, true, "create", "pkg-feature", "--work-package=wp.json", "--json")
+		out, err := runSubprocessGoals(repoDir, true, "create", "pkg-feature", "--work-package=wp.json", "--files=README.md", "--json")
 		if err != nil {
 			t.Fatalf("expected success creating goal with work package, got err: %v\nOutput: %s", err, string(out))
 		}
@@ -366,7 +366,7 @@ func TestCreateGoalWorkPackage(t *testing.T) {
 	t.Run("LegacyTasksStillWork", func(t *testing.T) {
 		repoDir := setupWorkPackageTestRepo(t)
 
-		out, err := runSubprocessGoals(repoDir, true, "create", "legacy-feature", "--tasks=Phase 1: Task A; Phase 2: Task B", "--json")
+		out, err := runSubprocessGoals(repoDir, true, "create", "legacy-feature", "--files=README.md", "--tasks=Phase 1: Task A; Phase 2: Task B", "--json")
 		if err != nil {
 			t.Fatalf("expected success creating goal with legacy tasks, got: %v\nOutput: %s", err, string(out))
 		}

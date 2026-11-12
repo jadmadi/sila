@@ -310,3 +310,93 @@ func TestDecisions_PreferencesLinkage(t *testing.T) {
 		t.Fatalf("expected DecisionAddress D1, got %q", prefs[0].DecisionAddress)
 	}
 }
+
+func TestDecisionDeferAndResolveWithQuote(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "defer.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	d, err := s.CreateDecision(&Decision{
+		ProjectID: "p", Title: "Choose worker mode", CreatedBy: "agent",
+		Options:        []DecisionOption{{Letter: "A", Title: "Enable"}, {Letter: "B", Title: "Disable"}},
+		Recommendation: "A",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deferred, err := s.DeferDecision("p", d.Address, "waiting on user", "agent")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deferred.Status != "deferred" || deferred.Resolution != "" {
+		t.Fatalf("deferred = status %q resolution %q, want deferred and empty", deferred.Status, deferred.Resolution)
+	}
+	resolved, err := s.ResolveDecisionWithOptions("p", d.Address, "A", "done", "agent", "User said choose A", "route via worker", true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.Status != "resolved" || resolved.UserQuote != "User said choose A" || resolved.RouteNote != "route via worker" {
+		t.Fatalf("resolved = %#v", resolved)
+	}
+}
+
+func TestDecisionRequireQuoteRejectsEmptyQuote(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "require-quote.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	d, err := s.CreateDecision(&Decision{
+		ProjectID: "p", Title: "Choose worker mode", CreatedBy: "agent",
+		Options:        []DecisionOption{{Letter: "A", Title: "Enable"}, {Letter: "B", Title: "Disable"}},
+		Recommendation: "A",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.ResolveDecisionWithOptions("p", d.Address, "A", "", "agent", "", "", true); err == nil {
+		t.Fatal("expected empty user quote to be rejected")
+	} else if !strings.Contains(err.Error(), "requires a verbatim user quote") {
+		t.Fatalf("error = %q", err.Error())
+	}
+	current, err := s.GetDecision("p", d.Address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Status != "open" {
+		t.Fatalf("decision mutated to %q after rejected resolve", current.Status)
+	}
+}
+
+func TestDecisionDeferredRejectsNonEmptyResolutionAnomaly(t *testing.T) {
+	s, err := Open(filepath.Join(t.TempDir(), "deferred-anomaly.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	if _, err := s.CreateDecision(&Decision{
+		ProjectID: "p", Title: "Anomalous deferred decision", CreatedBy: "agent",
+		Options:        []DecisionOption{{Letter: "A", Title: "Enable"}, {Letter: "B", Title: "Disable"}},
+		Recommendation: "A", Status: "deferred", Resolution: "A",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	anomalies, err := s.CheckDecisionCollisions("p")
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, anomaly := range anomalies {
+		if strings.Contains(anomaly, "deferred but has resolution") {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatalf("anomalies = %v, want deferred resolution anomaly", anomalies)
+	}
+}

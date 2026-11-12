@@ -251,6 +251,13 @@ func visibleWidth(s string) int {
 	return len(ansiRE.ReplaceAllString(s, ""))
 }
 
+// VisibleLen returns the display width of s with ANSI escape codes stripped.
+// Callers that assemble their own terminal output use it to keep every line
+// inside a fixed column budget.
+func VisibleLen(s string) int {
+	return visibleWidth(s)
+}
+
 // Wrap breaks text into lines of at most budget columns and prefixes every line
 // after the first with indent, so a long excerpt still reads as one entry
 // rather than looking like several. Callers pass an indent as wide as the

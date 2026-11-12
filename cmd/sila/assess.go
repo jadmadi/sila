@@ -165,8 +165,9 @@ func distillWithProgress(st *store.Store, projSel string, force bool, onProgress
 		if err != nil {
 			return 0, 0, 0, nil, err
 		}
+		wm, werr := st.DistillWatermark(p.ID)
 		if !force {
-			if wm, werr := st.DistillWatermark(p.ID); werr == nil && latest <= wm {
+			if werr == nil && latest <= wm {
 				if onProgress != nil {
 					onProgress(DistillProgress{
 						ProjectID:   p.ID,
@@ -190,7 +191,17 @@ func distillWithProgress(st *store.Store, projSel string, force bool, onProgress
 			})
 		}
 		dream.InvalidateProjectFileCache(p.Path)
-		msgs, err := st.MessagesForDistill(p.ID)
+		afterID := int64(0)
+		if !force {
+			if werr == nil && wm > 0 {
+				afterID = wm
+			}
+			const maxIncrementalWindow = 500
+			if latest-afterID > maxIncrementalWindow {
+				afterID = latest - maxIncrementalWindow
+			}
+		}
+		msgs, err := st.MessagesForDistillSince(p.ID, afterID)
 		if err != nil {
 			return 0, 0, 0, nil, err
 		}
@@ -220,11 +231,13 @@ func distillWithProgress(st *store.Store, projSel string, force bool, onProgress
 				projVerified++
 			}
 		}
-		if err := st.PruneFacts(p.ID, producedIDs); err != nil {
-			return 0, 0, 0, nil, err
+		if afterID == 0 {
+			if err := st.PruneFacts(p.ID, producedIDs); err != nil {
+				return 0, 0, 0, nil, err
+			}
+			// Reconcile drift against current repository filesystem state
+			_, _ = st.ReconcileFactDrift(p.ID, p.Path)
 		}
-		// Reconcile drift against current repository filesystem state
-		_, _ = st.ReconcileFactDrift(p.ID, p.Path)
 		// Only now is this project's history distilled: record the watermark so
 		// the next sync can skip it.
 		if serr := st.SetDistillWatermark(p.ID, latest); serr != nil {

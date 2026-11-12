@@ -1,0 +1,18 @@
+{
+  "name": "boilerplate_merge",
+  "kind": "memo",
+  "seed_kind": "fact",
+  "seed_claims": [
+    "alpha beta gamma delta common word one",
+    "alpha beta gamma delta common word two",
+    "alpha beta gamma delta common word three",
+    "alpha beta gamma delta common word four",
+    "alpha beta gamma delta common word five",
+    "alpha beta gamma delta common word six",
+    "alpha beta gamma delta common word seven",
+    "alpha beta gamma delta common word eight"
+  ],
+  "claim_a": "deployment pipeline alpha beta gamma delta epsilon zeta eta theta",
+  "claim_b": "deployment pipeline beta gamma delta epsilon zeta eta theta",
+  "expect": "merge"
+}

@@ -288,7 +288,7 @@ func subcommandUsageOps(sub string, ui render.UI) bool {
 		fmt.Fprintln(o, ui.Cyan(ui.Bold("sila release"))+"  -  evaluate Software Quality Scorecard, contract stability, and release metadata")
 		fmt.Fprintln(o)
 		head("Usage")
-		fmt.Fprintln(o, "  sila release status [--diff] [--offline] [--json|--toon]    Inspect release readiness, semver bump, and verdict")
+		fmt.Fprintln(o, "  sila release status [--diff] [--offline] [--json|--toon]    Inspect readiness (drains the hook spool first), semver bump, and verdict")
 		fmt.Fprintln(o, "  sila release preflight [--allow-dirty] [--offline] [--strict] [--json|--toon]")
 		fmt.Fprintln(o, "  sila release check                                          Legacy tag and clean worktree preflight")
 		fmt.Fprintln(o, "  sila release snapshot [--out=<path>]                        Capture MCP JSON-RPC schema baseline")

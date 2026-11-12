@@ -36,8 +36,6 @@ func TestNeedsCFGitFilter(t *testing.T) {
 	}
 
 	// 3. EnsureCFGitFilter sets up filter and .gitattributes
-	_, cfcleanErr := exec.LookPath("cfclean")
-	cfcleanInstalled := cfcleanErr == nil
 	modified, err := EnsureCFGitFilter(tempDir)
 	if err != nil {
 		t.Fatalf("unexpected error running EnsureCFGitFilter: %v", err)
@@ -63,12 +61,8 @@ func TestNeedsCFGitFilter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected filter.cfclean.smudge to be configured in git config: %v", err)
 	}
-	wantSmudge := "cat"
-	if cfcleanInstalled {
-		wantSmudge = "cfclean smudge"
-	}
-	if strings.TrimSpace(string(smudgeOut)) != wantSmudge {
-		t.Errorf("filter.cfclean.smudge = %q, want %q", strings.TrimSpace(string(smudgeOut)), wantSmudge)
+	if strings.TrimSpace(string(smudgeOut)) != "cfclean smudge" {
+		t.Errorf("filter.cfclean.smudge = %q, want 'cfclean smudge'", strings.TrimSpace(string(smudgeOut)))
 	}
 
 	// 4. Second run of NeedsCFGitFilter should now return false
@@ -77,17 +71,13 @@ func TestNeedsCFGitFilter(t *testing.T) {
 	}
 
 	// 5. If filter.cfclean.smudge is set to cat, NeedsCFGitFilter must return true
-	//    when cfclean is installed. Without cfclean, "cat" is the intended fallback.
 	cmdCat := exec.Command("git", "config", "filter.cfclean.smudge", "cat")
 	cmdCat.Dir = tempDir
 	if err := cmdCat.Run(); err != nil {
 		t.Fatal(err)
 	}
-	if cfcleanInstalled && !NeedsCFGitFilter(tempDir) {
+	if !NeedsCFGitFilter(tempDir) {
 		t.Errorf("expected NeedsCFGitFilter=true when filter.cfclean.smudge=cat")
-	}
-	if !cfcleanInstalled {
-		t.Log("cfclean not installed; 'cat' is the expected no-op smudge fallback")
 	}
 
 	// 6. Running EnsureCFGitFilter again repairs smudge to cfclean smudge

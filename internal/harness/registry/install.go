@@ -254,8 +254,18 @@ func inspectCommitHookStatus(sp HarnessSpec, st Status) Status {
 func inspectPluginHookStatus(sp HarnessSpec, st Status, bridgePath, scope string) Status {
 	st.Path = bridgePath
 	st.Scope = scope
-	st.Configured = true
+	data, err := os.ReadFile(bridgePath)
+	if err != nil {
+		st.Detail = "plugin bridge file is unreadable; reinstall to repair it"
+		return st
+	}
 	st.Installed = true
+	required := pluginbridge.BridgeAPIMarkerFor(sp.ID)
+	if !strings.Contains(string(data), required) {
+		st.Detail = "plugin bridge does not match the host plugin API (" + required + "); reinstall to upgrade it"
+		return st
+	}
+	st.Configured = true
 	for _, ev := range sp.Events {
 		st.Events = append(st.Events, ev.NativeName)
 	}

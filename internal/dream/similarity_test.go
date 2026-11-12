@@ -39,3 +39,24 @@ func TestMatchOverlapSkipsOwnToolAndSubthreshold(t *testing.T) {
 		t.Fatalf("own-tool + no cross-tool match should be nil, got %+v", got)
 	}
 }
+
+func TestSimilarityDedupGuards(t *testing.T) {
+	reject := [][2]string{
+		{"Fix ADR 0011 migration", "Fix ADR 0013 migration"},
+		{"Stage 1 rollout", "Stage 2 rollout"},
+		{"Enable read-only mode in worker", "Disable read-only mode in worker"},
+		{"Asset Contribution Flow", "Asset Consumption Flow"},
+	}
+	for _, pair := range reject {
+		if got := Similarity(pair[0], pair[1]); got >= 0.60 {
+			t.Fatalf("Similarity(%q, %q) = %v, want < 0.60", pair[0], pair[1], got)
+		}
+	}
+
+	if got := Similarity("fix authentication flow", "fix authentification flow"); got < 0.60 {
+		t.Fatalf("genuine typo similarity = %v, want >= 0.60", got)
+	}
+	if got := Similarity("fix the parser", "fix parser"); got < 0.60 {
+		t.Fatalf("stopword edit similarity = %v, want >= 0.60", got)
+	}
+}

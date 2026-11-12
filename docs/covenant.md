@@ -2,7 +2,7 @@
 
 > *"Your thoughts, your cognitive traces, and your architectural decisions belong to you. No tool, harness, or vendor may hold them hostage."*
 
-The **Sila Digital Data Sovereignty Covenant** establishes the ethical, legal, and architectural guarantees governing how Sila observes, ingests, indexes, and retains developer data.
+The **Sila Digital Data Sovereignty Covenant** establishes the ethical, legal, and architectural guarantees governing how Sila observes, ingests, indexes, and retains developer data. 
 
 In an era where proprietary developer platforms enclose engineer interactions inside walled gardens, telemetry collectors, and vendor-locked cloud databases, Sila is architected as an **emancipatory, sovereign substrate**. Sila does not view developer activity as raw exhaust to be harvested; rather, it honors the **dignity of developer thought** and guarantees the developer's absolute sovereignty over their cognitive artifacts.
 

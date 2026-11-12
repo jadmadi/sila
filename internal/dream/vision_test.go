@@ -114,3 +114,65 @@ Demonstrate vision compilation with live goal packages.
 		t.Fatalf("expected goal in upcoming horizons: %s", doc)
 	}
 }
+
+func TestTriageNegatedNonGoal(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "triage_negation_test.db")
+	st, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	if _, err := AddNonGoal(st, "atlas-web", "Non-goal: no raw SQL strings in route handlers; data access goes through the repository layer.", "human"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := AddNonGoal(st, "atlas-web", "Non-goal: atlas-web never adds a second frontend framework; one SPA stack only.", "human"); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name     string
+		proposal string
+		want     string
+	}{
+		{
+			name:     "raw SQL in a handler is rejected",
+			proposal: "Add a raw SQL query in the checkout handler for speed",
+			want:     "REJECTED",
+		},
+		{
+			name:     "parameterized SQL in the repository is approved",
+			proposal: "Use parameterized SQL through the repository layer in the checkout handler",
+			want:     "APPROVED",
+		},
+		{
+			name:     "raw SQL migration in the repository is approved",
+			proposal: "Add a raw SQL migration in the repository layer",
+			want:     "APPROVED",
+		},
+		{
+			name:     "second frontend framework is rejected",
+			proposal: "Add a second frontend framework alongside the SPA",
+			want:     "REJECTED",
+		},
+		{
+			name:     "unrelated proposal is approved",
+			proposal: "Add token usage analytics command for developer insight",
+			want:     "APPROVED",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := TriageProposal(st, "atlas-web", "", tc.proposal)
+			if err != nil {
+				t.Fatalf("TriageProposal: %v", err)
+			}
+			if res.Verdict != tc.want {
+				t.Fatalf("verdict = %s, want %s (violated: %v)", res.Verdict, tc.want, res.ViolatedNonGoals)
+			}
+			if tc.want == "REJECTED" && len(res.ViolatedNonGoals) == 0 {
+				t.Fatalf("expected ViolatedNonGoals for %q", tc.proposal)
+			}
+		})
+	}
+}

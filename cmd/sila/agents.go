@@ -10,11 +10,12 @@ import (
 
 	"github.com/jadmadi/sila/internal/agents"
 	"github.com/jadmadi/sila/internal/assist"
+	"github.com/jadmadi/sila/internal/dream"
 	"github.com/jadmadi/sila/internal/render"
 	"github.com/jadmadi/sila/internal/store"
 )
 
-func runAgents(ui render.UI, dbPath, project, target, outFile, policyPack, scope string, preview, replace, principles bool, stack string, jsonOut bool, args []string) {
+func runAgents(ui render.UI, dbPath, project, target, outFile, policyPack, scope string, preview, replace, principles, stateBlock bool, stack string, jsonOut bool, args []string) {
 	cwd, _ := os.Getwd()
 	if project == "" {
 		project = store.ProjectID(cwd)
@@ -88,6 +89,9 @@ func runAgents(ui render.UI, dbPath, project, target, outFile, policyPack, scope
 			runAgentsSyncAll(ui, dbPath, opts, jsonOut)
 		} else {
 			runAgentsSync(ui, cwd, opts, jsonOut, dbPath)
+			if stateBlock && !opts.Preview {
+				writeStateBlockMirror(ui, dbPath, project, cwd, jsonOut)
+			}
 		}
 	case "status", "last":
 		runAgentsStatus(ui, dbPath, project, allProjects, jsonOut)
@@ -499,6 +503,9 @@ func discoverProjects(dbPath string) ([]agents.CandidateProject, error) {
 
 	candidates := make([]agents.CandidateProject, 0, len(projects))
 	for _, p := range projects {
+		if store.IsTempDirPath(p.Path) {
+			continue
+		}
 		candidates = append(candidates, agents.CandidateProject{
 			ID:   p.ID,
 			Path: p.Path,
@@ -752,4 +759,55 @@ func runAgentsStatus(ui render.UI, dbPath, project string, allProjects, jsonOut 
 			fmt.Fprintf(os.Stdout, "    %s %s (%s): %s\n", statusIcon, ui.Bold(p.ProjectID), ui.Dim(p.Path), statusText)
 		}
 	}
+}
+
+// writeStateBlockMirror writes the opt-in continuity state block into AGENTS.md.
+// The core block and all user content are preserved; an unchanged body is a
+// no-op so repeated syncs do not touch the file.
+func writeStateBlockMirror(ui render.UI, dbPath, project, cwd string, jsonOut bool) {
+	st, _, err := openReadStore(dbPath)
+	if err != nil {
+		if !jsonOut {
+			fmt.Fprintf(os.Stderr, "sila agents sync: state block: %v\n", err)
+		}
+		return
+	}
+	defer st.Close()
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	block := dream.LoadStateBlock(ctx, st, project, cwd, time.Now().UTC(), stateBlockWindow(), 1200)
+	path := filepath.Join(cwd, "AGENTS.md")
+	existing, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		if !jsonOut {
+			fmt.Fprintf(os.Stderr, "sila agents sync: read %s: %v\n", path, err)
+		}
+		return
+	}
+	updated, changed := agents.ComposeStateBlock(string(existing), block)
+	if jsonOut {
+		emitJSON(map[string]any{"path": path, "changed": changed, "block_bytes": len(block)})
+		return
+	}
+	if !changed {
+		if block == "" {
+			fmt.Fprintln(os.Stdout, ui.Dim("state block: nothing to mirror"))
+		} else {
+			fmt.Fprintln(os.Stdout, ui.Dim("state block: current"))
+		}
+		return
+	}
+	mode := os.FileMode(0o644)
+	if info, statErr := os.Stat(path); statErr == nil {
+		mode = info.Mode().Perm()
+	}
+	if err := os.WriteFile(path, []byte(updated), mode); err != nil {
+		fmt.Fprintf(os.Stderr, "sila agents sync: write %s: %v\n", path, err)
+		return
+	}
+	if block == "" {
+		fmt.Fprintln(os.Stdout, ui.Dim("state block: removed (no continuity state)"))
+		return
+	}
+	fmt.Fprintf(os.Stdout, ui.Green("state block: ")+"wrote %d bytes to %s\n", len(block), path)
 }

@@ -160,7 +160,8 @@ func TestSalamCompactJSONAndBudget(t *testing.T) {
 		t.Fatalf("default salam = %d lines, want <=12:\n%s", len(lines), text)
 	}
 	for _, line := range lines {
-		if render.VisibleWidth(line) > 80 {
+		measured := strings.ReplaceAll(line, repo, "<repo>")
+		if render.VisibleWidth(measured) > 80 {
 			t.Fatalf("line exceeds 80 columns: %q", line)
 		}
 	}

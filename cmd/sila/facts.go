@@ -33,6 +33,19 @@ func runFacts(ui render.UI, dbPath, project string, jsonOut, toonOut, verbose bo
 	}
 
 	switch action {
+	case "status", "counts":
+		counts, err := st.FactCounts(project, time.Now().UTC(), store.DefaultFactTTL)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "sila facts status: %v\n", err)
+			os.Exit(1)
+		}
+		if jsonOut {
+			emitJSON(counts)
+			return
+		}
+		fmt.Fprintf(os.Stdout, "verified: %d\nstale: %d\nunverified: %d\ndisputed: %d\nbroken_chain: %d\n",
+			counts.Verified, counts.Stale, counts.Unverified, counts.Disputed, counts.BrokenChain)
+		return
 	case "verify", "audit", "check":
 		repair := false
 		rebaseline := false

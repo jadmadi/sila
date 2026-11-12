@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -297,6 +298,11 @@ func TestStdioUpstreamClient_Lifecycle(t *testing.T) {
 }
 
 func TestHTTPUpstreamClient_CallToolUnauthorized(t *testing.T) {
+	if conn, derr := net.DialTimeout("tcp", "mcp.cloudflare.com:443", 2*time.Second); derr != nil {
+		t.Skipf("network unavailable: %v", derr)
+	} else {
+		_ = conn.Close()
+	}
 	// Verify that HTTP client handles 401 cleanly with a helpful error message
 	client := NewHTTPUpstreamClient("cloudflare", "cf", "https://mcp.cloudflare.com/mcp", nil, "", false)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -305,6 +311,10 @@ func TestHTTPUpstreamClient_CallToolUnauthorized(t *testing.T) {
 	_, err := client.CallTool(ctx, "search", map[string]any{"query": "workers"})
 	if err == nil {
 		t.Fatal("expected error from unauthenticated Cloudflare MCP call, got nil")
+	}
+	if strings.Contains(err.Error(), "context deadline exceeded") || strings.Contains(err.Error(), "no such host") ||
+		strings.Contains(err.Error(), "connection refused") {
+		t.Skipf("network unavailable: %v", err)
 	}
 
 	if !strings.Contains(err.Error(), "401 Unauthorized") && !strings.Contains(err.Error(), "API token") {
@@ -852,7 +862,7 @@ func TestSanitizeEgressArgs_SafeScrub(t *testing.T) {
 		"keywords": []any{
 			"/home/charlie/data",
 			"glpat-0123456789abcdefghij",
-			"xoxb-EXAMPLE1234567890ABCDEF",
+			"xoxb-inert",
 			"harmless-keyword",
 		},
 		"metadata": map[string]any{

@@ -8,14 +8,14 @@ import (
 
 // buildUmbrellaWorkspace mirrors the live registry false positive: a container
 // directory holding a workspace file whose slug names an unrelated project
-// (2026-10-02: /workspace/sila/github carried a stale example-client.com.code-workspace
+// (2026-10-02: /workspace/github carried a stale example-client.com.code-workspace
 // and registered as "example-client.com"), with a distinct nested Git repository
 // underneath it.
 func buildUmbrellaWorkspace(t *testing.T) (umbrella, nestedRepo string) {
 	t.Helper()
 	root := t.TempDir()
 	umbrella = filepath.Join(root, "github")
-	nestedRepo = filepath.Join(umbrella, "projects", "waqftech", "MutmainKalp.com")
+	nestedRepo = filepath.Join(umbrella, "projects", "waqftech", "example-project.com")
 	if err := os.MkdirAll(filepath.Join(nestedRepo, ".git"), 0o755); err != nil {
 		t.Fatal(err)
 	}

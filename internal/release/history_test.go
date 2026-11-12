@@ -163,17 +163,17 @@ func TestRenderTimeline(t *testing.T) {
 }
 
 func TestGetReleaseHistory_TargetVersion(t *testing.T) {
-	rep := GetReleaseHistory(0, "0.18.0")
+	rep := GetReleaseHistory(0, "0.11.0")
 	if len(rep.Releases) != 1 {
 		t.Fatalf("expected 1 release for targeted version, got %d", len(rep.Releases))
 	}
-	if rep.Releases[0].Version != "0.18.0" {
-		t.Errorf("expected version 0.18.0, got %s", rep.Releases[0].Version)
+	if rep.Releases[0].Version != "0.11.0" {
+		t.Errorf("expected version 0.11.0, got %s", rep.Releases[0].Version)
 	}
 
 	// Targeted with 'v' prefix
-	repV := GetReleaseHistory(0, "v0.18.0")
-	if len(repV.Releases) != 1 || repV.Releases[0].Version != "0.18.0" {
+	repV := GetReleaseHistory(0, "v0.11.0")
+	if len(repV.Releases) != 1 || repV.Releases[0].Version != "0.11.0" {
 		t.Errorf("expected v-prefixed lookup to match")
 	}
 

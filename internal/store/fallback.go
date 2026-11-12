@@ -1,6 +1,7 @@
 package store
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -86,32 +87,22 @@ func IsWorkspaceStore(path string) bool {
 		clean == ".sila/"+config.PrimaryDBName
 }
 
-// findWorkspaceRoot locates the current workspace or repository root by
-// checking git toplevel, walking up looking for .git or .sila, or falling back
-// to the current working directory if inside a valid directory.
+// findWorkspaceRoot locates a real repository or workspace root. It never
+// accepts bare home, temp, or non-repository state directories.
 func findWorkspaceRoot() (string, bool) {
 	cwd, err := os.Getwd()
 	if err != nil {
 		return "", false
 	}
-
-	// 1. Try git rev-parse --show-toplevel
-	if cmd := exec.Command("git", "rev-parse", "--show-toplevel"); cmd != nil {
-		if out, err := cmd.Output(); err == nil {
-			top := strings.TrimSpace(string(out))
-			if top != "" {
-				return top, true
-			}
+	if out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output(); err == nil {
+		top := strings.TrimSpace(string(out))
+		if top != "" && IsRepoOrWorkspaceDir(top) && !config.IsForbiddenLocalStateDir(top) {
+			return top, true
 		}
 	}
-
-	// 2. Walk up directory hierarchy looking for .git or .sila
 	dir := cwd
 	for {
-		if _, err := os.Stat(filepath.Join(dir, ".git")); err == nil {
-			return dir, true
-		}
-		if _, err := os.Stat(filepath.Join(dir, ".sila")); err == nil {
+		if IsRepoOrWorkspaceDir(dir) && !config.IsForbiddenLocalStateDir(dir) {
 			return dir, true
 		}
 		parent := filepath.Dir(dir)
@@ -120,12 +111,20 @@ func findWorkspaceRoot() (string, bool) {
 		}
 		dir = parent
 	}
-
-	// 3. If cwd exists and is a directory, use it
-	if info, err := os.Stat(cwd); err == nil && info.IsDir() {
-		return cwd, true
-	}
 	return "", false
+}
+
+// WorkspaceRootFromStorePath returns the owning workspace root for a store at
+// <root>/.sila/sila.db.
+func WorkspaceRootFromStorePath(stPath string) (string, bool) {
+	if !IsWorkspaceStore(stPath) {
+		return "", false
+	}
+	abs, err := filepath.Abs(stPath)
+	if err != nil {
+		return "", false
+	}
+	return filepath.Dir(filepath.Dir(abs)), true
 }
 
 // OpenWithFallback opens the knowledge store at path, falling back to a workspace-local
@@ -159,6 +158,10 @@ func OpenWithFallback(path, workspaceDir string) (*Store, error) {
 			return nil, err
 		}
 		wsRoot = detected
+	}
+
+	if config.IsForbiddenLocalStateDir(wsRoot) {
+		return nil, err
 	}
 
 	// Verify workspace root exists and is a directory
@@ -196,272 +199,144 @@ func OpenWithFallback(path, workspaceDir string) (*Store, error) {
 
 // DrainStats summarizes records merged from a workspace-local store into the primary store.
 type DrainStats struct {
-	Messages  int
-	Facts     int
-	Handoffs  int
-	Decisions int
-	Feedback  int
+	Messages        int
+	Facts           int
+	Handoffs        int
+	Decisions       int
+	Feedback        int
+	MemoryRecords   int
+	MemoryLifecycle int
 }
 
 // Total returns the aggregate count of all drained records.
 func (d DrainStats) Total() int {
-	return d.Messages + d.Facts + d.Handoffs + d.Decisions + d.Feedback
+	return d.Messages + d.Facts + d.Handoffs + d.Decisions + d.Feedback + d.MemoryRecords + d.MemoryLifecycle
 }
 
-// DrainWorkspaceStore merges unmerged records from a workspace-local store (.sila/sila.db)
-// into the receiving primary store.
+// DrainWorkspaceStore merges unmerged records from a workspace-local store
+// (.sila/sila.db) into the receiving primary store using a schema-complete
+// ATTACH DATABASE merge. It does not delete the workspace store.
 func (s *Store) DrainWorkspaceStore(wsDBPath string) (DrainStats, error) {
 	var stats DrainStats
-
 	cleanWS := filepath.Clean(wsDBPath)
 	cleanPrimary := filepath.Clean(s.Path)
 	if cleanWS == cleanPrimary {
 		return stats, nil
 	}
-
 	if _, err := os.Stat(cleanWS); os.IsNotExist(err) {
 		return stats, nil
 	}
-
-	src, err := OpenRO(cleanWS)
+	ctx := context.Background()
+	conn, err := s.DB.Conn(ctx)
 	if err != nil {
-		return stats, fmt.Errorf("open workspace store %s for drain: %w", cleanWS, err)
+		return stats, fmt.Errorf("open primary connection for drain: %w", err)
 	}
-	defer src.Close()
-
-	tx, err := s.DB.Begin()
-	if err != nil {
-		return stats, fmt.Errorf("begin drain tx: %w", err)
+	defer conn.Close()
+	if _, err := conn.ExecContext(ctx, `ATTACH DATABASE ? AS ws`, cleanWS); err != nil {
+		return stats, fmt.Errorf("attach workspace store %s: %w", cleanWS, err)
 	}
-	defer func() {
-		if tx != nil {
-			_ = tx.Rollback()
-		}
-	}()
+	defer func() { _, _ = conn.ExecContext(ctx, `DETACH DATABASE ws`) }()
 
-	// 1. Map & ensure projects
-	projRows, err := src.DB.Query(`SELECT path, id, created_at FROM projects`)
+	projectRows, err := conn.QueryContext(ctx, `SELECT path, id, created_at FROM ws.projects`)
 	if err != nil {
 		return stats, fmt.Errorf("query workspace projects: %w", err)
 	}
-	projMap := make(map[string]string) // srcProjectID -> dstProjectID
-	type projRecord struct {
-		path, id, createdAt string
-	}
-	var srcProjects []projRecord
-	for projRows.Next() {
-		var pr projRecord
-		if scanErr := projRows.Scan(&pr.path, &pr.id, &pr.createdAt); scanErr == nil {
-			srcProjects = append(srcProjects, pr)
+	type wsProject struct{ path, id, createdAt string }
+	var projects []wsProject
+	for projectRows.Next() {
+		var project wsProject
+		if scanErr := projectRows.Scan(&project.path, &project.id, &project.createdAt); scanErr == nil {
+			projects = append(projects, project)
 		}
 	}
-	_ = projRows.Close()
-
-	for _, pr := range srcProjects {
-		var dstID string
-		err := tx.QueryRow(`SELECT id FROM projects WHERE path = ?`, pr.path).Scan(&dstID)
-		if err == sql.ErrNoRows {
-			// Insert project
-			dstID = pr.id
-			_, _ = tx.Exec(`INSERT OR IGNORE INTO projects(path, id, created_at) VALUES (?, ?, ?)`,
-				pr.path, pr.id, pr.createdAt)
+	projectRows.Close()
+	for _, project := range projects {
+		if project.path == "" || config.IsForbiddenLocalStateDir(project.path) {
+			continue
 		}
-		projMap[pr.id] = dstID
-	}
-
-	mapProject := func(srcID string) string {
-		if dst, ok := projMap[srcID]; ok && dst != "" {
-			return dst
-		}
-		return srcID
-	}
-
-	// 2. Messages & source occurrences
-	msgRows, err := src.DB.Query(`SELECT id, project_id, content_hash, ts, role, content, source_tools, first_seen FROM messages`)
-	if err == nil {
-		type msgRecord struct {
-			srcID                                                       int64
-			projectID, contentHash, ts, role, content, tools, firstSeen string
-		}
-		var msgs []msgRecord
-		for msgRows.Next() {
-			var m msgRecord
-			if scanErr := msgRows.Scan(&m.srcID, &m.projectID, &m.contentHash, &m.ts, &m.role, &m.content, &m.tools, &m.firstSeen); scanErr == nil {
-				msgs = append(msgs, m)
-			}
-		}
-		_ = msgRows.Close()
-
-		for _, m := range msgs {
-			dstProj := mapProject(m.projectID)
-			res, insErr := tx.Exec(`INSERT OR IGNORE INTO messages(project_id, content_hash, ts, role, content, source_tools, first_seen)
-				VALUES (?, ?, ?, ?, ?, ?, ?)`, dstProj, m.contentHash, m.ts, m.role, m.content, m.tools, m.firstSeen)
-			if insErr == nil {
-				if aff, _ := res.RowsAffected(); aff > 0 {
-					stats.Messages++
-				}
-			}
-
-			// Copy occurrences if table exists
-			var dstMsgID int64
-			if err := tx.QueryRow(`SELECT id FROM messages WHERE project_id = ? AND content_hash = ?`, dstProj, m.contentHash).Scan(&dstMsgID); err == nil {
-				occRows, occErr := src.DB.Query(`SELECT tool, session_id, source_location, source_order, source_time FROM source_occurrences WHERE message_id = ?`, m.srcID)
-				if occErr == nil {
-					for occRows.Next() {
-						var tool, sessID, loc, sTime string
-						var sOrder int64
-						if scanErr := occRows.Scan(&tool, &sessID, &loc, &sOrder, &sTime); scanErr == nil {
-							var occExists int
-							_ = tx.QueryRow(`SELECT 1 FROM source_occurrences WHERE message_id = ? AND tool = ? AND session_id = ? AND source_order = ?`,
-								dstMsgID, tool, sessID, sOrder).Scan(&occExists)
-							if occExists == 0 {
-								_, _ = tx.Exec(`INSERT INTO source_occurrences(message_id, tool, session_id, source_location, source_order, source_time)
-									VALUES (?, ?, ?, ?, ?, ?)`, dstMsgID, tool, sessID, loc, sOrder, sTime)
-							}
-						}
-					}
-					_ = occRows.Close()
-				}
-			}
+		if _, err := conn.ExecContext(ctx, `INSERT OR IGNORE INTO projects(path, id, created_at) VALUES (?, ?, ?)`, project.path, project.id, project.createdAt); err != nil {
+			return stats, fmt.Errorf("merge project %s: %w", project.path, err)
 		}
 	}
 
-	// 3. Facts
-	factRows, err := src.DB.Query(`SELECT id, project_id, claim, confidence, verified, repo_files, tools, session_ref, first_seen, promoted_at, file_refs_exist, refs_checked_at, kind, review_status, origin_role, fact_hash, prev_hash, tier, salience FROM facts`)
-	if err == nil {
-		type factRecord struct {
-			id, projectID, claim, confidence, repoFiles, tools, sessionRef, firstSeen, promotedAt, refsCheckedAt, kind, reviewStatus, originRole, factHash, prevHash, tier string
-			verified, fileRefsExist                                                                                                                                        int
-			salience                                                                                                                                                       float64
-		}
-		var facts []factRecord
-		for factRows.Next() {
-			var f factRecord
-			if scanErr := factRows.Scan(&f.id, &f.projectID, &f.claim, &f.confidence, &f.verified, &f.repoFiles, &f.tools, &f.sessionRef, &f.firstSeen, &f.promotedAt, &f.fileRefsExist, &f.refsCheckedAt, &f.kind, &f.reviewStatus, &f.originRole, &f.factHash, &f.prevHash, &f.tier, &f.salience); scanErr == nil {
-				facts = append(facts, f)
-			}
-		}
-		_ = factRows.Close()
-
-		for _, f := range facts {
-			dstProj := mapProject(f.projectID)
-			res, insErr := tx.Exec(`INSERT OR IGNORE INTO facts(id, project_id, claim, confidence, verified, repo_files, tools, session_ref, first_seen, promoted_at, file_refs_exist, refs_checked_at, kind, review_status, origin_role, fact_hash, prev_hash, tier, salience)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				f.id, dstProj, f.claim, f.confidence, f.verified, f.repoFiles, f.tools, f.sessionRef, f.firstSeen, f.promotedAt, f.fileRefsExist, f.refsCheckedAt, f.kind, f.reviewStatus, f.originRole, f.factHash, f.prevHash, f.tier, f.salience)
-			if insErr == nil {
-				if aff, _ := res.RowsAffected(); aff > 0 {
-					stats.Facts++
-				}
-			}
-		}
+	tables := []struct {
+		name   string
+		target *int
+	}{
+		{"messages", &stats.Messages},
+		{"facts", &stats.Facts},
+		{"handoffs", &stats.Handoffs},
+		{"decisions", &stats.Decisions},
+		{"feedback", &stats.Feedback},
+		{"retrieval_feedback", &stats.Feedback},
+		{"memory_records", &stats.MemoryRecords},
+		{"memory_lifecycle", &stats.MemoryLifecycle},
 	}
-
-	// 4. Handoffs
-	handoffRows, err := src.DB.Query(`SELECT id, project_id, agent, branch, summary, open_items, decisions, repo_files, file_refs_exist, created_at, status, claimed_by, claimed_at, session_id FROM handoffs`)
-	if err == nil {
-		type handoffRecord struct {
-			id, projectID, agent, branch, summary, openItems, decisions, repoFiles, createdAt, status, claimedBy, claimedAt, sessionID string
-			fileRefsExist                                                                                                              int
+	for _, table := range tables {
+		columns, colErr := sharedColumns(ctx, conn, table.name)
+		if colErr != nil {
+			return stats, colErr
 		}
-		var handoffs []handoffRecord
-		for handoffRows.Next() {
-			var h handoffRecord
-			if scanErr := handoffRows.Scan(&h.id, &h.projectID, &h.agent, &h.branch, &h.summary, &h.openItems, &h.decisions, &h.repoFiles, &h.fileRefsExist, &h.createdAt, &h.status, &h.claimedBy, &h.claimedAt, &h.sessionID); scanErr == nil {
-				handoffs = append(handoffs, h)
-			}
+		if len(columns) == 0 {
+			continue
 		}
-		_ = handoffRows.Close()
-
-		for _, h := range handoffs {
-			dstProj := mapProject(h.projectID)
-			res, insErr := tx.Exec(`INSERT OR IGNORE INTO handoffs(id, project_id, agent, branch, summary, open_items, decisions, repo_files, file_refs_exist, created_at, status, claimed_by, claimed_at, session_id)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-				h.id, dstProj, h.agent, h.branch, h.summary, h.openItems, h.decisions, h.repoFiles, h.fileRefsExist, h.createdAt, h.status, h.claimedBy, h.claimedAt, h.sessionID)
-			if insErr == nil {
-				if aff, _ := res.RowsAffected(); aff > 0 {
-					stats.Handoffs++
-				}
-			}
+		quoted := make([]string, len(columns))
+		for i, column := range columns {
+			quoted[i] = `"` + column + `"`
 		}
-	}
-
-	// 5. Decisions (if table exists)
-	var decTableExists int
-	_ = src.DB.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='table' AND name='decisions'`).Scan(&decTableExists)
-	if decTableExists > 0 {
-		decRows, err := src.DB.Query(`SELECT id, project_id, address, seq_number, title, context, options, recommendation, rationale, status, resolution, resolution_notes, resolved_by, resolved_at, created_by, session_id, goal_slug, created_at, updated_at FROM decisions`)
-		if err == nil {
-			type decRecord struct {
-				id, projectID, address, title, context, options, recommendation, rationale, status, resolution, resolutionNotes, resolvedBy, resolvedAt, createdBy, sessionID, goalSlug, createdAt, updatedAt string
-				seqNumber                                                                                                                                                                                     int
-			}
-			var decs []decRecord
-			for decRows.Next() {
-				var d decRecord
-				if scanErr := decRows.Scan(&d.id, &d.projectID, &d.address, &d.seqNumber, &d.title, &d.context, &d.options, &d.recommendation, &d.rationale, &d.status, &d.resolution, &d.resolutionNotes, &d.resolvedBy, &d.resolvedAt, &d.createdBy, &d.sessionID, &d.goalSlug, &d.createdAt, &d.updatedAt); scanErr == nil {
-					decs = append(decs, d)
-				}
-			}
-			_ = decRows.Close()
-
-			for _, d := range decs {
-				dstProj := mapProject(d.projectID)
-				res, insErr := tx.Exec(`INSERT OR IGNORE INTO decisions(id, project_id, address, seq_number, title, context, options, recommendation, rationale, status, resolution, resolution_notes, resolved_by, resolved_at, created_by, session_id, goal_slug, created_at, updated_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-					d.id, dstProj, d.address, d.seqNumber, d.title, d.context, d.options, d.recommendation, d.rationale, d.status, d.resolution, d.resolutionNotes, d.resolvedBy, d.resolvedAt, d.createdBy, d.sessionID, d.goalSlug, d.createdAt, d.updatedAt)
-				if insErr == nil {
-					if aff, _ := res.RowsAffected(); aff > 0 {
-						stats.Decisions++
-					}
-				}
-			}
+		query := `INSERT OR IGNORE INTO main."` + table.name + `" (` + strings.Join(quoted, ", ") + `) SELECT ` + strings.Join(quoted, ", ") + ` FROM ws."` + table.name + `"`
+		res, execErr := conn.ExecContext(ctx, query)
+		if execErr != nil {
+			return stats, fmt.Errorf("merge %s: %w", table.name, execErr)
 		}
-	}
-
-	// 6. Feedback (if table exists)
-	var fbTableExists int
-	_ = src.DB.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='table' AND name='feedback'`).Scan(&fbTableExists)
-	if fbTableExists > 0 {
-		fbRows, err := src.DB.Query(`SELECT id, project_id, category, message, status, agent, session_id, created_at, resolved_at FROM feedback`)
-		if err == nil {
-			type fbRecord struct {
-				id, projectID, category, message, status, agent, sessionID, createdAt, resolvedAt string
-			}
-			var fbs []fbRecord
-			for fbRows.Next() {
-				var fb fbRecord
-				if scanErr := fbRows.Scan(&fb.id, &fb.projectID, &fb.category, &fb.message, &fb.status, &fb.agent, &fb.sessionID, &fb.createdAt, &fb.resolvedAt); scanErr == nil {
-					fbs = append(fbs, fb)
-				}
-			}
-			_ = fbRows.Close()
-
-			for _, fb := range fbs {
-				dstProj := mapProject(fb.projectID)
-				res, insErr := tx.Exec(`INSERT OR IGNORE INTO feedback(id, project_id, category, message, status, agent, session_id, created_at, resolved_at)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-					fb.id, dstProj, fb.category, fb.message, fb.status, fb.agent, fb.sessionID, fb.createdAt, fb.resolvedAt)
-				if insErr == nil {
-					if aff, _ := res.RowsAffected(); aff > 0 {
-						stats.Feedback++
-					}
-				}
-			}
+		if affected, affErr := res.RowsAffected(); affErr == nil && affected > 0 {
+			*table.target += int(affected)
 		}
-	}
-
-	if err := tx.Commit(); err != nil {
-		return stats, fmt.Errorf("commit drain tx: %w", err)
-	}
-	tx = nil
-
-	// Refresh FTS tables if records were added
-	if stats.Facts > 0 {
-		_ = s.RebuildFTSIndex("facts_fts")
-	}
-	if stats.Messages > 0 {
-		_ = s.RebuildFTSIndex("messages_fts")
 	}
 
 	return stats, nil
+}
+
+// sharedColumns returns the columns present in both main and ws for a table.
+func sharedColumns(ctx context.Context, conn *sql.Conn, table string) ([]string, error) {
+	mainCols, err := drainTableColumns(ctx, conn, "main", table)
+	if err != nil {
+		return nil, err
+	}
+	wsCols, err := drainTableColumns(ctx, conn, "ws", table)
+	if err != nil {
+		return nil, err
+	}
+	wsSet := make(map[string]bool, len(wsCols))
+	for _, column := range wsCols {
+		wsSet[column] = true
+	}
+	shared := make([]string, 0, len(mainCols))
+	for _, column := range mainCols {
+		if wsSet[column] {
+			shared = append(shared, column)
+		}
+	}
+	return shared, nil
+}
+
+func drainTableColumns(ctx context.Context, conn *sql.Conn, schema, table string) ([]string, error) {
+	rows, err := conn.QueryContext(ctx, `PRAGMA `+schema+`.table_info("`+table+`")`)
+	if err != nil {
+		return nil, fmt.Errorf("read %s.%s columns: %w", schema, table, err)
+	}
+	defer rows.Close()
+	var columns []string
+	for rows.Next() {
+		var cid int
+		var name, columnType string
+		var notNull int
+		var defaultValue any
+		var primaryKey int
+		if scanErr := rows.Scan(&cid, &name, &columnType, &notNull, &defaultValue, &primaryKey); scanErr != nil {
+			continue
+		}
+		columns = append(columns, name)
+	}
+	return columns, nil
 }

@@ -1,0 +1,9 @@
+# surface: help__daemon
+# argv: sila daemon --help
+# mode: help
+# exit: 0
+--- stdout ---
+sila daemon  -  Run the local Unix-socket daemon with one store and a proxied MCP path
+
+Usage
+  sila daemon start|stop|status [--foreground] [--socket=<path>]

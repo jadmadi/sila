@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jadmadi/sila/internal/config"
 	"github.com/jadmadi/sila/internal/dream"
 	"github.com/jadmadi/sila/internal/git"
 	"github.com/jadmadi/sila/internal/harness/contract"
@@ -34,6 +35,8 @@ type hookOptions struct {
 	DryRun       bool
 	JSON         bool
 	Policy       string
+	RecallPolicy string
+	NoRecallGate bool
 	User         bool
 	UserExplicit bool
 	Strict       bool
@@ -100,6 +103,13 @@ func parseHookArgs(opts hookOptions, args []string) (hookOptions, []string) {
 		case arg == "--policy" && next != "":
 			opts.Policy = next
 			i++
+		case strings.HasPrefix(arg, "--recall-policy="):
+			opts.RecallPolicy = strings.TrimPrefix(arg, "--recall-policy=")
+		case arg == "--recall-policy" && next != "":
+			opts.RecallPolicy = next
+			i++
+		case arg == "--no-recall-gate":
+			opts.NoRecallGate = true
 		default:
 			rest = append(rest, arg)
 		}
@@ -139,9 +149,23 @@ func runHookWithOptions(ui render.UI, dbPath, project, eventFlag, agentFlag, ses
 		cwd, _ = os.Getwd()
 	}
 
+	// Capture pause is checked before any event writes rows.
+	eventForGuard := hookType
+	if eventFlag != "" {
+		eventForGuard = strings.ToLower(strings.TrimSpace(eventFlag))
+	}
+	if hookEventWrites(eventForGuard) {
+		if paused, pauseErr := hookCapturePaused(dbPath, project); pauseErr == nil && paused {
+			return
+		}
+	}
+
 	switch hookType {
+	case "commit":
+		runHookCommit(ui, dbPath, project, cwd, jsonOut)
+		return
 	case "pre-commit":
-		runGatePreCommit(ui, jsonOut, false, false, false, false)
+		runGatePreCommit(ui, jsonOut, false, false, false, false, false, false)
 		return
 	case "pre-push":
 		runGatePipelineCmd(ui, jsonOut, "", "origin", false)
@@ -263,6 +287,9 @@ func runHookWithOptions(ui render.UI, dbPath, project, eventFlag, agentFlag, ses
 	case "status":
 		runHookStatus(ui, dbPath, spooler, cwd, jsonOut, opts.Strict)
 		return
+	case "recall-gate":
+		runHookRecallGate(ui, project, sessionFlag, cwd, jsonOut, args[1:], opts)
+		return
 	case "serve":
 		port := 7453
 		if len(args) > 1 {
@@ -278,7 +305,7 @@ func runHookWithOptions(ui render.UI, dbPath, project, eventFlag, agentFlag, ses
 	var stdinData []byte
 	fi, err := os.Stdin.Stat()
 	if err == nil && (fi.Mode()&os.ModeCharDevice) == 0 {
-		lr := io.LimitReader(os.Stdin, int64(loaders.MaxHookPayloadBytes)+1)
+		lr := io.LimitReader(os.Stdin, int64(loaders.MaxToolHookPayloadBytes)+1)
 		stdinData, _ = io.ReadAll(lr)
 	}
 
@@ -309,12 +336,20 @@ func runHookWithOptions(ui render.UI, dbPath, project, eventFlag, agentFlag, ses
 				os.Exit(1)
 			}
 			defer st.Close()
+			recordRecallGateSessionStart(&loaders.HookEnvelope{
+				Event: loaders.EventSessionStart, Agent: agentFlag, ProjectID: project,
+				Cwd: cwd, SessionID: sessionFlag,
+			}, opts)
 			_ = spoolLifecycleEvent(spooler, loaders.EventSessionStart, agentFlag, sessionFlag, cwd, project, nil)
 			receipt := runHookSessionStart(ui, st, project, cwd, sessionFlag, agentFlag, opts.Budget, jsonOut)
 			markerSession := receipt.SessionID
 			if markerSession == "" {
 				markerSession = sessionFlag
 			}
+			recordRecallGateSessionStart(&loaders.HookEnvelope{
+				Event: loaders.EventSessionStart, Agent: agentFlag, ProjectID: project,
+				Cwd: cwd, SessionID: markerSession,
+			}, opts)
 			writePreflightMarkerForSession(cwd, project, markerSession, receipt)
 			if code := primeExitCode(receipt, hookStrict(opts)); code != 0 {
 				os.Exit(code)
@@ -325,11 +360,11 @@ func runHookWithOptions(ui render.UI, dbPath, project, eventFlag, agentFlag, ses
 
 	var env *loaders.HookEnvelope
 	if len(stdinData) > 0 {
-		if len(stdinData) > loaders.MaxHookPayloadBytes {
-			fmt.Fprintf(os.Stderr, "sila hook: payload exceeds 16 KiB limit\n")
+		if len(stdinData) > loaders.MaxToolHookPayloadBytes {
+			fmt.Fprintf(os.Stderr, "sila hook: payload exceeds 4 MiB limit\n")
 			os.Exit(1)
 		}
-		env, err = loaders.ParseHookEnvelope(stdinData)
+		env, err = loaders.ParseHookEnvelopeWithLimit(stdinData, loaders.MaxToolHookPayloadBytes)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "sila hook: parse stdin: %v\n", err)
 			os.Exit(1)
@@ -387,6 +422,16 @@ func runHookWithOptions(ui render.UI, dbPath, project, eventFlag, agentFlag, ses
 		if kind := loaders.NormalizeEventKind(hookType); kind != loaders.EventOther {
 			env.Event = kind
 		}
+	}
+
+	// Prompt boundaries arm the opt-in recall gate before any tool runs.
+	switch env.Event {
+	case loaders.EventUserPrompt:
+		recordRecallGatePrompt(env, opts)
+	case loaders.EventSessionStart:
+		recordRecallGateSessionStart(env, opts)
+	case loaders.EventSubagentStart:
+		writeRecallGateSubagentContext(env, opts)
 	}
 
 	if env.Event == loaders.EventSubagentStart || env.Event == loaders.EventSubagentStop {
@@ -463,14 +508,20 @@ func runHookWithOptions(ui render.UI, dbPath, project, eventFlag, agentFlag, ses
 	// Pre-tool-use is a synchronous gate: stdout must stay reserved for the
 	// harness-native decision. Internal spool/summary text is never emitted.
 	if env.Event == loaders.EventPreToolUse {
+		if denyPreToolUseEnvelope(env) {
+			return
+		}
 		if runPreflightGate(env, cwd) {
 			return
 		}
-		if st, openErr := store.Open(dbPath); openErr == nil {
-			runHookPreToolUse(ui, st, env, jsonOut)
+		st, openErr := store.Open(dbPath)
+		handled := runHookPreToolUse(ui, st, env, opts, jsonOut)
+		if openErr == nil {
 			st.Close()
 		}
-		writeNativeHookAllow(env, contract.PhaseToolBefore)
+		if !handled {
+			writeNativeHookAllow(env, contract.PhaseToolBefore)
+		}
 		return
 	}
 
@@ -492,12 +543,13 @@ func runHookWithOptions(ui render.UI, dbPath, project, eventFlag, agentFlag, ses
 			switch env.Event {
 			case loaders.EventPostToolUse:
 				if runHookFailureNudge(ui, st, env, jsonOut) {
-					_, _ = spooler.Spool(env)
+					_, _ = spooler.Spool(clampEnvelopeForSpool(env))
 					drain()
 					return
 				}
+				runHookMemoryMirror(st, env, envCwd, jsonOut)
 			case loaders.EventSessionStart:
-				_, _ = spooler.Spool(env)
+				_, _ = spooler.Spool(clampEnvelopeForSpool(env))
 				drain()
 				if isCompactionSessionStart(env) {
 					runHookReanchor(ui, dbPath, envCwd, env, opts.Budget, jsonOut)
@@ -517,7 +569,7 @@ func runHookWithOptions(ui render.UI, dbPath, project, eventFlag, agentFlag, ses
 				if env.Event == loaders.EventStop && runGoalContractGate(ui, st, env, envCwd, jsonOut) {
 					return
 				}
-				_, _ = spooler.Spool(env)
+				_, _ = spooler.Spool(clampEnvelopeForSpool(env))
 				drain()
 				code := runHookSessionEndWithOptions(ui, st, env.ProjectID, envCwd, env.SessionID, env.Agent, autoSync, opts.AutoHandoff, opts.DryRun, jsonOut, sessionEndOptions{Event: string(env.Event), Policy: opts.Policy})
 				if code != 0 {
@@ -528,7 +580,7 @@ func runHookWithOptions(ui render.UI, dbPath, project, eventFlag, agentFlag, ses
 		}
 	}
 
-	spoolPath, err := spooler.Spool(env)
+	spoolPath, err := spooler.Spool(clampEnvelopeForSpool(env))
 	if err != nil {
 		if jsonOut {
 			emitJSON(map[string]string{"error": err.Error()})
@@ -601,6 +653,94 @@ func writeNativeHookAllow(env *loaders.HookEnvelope, phase contract.Phase) {
 	}
 }
 
+// denyPreToolUseEnvelope rejects replayed tool-input wrappers and tool inputs
+// carrying credentials. It emits the native deny decision and reports whether
+// it handled the event.
+func denyPreToolUseEnvelope(env *loaders.HookEnvelope) bool {
+	if env == nil {
+		return false
+	}
+	input := hookToolInputMap(env.Payload)
+	if loaders.IsUnparsedToolInputWrapper(input) {
+		emitPreToolUseDeny("tool_input is a replayed {raw, len} wrapper; replace it with documented arguments")
+		return true
+	}
+	if hookPayloadContainsSecret(env.Payload) {
+		emitPreToolUseDeny("tool input contains a credential; remove it or read it from an environment variable")
+		return true
+	}
+	return false
+}
+
+func hookToolInputMap(payload map[string]interface{}) map[string]any {
+	for _, key := range []string{"tool_input", "toolInput", "input"} {
+		value, ok := payload[key]
+		if !ok || value == nil {
+			continue
+		}
+		switch typed := value.(type) {
+		case map[string]interface{}:
+			return typed
+		case string:
+			var parsed map[string]any
+			if json.Unmarshal([]byte(typed), &parsed) == nil {
+				return parsed
+			}
+		}
+	}
+	return nil
+}
+
+func hookPayloadContainsSecret(payload map[string]interface{}) bool {
+	if input := hookToolInputMap(payload); input != nil {
+		if data, err := json.Marshal(input); err == nil && loaders.ContainsSecret(string(data)) {
+			return true
+		}
+	}
+	for _, key := range []string{"command", "cmd", "query", "content"} {
+		if text, ok := payload[key].(string); ok && loaders.ContainsSecret(text) {
+			return true
+		}
+	}
+	return false
+}
+
+func emitPreToolUseDeny(reason string) {
+	_ = json.NewEncoder(os.Stdout).Encode(map[string]string{
+		"permissionDecision":       "deny",
+		"permissionDecisionReason": reason,
+	})
+}
+
+// clampEnvelopeForSpool keeps the background spool record within the 16 KiB
+// ceiling while preserving the routing keys the drain needs.
+func clampEnvelopeForSpool(env *loaders.HookEnvelope) *loaders.HookEnvelope {
+	if env == nil {
+		return nil
+	}
+	data, err := json.Marshal(env)
+	if err != nil || len(data) <= loaders.MaxHookPayloadBytes {
+		return env
+	}
+	clone := *env
+	payload := map[string]interface{}{
+		"session_id":      env.SessionID,
+		"cwd":             env.Cwd,
+		"hook_event_name": string(env.Event),
+		"truncated":       true,
+	}
+	for _, key := range []string{"transcript_path", "tool_name", "toolName"} {
+		if value, ok := env.Payload[key]; ok {
+			payload[key] = value
+		}
+	}
+	clone.Payload = payload
+	if encoded, err := json.Marshal(clone); err != nil || len(encoded) > loaders.MaxHookPayloadBytes {
+		clone.Payload = map[string]interface{}{"truncated": true}
+	}
+	return &clone
+}
+
 func spoolLifecycleEvent(spooler *loaders.Spooler, ev loaders.LifecycleEventKind, agent, session, cwd, project string, payload map[string]interface{}) error {
 	if spooler == nil {
 		return nil
@@ -626,7 +766,7 @@ func spoolLifecycleEvent(spooler *loaders.Spooler, ev loaders.LifecycleEventKind
 		Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 		Payload:   payload,
 	}
-	_, err := spooler.Spool(env)
+	_, err := spooler.Spool(clampEnvelopeForSpool(env))
 	return err
 }
 
@@ -690,6 +830,11 @@ func runHookStatus(ui render.UI, dbPath string, spooler *loaders.Spooler, projec
 			hooks[id] = st
 		}
 	}
+	recallPolicy, recallErr := config.ResolveRecallGatePolicy("", projectDir, recallGateHome(), recallGateEnvMap())
+	if recallErr != nil {
+		recallPolicy = config.RecallGateWarn
+	}
+	recallStatus := BuildRecallGateStatus(projectDir, recallPolicy)
 	if strict {
 		for _, sp := range registry.All() {
 			st := hooks[sp.ID]
@@ -713,6 +858,7 @@ func runHookStatus(ui render.UI, dbPath string, spooler *loaders.Spooler, projec
 			"harness_hooks":       hooks,
 			"harness_hooks_ready": anyHookInstalled(hooks),
 			"coverage":            hookCoverage(hooks),
+			"recall_gate":         recallStatus,
 		})
 		return
 	}
@@ -728,6 +874,11 @@ func runHookStatus(ui render.UI, dbPath string, spooler *loaders.Spooler, projec
 			ui.Dim("tip:"), ui.Cyan("sila hook drain"))
 	}
 	fmt.Fprintf(os.Stdout, "  Memory contract: %s\n", hookconfig.MemoryContractVersion)
+	fmt.Fprintf(os.Stdout, "  Recall gate: %s · %d session(s) · %d denied · %d retried · %d bypassed · %d fail-open\n",
+		ui.Bold(string(recallStatus.Policy)), recallStatus.Sessions, recallStatus.DeniedTotal,
+		recallStatus.RetriedTotal, recallStatus.BypassedTotal, recallStatus.FailOpenTotal)
+	fmt.Fprintf(os.Stdout, "  %s switch with %s or %s\n",
+		ui.Dim("tip:"), ui.Cyan("sila config set recall_gate_policy warn"), ui.Cyan("SILA_RECALL_GATE=off"))
 	for _, sp := range registry.All() {
 		harness := sp.ID
 		status := hooks[harness]

@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/jadmadi/sila/internal/agents"
 	"github.com/jadmadi/sila/internal/store"
 )
 
@@ -43,15 +44,18 @@ func Create() (*Sandbox, *store.Store, error) {
 		sb.Cleanup()
 		return nil, nil, fmt.Errorf("open demo store: %w", err)
 	}
-	if err := seedStore(st, sb.Dir); err != nil {
-		st.Close()
-		sb.Cleanup()
-		return nil, nil, fmt.Errorf("seed demo store: %w", err)
-	}
+	// Files must exist before the store seeds grounded records: the write
+	// helpers stat RepoFiles to set FileRefsExist, and a claim that points at
+	// a missing file is a lie the demo would then have to reconcile.
 	if err := seedProjectFiles(sb.Dir); err != nil {
 		st.Close()
 		sb.Cleanup()
 		return nil, nil, fmt.Errorf("seed demo project files: %w", err)
+	}
+	if err := seedStore(st, sb.Dir); err != nil {
+		st.Close()
+		sb.Cleanup()
+		return nil, nil, fmt.Errorf("seed demo store: %w", err)
 	}
 	return sb, st, nil
 }
@@ -91,6 +95,7 @@ func seedStore(st *store.Store, projectDir string) error {
 		{"claude-code", "assistant", "Confirmed by reading src/payments/checkout.go: markPaid() has no idempotency guard, and the webhook handler calls it before the poller does. An idempotency key on (order_id, provider_event_id) fixes the double write. The polling loop can then be simplified or dropped.", 28},
 		{"codex", "assistant", "The provider docs say webhook delivery is at-least-once, so dedupe on provider_event_id is mandatory. Also note the retry backlog: failed webhook deliveries replay up to 72h later, so the fix must tolerate late events, not just concurrent ones.", 27},
 		{"opencode", "assistant", "I added a regression test: two concurrent markPaid() calls for the same order now commit exactly once. The 500 rate in staging dropped to zero after the idempotency patch.", 26},
+		{"cursor", "assistant", "IDE inline check: the dedupe table already has a unique index on (order_id, provider_event_id), so the idempotency guard can rely on the constraint instead of a read-then-write.", 25},
 		{"mimocode", "assistant", "Follow-up: the same at-least-once pattern applies to the refund webhook in src/payments/refunds.go. It currently trusts event ordering; worth an idempotency key before we ship the checkout fix.", 25},
 		{"devin", "assistant", "Decision: ship the idempotency patch for checkout first, then apply the same key scheme to refunds. The poller stays as a fallback for missed webhooks but no longer writes state — it only reconciles.", 24},
 
@@ -216,6 +221,28 @@ func seedStore(st *store.Store, projectDir string) error {
 		}
 	}
 
+	// Deliberate memory records. They must be written through the store write
+	// helpers so they carry a hash-chain link and a typed envelope; a lesson
+	// or case injected as a raw transcript would not rank at Tier 1000.
+	lesson := store.FormatLesson(
+		"Checkout returns HTTP 500 on ~8% of 3DS redirects",
+		"3DS webhook races the checkout polling loop and calls markPaid() twice",
+		"Key every payment write on (order_id, provider_event_id) and make the poller read-only",
+		"payments,idempotency,webhooks",
+	)
+	if _, err := st.InsertLessonWithSession(pid, lesson, "opencode", projectDir, []string{"src/payments/checkout.go", "src/payments/refunds.go"}, "sess_payment_triage"); err != nil {
+		return err
+	}
+	agentCase := store.FormatCase(
+		"At-least-once payment and refund webhook processing",
+		"Composite idempotency key (order_id, provider_event_id) enforced before state transition",
+		"Webhook handlers are idempotent; pollers reconcile without writing state",
+		"payments,idempotency",
+	)
+	if _, err := st.InsertCaseWithSession(pid, agentCase, "claude-code", projectDir, []string{"src/payments/checkout.go"}, "sess_payment_triage"); err != nil {
+		return err
+	}
+
 	feedback := []store.Feedback{
 		{ProjectID: pid, Agent: "devin", Category: "issue", Content: "sila gate times out on a cold build cache; consider warming the build before the test phase.", Status: "open", CreatedAt: hoursAgo(14)},
 		{ProjectID: pid, Agent: "claude-code", Category: "idea", Content: "Add a --focus flag to sila digest that narrows the standup to one tool.", Status: "in_progress", CreatedAt: hoursAgo(15)},
@@ -261,6 +288,11 @@ at-least-once webhook delivery can never double-write an order.
 - **Depends On**: none
 - **Sequence**: 1
 - **Shape**: ship
+- **Memory Protocol**: required
+
+## Files to Touch
+- src/payments/checkout.go
+- src/payments/refunds.go
 
 ## References
 - **Execution Plan**: [` + "`goals/payment-webhooks/plan.md`" + `](plan.md)
@@ -475,6 +507,56 @@ data is null on failure. No endpoint invents its own shape.
 		return err
 	}
 
+	// Grounded source files. fact_demo_claim_checkout and the seeded lesson and
+	// case point at these paths, so they must exist before the store is seeded.
+	// src/payments/refund_legacy.go is deliberately absent: it is the one
+	// deterministic stale claim the facts stage is meant to catch.
+	checkout := `package payments
+
+// markPaid commits a paid state transition exactly once per provider event.
+// The unique index on (order_id, provider_event_id) makes concurrent webhook
+// deliveries safe: the second writer loses the race instead of double-writing.
+func markPaid(orderID, providerEventID string) error {
+	return nil
+}
+`
+	refunds := `package payments
+
+// processRefund applies the same idempotency key to refunds. Refund webhooks
+// are delivered at-least-once, so the write must tolerate late replays.
+func processRefund(orderID, providerEventID string) error {
+	return nil
+}
+`
+	paymentsDir := filepath.Join(dir, "src", "payments")
+	if err := os.MkdirAll(paymentsDir, 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(paymentsDir, "checkout.go"), []byte(checkout), 0o644); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(paymentsDir, "refunds.go"), []byte(refunds), 0o644); err != nil {
+		return err
+	}
+
+	// Managed rules and store wiring. salam derives its wiring state from the
+	// heal plan, so a bare marker-only AGENTS.md would report the sandbox as
+	// unwired. Compose the same block `sila install` writes instead.
+	compiler := agents.NewCompiler(dir)
+	managed, err := compiler.CompileProjectManagedBlock(agents.CompileOptions{RepoRoot: dir, ProjectName: ProjectName})
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "AGENTS.md"), []byte(agents.ComposeAgentsFile("", managed)), 0o644); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Join(dir, ".sila"), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".gitignore"), []byte(".sila/\ngoals/*/claim.json\n"), 0o644); err != nil {
+		return err
+	}
+
 	return gitInitDemoRepo(dir)
 }
 
@@ -485,13 +567,20 @@ func gitInitDemoRepo(dir string) error {
 	run := func(args ...string) error {
 		cmd := exec.Command("git", args...)
 		cmd.Dir = dir
-		cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=demo", "GIT_AUTHOR_EMAIL=demo@sila.local", "GIT_COMMITTER_NAME=demo", "GIT_COMMITTER_EMAIL=demo@sila.local")
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=demo", "GIT_AUTHOR_EMAIL=demo@sila.local",
+			"GIT_COMMITTER_NAME=demo", "GIT_COMMITTER_EMAIL=demo@sila.local",
+			"GIT_CONFIG_NOSYSTEM=1",
+		)
 		return cmd.Run()
 	}
 	if err := run("init", "-q"); err != nil {
 		return err
 	}
-	if err := run("add", "goals/README.md", "docs/deploy.md"); err != nil {
+	// Stage the whole tree so the sandbox looks like a real checked-out repo.
+	// .gitignore keeps .sila/ and claim files out of history, exactly as a
+	// user repository would.
+	if err := run("add", "-A"); err != nil {
 		return err
 	}
 	return run("commit", "-q", "--no-gpg-sign", "-m", "feat: implement dark mode toggle (goals/dark-mode-toggle/goal.md)")

@@ -92,7 +92,7 @@ func TestGoalsActiveAliasResolvesToClaimed(t *testing.T) {
 
 	ui := render.New(os.Stdout, true)
 
-	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "Active Alias Target", "Description", "", "", 1,
+	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "Active Alias Target", "Description", "", "internal/alias/active_alias.go", 1,
 		true, false, false, false, false, false, false, false, false, false, false, false, true,
 		"", "", "", false, []string{"create", "active-alias"})
 	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "", "", "", "", 0,

@@ -3,6 +3,7 @@ package loaders
 import (
 	"bufio"
 	"encoding/json"
+	"github.com/jadmadi/sila/internal/config"
 	"os"
 	"path/filepath"
 	"time"
@@ -27,7 +28,7 @@ func hookAuditPath(projectDir string) string {
 // AppendHookAudit appends one bounded JSONL entry. It is best-effort and never
 // blocks the lifecycle event.
 func AppendHookAudit(projectDir string, entry HookAuditEntry) error {
-	if projectDir == "" {
+	if projectDir == "" || config.IsForbiddenLocalStateDir(projectDir) {
 		return nil
 	}
 	if entry.Timestamp == "" {

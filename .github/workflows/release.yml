@@ -13,6 +13,7 @@ permissions:
 jobs:
   release:
     name: build and publish
+    if: github.repository == 'jadmadi/sila'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:

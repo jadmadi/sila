@@ -358,3 +358,19 @@ func TestBuildPlanSkipsOnboardingGoalWhenTrackedGoalsExist(t *testing.T) {
 		}
 	}
 }
+
+func TestNeedsCFGitFilterSkipsNonGitDirWithGitattributes(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "wrangler.jsonc"), []byte(`{"name":"demo"}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !NeedsCFGitFilter(dir) {
+		t.Fatal("expected NeedsCFGitFilter=true before .gitattributes exists")
+	}
+	if err := os.WriteFile(filepath.Join(dir, ".gitattributes"), []byte("wrangler.jsonc filter=cfclean\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if NeedsCFGitFilter(dir) {
+		t.Fatal("expected NeedsCFGitFilter=false in non-git directory once .gitattributes has filter=cfclean")
+	}
+}

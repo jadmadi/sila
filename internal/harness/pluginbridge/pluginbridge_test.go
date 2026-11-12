@@ -267,34 +267,126 @@ func TestJSFixtureHarnessEndToEnd(t *testing.T) {
 		t.Skip("node not on PATH; skipping JS fixture harness test")
 	}
 
-	tmpDir := t.TempDir()
+	cases := []struct {
+		harness string
+		runner  string
+		want    string
+	}{
+		{harness: "opencode", runner: "runner-v2.mjs", want: "BRIDGE_V2_RUNNER_OK"},
+		{harness: "mimocode", runner: "runner.mjs", want: "BRIDGE_RUNNER_OK"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.harness, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			src, err := Render(tc.harness, "v1.0.0-test")
+			if err != nil {
+				t.Fatal(err)
+			}
+			bridgePath := filepath.Join(tmpDir, "sila-bridge.mjs")
+			if err := os.WriteFile(bridgePath, []byte(src), 0o644); err != nil {
+				t.Fatal(err)
+			}
+
+			fakeSilaSrc, err := os.ReadFile(filepath.Join("testdata", "fake-sila.mjs"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			fakeSilaPath := filepath.Join(tmpDir, "fake-sila.mjs")
+			if err := os.WriteFile(fakeSilaPath, fakeSilaSrc, 0o755); err != nil {
+				t.Fatal(err)
+			}
+
+			logPath := filepath.Join(tmpDir, "sila-stdin.jsonl")
+			runnerPath := filepath.Join("testdata", tc.runner)
+
+			cmd := exec.Command(nodeBin, runnerPath, bridgePath, fakeSilaPath, logPath)
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				t.Fatalf("JS fixture runner failed: %v\nOutput:\n%s", err, string(out))
+			}
+			if !strings.Contains(string(out), tc.want) {
+				t.Fatalf("expected %s in output, got:\n%s", tc.want, string(out))
+			}
+		})
+	}
+}
+
+func TestUserScopeOpenCodeFlatpakTargets(t *testing.T) {
+	t.Setenv("XDG_CONFIG_HOME", "")
+	nativePath := filepath.Join(".config", "opencode", "plugins", BridgeFilename)
+	flatpakPath := filepath.Join(".var", "app", "ai.opencode.opencode", "config", "opencode", "plugins", BridgeFilename)
+
+	for _, tc := range []struct {
+		name  string
+		dirs  []string
+		paths []string
+	}{
+		{"flatpak-only", []string{filepath.Dir(flatpakPath)}, []string{flatpakPath}},
+		{"dual", []string{filepath.Dir(nativePath), filepath.Dir(flatpakPath)}, []string{nativePath, flatpakPath}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			home := t.TempDir()
+			for _, dir := range tc.dirs {
+				if err := os.MkdirAll(filepath.Join(home, dir), 0o755); err != nil {
+					t.Fatal(err)
+				}
+			}
+			res, err := InstallUser("opencode", home, "v1.0.0", false)
+			if err != nil || !res.Installed {
+				t.Fatalf("install = %+v, %v", res, err)
+			}
+			for _, path := range tc.paths {
+				if _, err := os.Stat(filepath.Join(home, path)); err != nil {
+					t.Fatalf("expected bridge at %s: %v", path, err)
+				}
+			}
+			ok, installedPath := IsInstalledUser("opencode", home)
+			if !ok || installedPath != filepath.Join(home, nativePath) {
+				t.Fatalf("IsInstalledUser = %v, %q", ok, installedPath)
+			}
+			if _, err := UninstallUser("opencode", home, false); err != nil {
+				t.Fatal(err)
+			}
+			for _, path := range tc.paths {
+				if _, err := os.Stat(filepath.Join(home, path)); !os.IsNotExist(err) {
+					t.Fatalf("expected %s removed, stat err %v", path, err)
+				}
+			}
+		})
+	}
+}
+
+func TestResolveSilaBinFallback(t *testing.T) {
+	nodeBin, err := exec.LookPath("node")
+	if err != nil {
+		t.Skip("node not on PATH; skipping JS fallback test")
+	}
 	src, err := Render("opencode", "v1.0.0-test")
 	if err != nil {
 		t.Fatal(err)
 	}
+	tmpDir := t.TempDir()
 	bridgePath := filepath.Join(tmpDir, "sila-bridge.mjs")
 	if err := os.WriteFile(bridgePath, []byte(src), 0o644); err != nil {
 		t.Fatal(err)
 	}
-
-	fakeSilaSrc, err := os.ReadFile(filepath.Join("testdata", "fake-sila.mjs"))
-	if err != nil {
+	home := t.TempDir()
+	fallback := filepath.Join(home, ".local", "bin", "sila")
+	if err := os.MkdirAll(filepath.Dir(fallback), 0o755); err != nil {
 		t.Fatal(err)
 	}
-	fakeSilaPath := filepath.Join(tmpDir, "fake-sila.mjs")
-	if err := os.WriteFile(fakeSilaPath, fakeSilaSrc, 0o755); err != nil {
+	if err := os.WriteFile(fallback, []byte("#!/bin/sh\n"), 0o755); err != nil {
 		t.Fatal(err)
 	}
 
-	logPath := filepath.Join(tmpDir, "sila-stdin.jsonl")
-	runnerPath := filepath.Join("testdata", "runner.mjs")
-
-	cmd := exec.Command(nodeBin, runnerPath, bridgePath, fakeSilaPath, logPath)
+	script := `import { resolveSilaBin } from "file://` + filepath.ToSlash(bridgePath) + `"; console.log(resolveSilaBin());`
+	cmd := exec.Command(nodeBin, "--input-type=module", "-e", script)
+	cmd.Env = []string{"PATH=/usr/bin", "HOME=" + home, "SILA_HOOK_BIN="}
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		t.Fatalf("JS fixture runner failed: %v\nOutput:\n%s", err, string(out))
+		t.Fatalf("node failed: %v\n%s", err, out)
 	}
-	if !strings.Contains(string(out), "BRIDGE_RUNNER_OK") {
-		t.Fatalf("expected BRIDGE_RUNNER_OK in output, got:\n%s", string(out))
+	if got := strings.TrimSpace(string(out)); got != fallback {
+		t.Fatalf("resolveSilaBin = %q, want %q", got, fallback)
 	}
 }

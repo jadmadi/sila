@@ -265,7 +265,14 @@ const plugin = {
       let briefing = ""
       try {
         const cwd = typeof ctx?.location?.directory === "string" ? ctx.location.directory : process.cwd()
-        const proc = Bun.spawn([process.env.SILA_BIN || "sila", "prime", "--no-color"], { cwd, stdin: "ignore", stdout: "pipe", stderr: "ignore" })
+        let silaBin = process.env.SILA_BIN || "sila"
+        if (!process.env.SILA_BIN) {
+          try {
+            const candidate = (process.env.HOME || "") + "/.local/bin/sila"
+            if (require("node:fs").existsSync(candidate)) silaBin = candidate
+          } catch {}
+        }
+        const proc = Bun.spawn([silaBin, "prime", "--no-color"], { cwd, stdin: "ignore", stdout: "pipe", stderr: "ignore" })
         const timer = setTimeout(() => { try { proc.kill(9) } catch {} }, 5000)
         const out = await new Response(proc.stdout).text()
         const code = await proc.exited
@@ -287,18 +294,55 @@ func WriteOpenCodePlugin() (string, error) {
 	if err != nil {
 		return "", nil
 	}
-	dir := filepath.Join(home, ".config", "opencode", "plugins")
-	if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+	dirs := make([]string, 0, 3)
+	if xdg := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); xdg != "" {
+		dirs = append(dirs, filepath.Join(xdg, "opencode", "plugins"))
+	}
+	dirs = append(dirs,
+		filepath.Join(home, ".config", "opencode", "plugins"),
+		filepath.Join(home, ".var", "app", "ai.opencode.opencode", "config", "opencode", "plugins"),
+	)
+	var written []string
+	for _, dir := range dirs {
+		if fi, err := os.Stat(dir); err != nil || !fi.IsDir() {
+			continue
+		}
+		path := filepath.Join(dir, "sila-onboard.ts")
+		if existing, err := os.ReadFile(path); err != nil || string(existing) != OpenCodePluginContent {
+			if err := os.WriteFile(path, []byte(OpenCodePluginContent), 0o644); err != nil {
+				return "", err
+			}
+		}
+		written = append(written, path)
+	}
+	if len(written) == 0 {
 		return "", nil
 	}
-	path := filepath.Join(dir, "sila-onboard.ts")
-	if existing, err := os.ReadFile(path); err == nil && string(existing) == OpenCodePluginContent {
-		return path, nil
+	return written[0], nil
+}
+
+// mcpHarnessName derives the harness identity from a config path so MCP
+// events attribute to the real host instead of the generic "mcp" label.
+func mcpHarnessName(path string) string {
+	p := strings.ToLower(filepath.ToSlash(path))
+	switch {
+	case strings.Contains(p, ".cursor"):
+		return "cursor"
+	case strings.Contains(p, ".gemini"):
+		return "antigravity"
+	case strings.Contains(p, ".claude"):
+		return "claude"
+	case strings.Contains(p, ".commandcode"):
+		return "command-code"
+	case strings.Contains(p, ".zcode"):
+		return "zcode"
+	case strings.Contains(p, "opencode"):
+		return "opencode"
+	case strings.Contains(p, "zed"):
+		return "zed"
+	default:
+		return "sila"
 	}
-	if err := os.WriteFile(path, []byte(OpenCodePluginContent), 0o644); err != nil {
-		return "", err
-	}
-	return path, nil
 }
 
 // RegisterMCPServer merges the sila stdio MCP server registration into the target JSON config.
@@ -312,7 +356,8 @@ func RegisterMCPServer(path string) error {
 		"mcpServers": map[string]any{
 			"sila": map[string]any{
 				"command": "sila",
-				"args":    []string{"mcp"},
+				"args":    []string{"mcp", "--profile=graph"},
+				"env":     map[string]any{"SILA_AGENT": mcpHarnessName(path)},
 			},
 		},
 	}
@@ -375,16 +420,36 @@ func RegisterZedMCPServer(path string) error {
 		servers = make(map[string]any)
 	}
 
-	// Idempotency: if already configured, do not re-serialize or modify
-	for k := range servers {
-		if strings.EqualFold(k, "sila") {
-			return nil
+	// Idempotency: merge the harness identity into an existing entry, and
+	// rewrite only when the env is missing.
+	for k, v := range servers {
+		if !strings.EqualFold(k, "sila") {
+			continue
 		}
+		entry, _ := v.(map[string]any)
+		if entry == nil {
+			entry = map[string]any{"command": "sila", "args": []string{"mcp", "--profile=graph"}}
+		}
+		env, _ := entry["env"].(map[string]any)
+		if env == nil {
+			env = map[string]any{}
+		}
+		entry["args"] = []string{"mcp", "--profile=graph"}
+		env["SILA_AGENT"] = "zed"
+		entry["env"] = env
+		servers[k] = entry
+		existing["context_servers"] = servers
+		b, err := json.MarshalIndent(existing, "", "  ")
+		if err != nil {
+			return err
+		}
+		return os.WriteFile(path, append(b, '\n'), 0644)
 	}
 
 	servers["sila"] = map[string]any{
 		"command": "sila",
-		"args":    []string{"mcp"},
+		"args":    []string{"mcp", "--profile=graph"},
+		"env":     map[string]any{"SILA_AGENT": "zed"},
 	}
 	existing["context_servers"] = servers
 
@@ -640,6 +705,12 @@ func Provision(cwd, project string, stackOverride ...string) ProvisionResult {
 				res.MCPConfigs = append(res.MCPConfigs, "~/.gemini/config/mcp_config.json")
 			}
 		}
+		codexDir := filepath.Join(home, ".codex")
+		if _, statErr := os.Stat(codexDir); statErr == nil {
+			if err := RegisterCodexMCPServer(filepath.Join(codexDir, "config.toml")); err == nil {
+				res.MCPConfigs = append(res.MCPConfigs, "~/.codex/config.toml")
+			}
+		}
 		zedDir := filepath.Join(home, ".config", "zed")
 		if _, statErr := os.Stat(zedDir); statErr == nil {
 			if err := RegisterZedMCPServer(filepath.Join(zedDir, "settings.json")); err == nil {
@@ -702,7 +773,13 @@ func RegisterCommandCodeMCPServer(path string) error {
 	entry["transport"] = "stdio"
 	entry["enabled"] = true
 	entry["command"] = command
-	entry["args"] = []string{"mcp"}
+	entry["args"] = []string{"mcp", "--profile=graph"}
+	env, _ := entry["env"].(map[string]any)
+	if env == nil {
+		env = map[string]any{}
+	}
+	env["SILA_AGENT"] = "command-code"
+	entry["env"] = env
 	servers["sila"] = entry
 	config["mcpServers"] = servers
 	b, err := json.MarshalIndent(config, "", "  ")
@@ -710,4 +787,59 @@ func RegisterCommandCodeMCPServer(path string) error {
 		return err
 	}
 	return os.WriteFile(path, append(b, '\n'), 0o644)
+}
+
+// RegisterCodexMCPServer appends the sila MCP server to Codex's TOML config.
+// An existing sila section is left untouched, so foreign keys survive and a
+// second run is a no-op.
+func RegisterCodexMCPServer(path string) error {
+	data, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("existing Codex config at %s is unreadable (%v); fix its permissions, then re-run install", path, err)
+	}
+	content := string(data)
+	if strings.Contains(content, "[mcp_servers.sila]") {
+		return nil
+	}
+	if content != "" && !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+	block := "\n[mcp_servers.sila]\ncommand = \"sila\"\nargs = [\"mcp\", \"--profile=graph\"]\n\n[mcp_servers.sila.env]\nSILA_AGENT = \"codex\"\n"
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(content+block), 0644)
+}
+
+// MCPProvision is one detected MCP config that install can write.
+type MCPProvision struct {
+	Kind  string // json, zed, toml
+	Path  string
+	Agent string
+}
+
+// MCPProvisionPlan lists the MCP configs install would touch for this cwd and
+// home. Detection is shared with execution so the dry run cannot drift.
+func MCPProvisionPlan(cwd, home string) []MCPProvision {
+	var out []MCPProvision
+	if fi, err := os.Stat(filepath.Join(cwd, ".cursor")); err == nil && fi.IsDir() {
+		path := filepath.Join(cwd, ".cursor", "mcp.json")
+		out = append(out, MCPProvision{Kind: "json", Path: path, Agent: mcpHarnessName(path)})
+	}
+	if home == "" {
+		return out
+	}
+	if _, err := os.Stat(filepath.Join(home, ".gemini", "config")); err == nil {
+		path := filepath.Join(home, ".gemini", "config", "mcp_config.json")
+		out = append(out, MCPProvision{Kind: "json", Path: path, Agent: mcpHarnessName(path)})
+	}
+	if _, err := os.Stat(filepath.Join(home, ".config", "zed")); err == nil {
+		path := filepath.Join(home, ".config", "zed", "settings.json")
+		out = append(out, MCPProvision{Kind: "zed", Path: path, Agent: "zed"})
+	}
+	if _, err := os.Stat(filepath.Join(home, ".codex")); err == nil {
+		path := filepath.Join(home, ".codex", "config.toml")
+		out = append(out, MCPProvision{Kind: "toml", Path: path, Agent: "codex"})
+	}
+	return out
 }

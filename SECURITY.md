@@ -8,17 +8,6 @@ Report privately — open a [security advisory](https://github.com/jadmadi/sila/
 
 Useful reports include: the version (`sila --version`), the platform, what you did, what happened, and what you expected. A minimal reproduction against a sanitized store is ideal. Do not attach a real knowledge store or transcript.
 
-## Supported versions
-
-| Version | Supported |
-| :--- | :--- |
-| 0.18.x | Yes |
-| 0.17.x and earlier | No; upgrade to the latest release before reporting |
-
-Security fixes are published as patch releases on the supported line. The public
-repository starts at v0.18.0; pre-public development history is not part of the
-public support surface.
-
 ## The boundaries that matter
 
 Sila normally runs with your own filesystem authority, so there is no multi-user boundary to defend. The boundaries that do matter are these:
@@ -29,7 +18,7 @@ Sila normally runs with your own filesystem authority, so there is no multi-user
 | Observed text vs authorized rules | Text distilled from a transcript is a **candidate**, never an approved rule. Only an explicit `sila memo` (or an explicit approval) grants authority, and candidates are excluded from exported rules. |
 | One repository vs another | Each briefing resolves one project: Git, runbook, and context measurement come from the selected project's own path. |
 | A browser page vs the local API | The cockpit binds loopback by default and validates Host, origin (scheme + host + port), and media type on every request. |
-| A downloaded release vs your machine | Release artifacts are verified against a SHA-256 manifest and release metadata from a single resolved release identity; `sila upgrade` verifies before replacing the binary. |
+| A downloaded release vs your machine | Release artifacts are verified against a SHA-256 manifest and release metadata from a single resolved release identity; `sila update` verifies before replacing the binary. |
 | Imported private data vs export | The store is a plain SQLite file you own. Nothing is sent anywhere unless you invoke an opt-in network command. |
 
 ## What "local" does not mean

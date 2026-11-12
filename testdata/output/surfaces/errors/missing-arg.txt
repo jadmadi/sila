@@ -4,7 +4,7 @@
 # exit: 2
 --- stdout ---
 --- stderr ---
-usage: sila memo "<decision>"
+usage: sila memo "<decision>" [--visibility=project|global]
        sila memo add "<decision>"
        sila memo --text="<decision>"
        sila memo list [--since=<duration|RFC3339>] [--limit=N] [--claim=<text>] [--json|--toon]

@@ -270,3 +270,62 @@ func TestToggleMixedFileCheckboxWins(t *testing.T) {
 		t.Errorf("numbered line must stay untouched in checkbox mode:\n%s", raw)
 	}
 }
+
+func TestFenceAwareCheckboxesAndSteps(t *testing.T) {
+	plan := "# Plan\n\n" +
+		"````markdown\n" +
+		"```\n" +
+		"- [ ] inner fenced task\n" +
+		"## Step 1: Inner heading\n" +
+		"1. Inner numbered\n" +
+		"```\n" +
+		"- [ ] still fenced outer task\n" +
+		"````\n\n" +
+		"- [ ] real one\n" +
+		"- [x] real two\n"
+
+	met, total := countCheckboxes(plan)
+	if met != 1 || total != 2 {
+		t.Fatalf("countCheckboxes = %d/%d, want 1/2", met, total)
+	}
+	if usesStepHeadings(plan) {
+		t.Fatal("fenced step heading was treated as a live heading")
+	}
+	tasks := parseTasksFromContent(plan, "plan.md", 1)
+	if len(tasks) != 2 {
+		t.Fatalf("parseTasksFromContent returned %d tasks, want 2: %+v", len(tasks), tasks)
+	}
+	if tasks[0].Text != "real one" || !tasks[1].Completed {
+		t.Fatalf("unexpected tasks: %+v", tasks)
+	}
+
+	tmp := t.TempDir()
+	writeNumberedGoal(t, tmp, "fence-goal", plan)
+	toggled, err := ToggleGoalTask(tmp, "fence-goal", 1, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if toggled.Text != "real one" {
+		t.Fatalf("toggled %q, want the first live task", toggled.Text)
+	}
+	data, err := os.ReadFile(filepath.Join(tmp, "goals", "fence-goal", "plan.md"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	updated := string(data)
+	if !strings.Contains(updated, "- [x] real one") {
+		t.Fatalf("live task was not toggled: %s", updated)
+	}
+	if strings.Contains(updated, "- [x] inner fenced task") || strings.Contains(updated, "- [x] still fenced outer task") {
+		t.Fatalf("fenced task was toggled: %s", updated)
+	}
+
+	tilde := "# Plan\n\n~~~\n- [ ] fenced tilde\n## Step 9: Fenced\n~~~\n- [ ] live tilde task\n"
+	met, total = countCheckboxes(tilde)
+	if met != 0 || total != 1 {
+		t.Fatalf("tilde countCheckboxes = %d/%d, want 0/1", met, total)
+	}
+	if usesStepHeadings(tilde) {
+		t.Fatal("fenced tilde step heading was treated as a live heading")
+	}
+}

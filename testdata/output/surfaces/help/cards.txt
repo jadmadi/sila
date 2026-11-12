@@ -1,0 +1,14 @@
+# surface: help__cards
+# argv: sila cards --help
+# mode: help
+# exit: 0
+--- stdout ---
+sila cards  -  inspect typed session cards written at session end
+
+Usage
+  sila cards list [--limit=N]
+  sila cards show <card-id|session-id>
+
+Options
+  --json                   Emit machine-readable JSON on stdout
+  --db=<path>              Knowledge store path

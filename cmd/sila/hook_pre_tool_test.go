@@ -19,7 +19,9 @@ func TestPreToolUseWebSearchWarningAndAudit(t *testing.T) {
 		Payload:   map[string]any{"tool_name": "web_search", "query": "x"},
 	}
 	errOut := captureStderr(t, func() {
-		runHookPreToolUse(render.New(os.Stdout, true), nil, env, false)
+		if runHookPreToolUse(render.New(os.Stdout, true), nil, env, hookOptions{}, false) {
+			t.Fatal("web search advisory must not emit a native decision")
+		}
 	})
 	if !strings.Contains(errOut, "web search before recall") {
 		t.Fatalf("missing advisory warning: %q", errOut)

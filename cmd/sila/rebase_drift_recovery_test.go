@@ -30,7 +30,7 @@ func runGateSubprocessHelper() {
 	preCommit := os.Getenv("SUBPROCESS_PRECOMMIT") == "1"
 	ui := render.New(os.Stdout, false)
 	if preCommit {
-		runGatePreCommit(ui, jsonOut, false, false, false, false)
+		runGatePreCommit(ui, jsonOut, false, false, false, false, false, false)
 	} else {
 		runGateDiscipline(ui, jsonOut, false, false, false, false)
 	}

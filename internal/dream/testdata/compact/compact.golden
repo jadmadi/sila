@@ -1,0 +1,206 @@
+{
+  "hits": [
+    {
+      "id": "hit-00",
+      "kind": "lesson",
+      "title": "symptom-00 symptom-00 symptom-00 symptom-00 symptom-00 symptom-00 symptom-00 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 100,
+      "tokens": 45
+    },
+    {
+      "id": "hit-01",
+      "kind": "fact",
+      "title": "symptom-01 symptom-01 symptom-01 symptom-01 symptom-01 symptom-01 symptom-01 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 99,
+      "tokens": 44
+    },
+    {
+      "id": "hit-02",
+      "kind": "transcript",
+      "title": "symptom-02 symptom-02 symptom-02 symptom-02 symptom-02 symptom-02 symptom-02 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 98,
+      "tokens": 46
+    },
+    {
+      "id": "hit-03",
+      "kind": "lesson",
+      "title": "symptom-03 symptom-03 symptom-03 symptom-03 symptom-03 symptom-03 symptom-03 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 97,
+      "tokens": 45
+    },
+    {
+      "id": "hit-04",
+      "kind": "fact",
+      "title": "symptom-04 symptom-04 symptom-04 symptom-04 symptom-04 symptom-04 symptom-04 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 96,
+      "tokens": 44
+    },
+    {
+      "id": "hit-05",
+      "kind": "transcript",
+      "title": "symptom-05 symptom-05 symptom-05 symptom-05 symptom-05 symptom-05 symptom-05 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 95,
+      "tokens": 46
+    },
+    {
+      "id": "hit-06",
+      "kind": "lesson",
+      "title": "symptom-06 symptom-06 symptom-06 symptom-06 symptom-06 symptom-06 symptom-06 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 94,
+      "tokens": 45
+    },
+    {
+      "id": "hit-07",
+      "kind": "fact",
+      "title": "symptom-07 symptom-07 symptom-07 symptom-07 symptom-07 symptom-07 symptom-07 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 93,
+      "tokens": 44
+    },
+    {
+      "id": "hit-08",
+      "kind": "transcript",
+      "title": "symptom-08 symptom-08 symptom-08 symptom-08 symptom-08 symptom-08 symptom-08 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 92,
+      "tokens": 46
+    },
+    {
+      "id": "hit-09",
+      "kind": "lesson",
+      "title": "symptom-09 symptom-09 symptom-09 symptom-09 symptom-09 symptom-09 symptom-09 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 91,
+      "tokens": 45
+    },
+    {
+      "id": "hit-10",
+      "kind": "fact",
+      "title": "symptom-10 symptom-10 symptom-10 symptom-10 symptom-10 symptom-10 symptom-10 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 90,
+      "tokens": 44
+    },
+    {
+      "id": "hit-11",
+      "kind": "transcript",
+      "title": "symptom-11 symptom-11 symptom-11 symptom-11 symptom-11 symptom-11 symptom-11 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 89,
+      "tokens": 46
+    },
+    {
+      "id": "hit-12",
+      "kind": "lesson",
+      "title": "symptom-12 symptom-12 symptom-12 symptom-12 symptom-12 symptom-12 symptom-12 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 88,
+      "tokens": 45
+    },
+    {
+      "id": "hit-13",
+      "kind": "fact",
+      "title": "symptom-13 symptom-13 symptom-13 symptom-13 symptom-13 symptom-13 symptom-13 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 87,
+      "tokens": 44
+    },
+    {
+      "id": "hit-14",
+      "kind": "transcript",
+      "title": "symptom-14 symptom-14 symptom-14 symptom-14 symptom-14 symptom-14 symptom-14 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 86,
+      "tokens": 46
+    },
+    {
+      "id": "hit-15",
+      "kind": "lesson",
+      "title": "symptom-15 symptom-15 symptom-15 symptom-15 symptom-15 symptom-15 symptom-15 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 85,
+      "tokens": 45
+    },
+    {
+      "id": "hit-16",
+      "kind": "fact",
+      "title": "symptom-16 symptom-16 symptom-16 symptom-16 symptom-16 symptom-16 symptom-16 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 84,
+      "tokens": 44
+    },
+    {
+      "id": "hit-17",
+      "kind": "transcript",
+      "title": "symptom-17 symptom-17 symptom-17 symptom-17 symptom-17 symptom-17 symptom-17 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 83,
+      "tokens": 46
+    },
+    {
+      "id": "hit-18",
+      "kind": "lesson",
+      "title": "symptom-18 symptom-18 symptom-18 symptom-18 symptom-18 symptom-18 symptom-18 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 82,
+      "tokens": 45
+    },
+    {
+      "id": "hit-19",
+      "kind": "fact",
+      "title": "symptom-19 symptom-19 symptom-19 symptom-19 symptom-19 symptom-19 symptom-19 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 81,
+      "tokens": 44
+    },
+    {
+      "id": "hit-20",
+      "kind": "transcript",
+      "title": "symptom-20 symptom-20 symptom-20 symptom-20 symptom-20 symptom-20 symptom-20 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 80,
+      "tokens": 46
+    },
+    {
+      "id": "hit-21",
+      "kind": "lesson",
+      "title": "symptom-21 symptom-21 symptom-21 symptom-21 symptom-21 symptom-21 symptom-21 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 79,
+      "tokens": 45
+    },
+    {
+      "id": "hit-22",
+      "kind": "fact",
+      "title": "symptom-22 symptom-22 symptom-22 symptom-22 symptom-22 symptom-22 symptom-22 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 78,
+      "tokens": 44
+    },
+    {
+      "id": "hit-23",
+      "kind": "transcript",
+      "title": "symptom-23 symptom-23 symptom-23 symptom-23 symptom-23 symptom-23 symptom-23 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 77,
+      "tokens": 46
+    },
+    {
+      "id": "hit-24",
+      "kind": "lesson",
+      "title": "symptom-24 symptom-24 symptom-24 symptom-24 symptom-24 symptom-24 symptom-24 sym...",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 76,
+      "tokens": 45
+    }
+  ],
+  "truncated": true,
+  "tokens": 1125
+}

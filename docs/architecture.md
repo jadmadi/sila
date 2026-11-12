@@ -128,3 +128,4 @@ To maintain absolute transparency and prevent ungrounded claims, Sila enforces a
 - **`disabled`**: The subsystem or adapter is dormant (e.g. missing `CLOUDFLARE_API_TOKEN` or deactivated semantic assistant). Sila fails closed or gracefully skips execution without issuing false passes.
 - **`verified`**: The behavior is proven by reachable Git commits, exact SHA-256 build manifests, and passing test suites under `-race`.
 - **`acknowledged`**: Diagnostic findings, warnings, or operator notes recorded in durable ledgers (`fact_incidents`, `goals/README.md`) without claiming unverified behavioral resolution.
+

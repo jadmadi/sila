@@ -1,6 +1,6 @@
 {
   "cwd": "/workspace/sila/cli",
-  "hook_event_name": "experimental.session.compacting",
+  "hook_event_name": "compaction",
   "project_id": "sila-cli",
   "sequence": "1",
   "session_id": "sess-opencode"

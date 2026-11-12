@@ -159,7 +159,7 @@ func TestGoalsJSONReadOnlyByDefaultAndSyncMutations(t *testing.T) {
 	ui := render.New(os.Stdout, true)
 
 	_ = captureStdout(t, func() {
-		runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "Read Only Target", "Description", "", "", 1,
+		runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "Read Only Target", "Description", "", "internal/readonly/target.go", 1,
 			true, false, false, false, false, false, false, false, false, false, false, false, true,
 			"", "", "", false, []string{"create", "read-only-target"})
 	})
@@ -230,7 +230,7 @@ func TestGoalsPorcelainGolden(t *testing.T) {
 	ui := render.New(os.Stdout, true)
 
 	_ = captureStdout(t, func() {
-		runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "Porcelain Target", "Description", "", "", 1,
+		runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "Porcelain Target", "Description", "", "internal/porcelain/target.go", 1,
 			true, false, false, false, false, false, false, false, false, false, false, false, true,
 			"immediate", "", "", false, []string{"create", "porcelain-target"},
 			goalsRunOptions{tier: "immediate"})

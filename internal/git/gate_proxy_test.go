@@ -3,8 +3,8 @@ package git
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 	"testing"
 )
@@ -138,15 +138,9 @@ func TestInstallGateRemote(t *testing.T) {
 }
 
 func TestRunGatePipelineSandbox(t *testing.T) {
-	if runtime.GOOS == "windows" {
-		t.Skip("requires a POSIX shell shim for the fake sila binary")
+	if _, err := exec.LookPath("sila"); err == nil {
+		t.Skip("a sila binary is on PATH; the empty-repo fail-closed case requires no installed binary")
 	}
-	fakeSila := filepath.Join(t.TempDir(), "sila")
-	if err := os.WriteFile(fakeSila, []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
-		t.Fatalf("write fake sila: %v", err)
-	}
-	t.Setenv("SILA_BIN", fakeSila)
-
 	dir := setupRepo(t)
 	mgr, err := NewManager(dir)
 	if err != nil {

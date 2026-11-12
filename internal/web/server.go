@@ -182,6 +182,8 @@ func NewServer(cfg Config) (*Server, error) {
 
 	// REST API endpoints
 	mux.HandleFunc("/api/status", s.handleStatus)
+	mux.HandleFunc("/api/overview", s.handleOverview)
+	mux.HandleFunc("/api/recall", s.handleRecall)
 	mux.HandleFunc("/api/shutdown", s.handleShutdown)
 	mux.HandleFunc("/api/search", s.handleSearch)
 	mux.HandleFunc("/api/expand", s.handleExpand)

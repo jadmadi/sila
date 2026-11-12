@@ -1,0 +1,7 @@
+{
+  "name": "version_difference",
+  "kind": "lesson",
+  "claim_a": "### Symptom\ndeployment release pipeline image tag pin rollout staging production canary verify metric alert trace span budget quota limit version v0.17\n### Cause\nimage tag\n### Fix\npin tag",
+  "claim_b": "### Symptom\ndeployment release pipeline image tag pin rollout staging production canary verify metric alert trace span budget quota limit version v0.18\n### Cause\nimage tag\n### Fix\npin tag",
+  "expect": "veto"
+}

@@ -1,0 +1,26 @@
+{
+  "harness": "cursor",
+  "steps": [
+    {
+      "kind": "mutate",
+      "payload": {
+        "tool_name": "Write",
+        "tool_input": {"file_path": "cmd/app/main.go", "content": "package main"}
+      }
+    },
+    {
+      "kind": "recall",
+      "payload": {
+        "tool_name": "Bash",
+        "tool_input": {"command": "sila recall \"app bootstrap\""}
+      }
+    },
+    {
+      "kind": "retry",
+      "payload": {
+        "tool_name": "Write",
+        "tool_input": {"file_path": "cmd/app/main.go", "content": "package main"}
+      }
+    }
+  ]
+}

@@ -42,8 +42,16 @@ func TestCertifyGoal(t *testing.T) {
 	if len(res.Goals) != 1 || res.Goals[0].Status != "implemented" {
 		t.Fatalf("expected goal status implemented via evidence certification, got %q", res.Goals[0].Status)
 	}
-	if !res.Goals[0].Certified {
-		t.Fatalf("expected goal.Certified true")
+	// The goal declares no Files To Touch, so the evidence certification
+	// cannot bind content and must stay unbound rather than look verified.
+	if res.Goals[0].VerificationStatus != StateUnbound {
+		t.Fatalf("expected unbound verification without content binding, got %q", res.Goals[0].VerificationStatus)
+	}
+	if res.Goals[0].Certified {
+		t.Fatalf("expected goal.Certified false without content binding")
+	}
+	if res.Goals[0].Certification == nil {
+		t.Fatalf("expected the certification record to remain readable")
 	}
 }
 

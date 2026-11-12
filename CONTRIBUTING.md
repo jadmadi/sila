@@ -1,6 +1,6 @@
 # Contributing to Sila (صِلَة)
 
-Thank you for your interest in contributing to Sila! Sila is the cross-harness continuity engine and local knowledge store for AI coding agents. It unifies transcripts across twelve AI session sources into one durable, disk-grounded store without telemetry, remote daemons, or CGO dependencies.
+Thank you for your interest in contributing to Sila! Sila is the cross-harness continuity engine and local knowledge store for AI coding agents. It unifies transcripts across ten AI CLI tools into one durable, disk-grounded store without telemetry, remote daemons, or CGO dependencies.
 
 This guide provides the shortest path from cloning the repository to landing a high-quality contribution. It establishes our local-first engineering discipline, architectural invariants, code conventions, and verification gates.
 
@@ -15,7 +15,7 @@ This guide provides the shortest path from cloning the repository to landing a h
 5. [Quality Standards & Coverage Thresholds](#quality-standards--coverage-thresholds)
 6. [The Local Verification Gate (`sila gate`)](#the-local-verification-gate-sila-gate)
 7. [High-Value Contribution Areas](#high-value-contribution-areas)
-8. [Commit Conventions](#commit-conventions)
+8. [Commit Conventions & Goal Attribution](#commit-conventions--goal-attribution)
 9. [Pull Request & Review Workflow](#pull-request--review-workflow)
 10. [Compatibility & Semantic Versioning](#compatibility--semantic-versioning)
 11. [Security & Responsible Disclosure](#security--responsible-disclosure)
@@ -26,14 +26,14 @@ This guide provides the shortest path from cloning the repository to landing a h
 
 Before pushing changes or submitting a Pull Request, verify each item:
 
-- [ ] **Toolchain:** Built with **Go 1.27.2+** with `CGO_ENABLED=0`. Zero CGO or external runtime dependencies.
+- [ ] **Toolchain:** Built with **Go 1.27.1+** with `CGO_ENABLED=0`. Zero CGO or external runtime dependencies.
 - [ ] **Tests with Race Detector:** `go test -race ./...` passes 100% cleanly with zero race warnings.
 - [ ] **Formatting:** Code formatted via `gofmt -s -w .` (zero diffs reported by `gofmt -l cmd internal`).
 - [ ] **Changelog:** Updated `CHANGELOG.md` under `## [Unreleased]` documenting the user-facing effect.
 - [ ] **Rebuilt Binary:** Executed `./build.sh` so the embedded VCS commit SHA matches `HEAD`.
 - [ ] **Command Reference:** Updated `docs/reference.md` if any command, flag, or subcommand changed.
 - [ ] **Discipline Gate:** Ran `sila gate` (or `go run ./cmd/sila gate`) and received `✔ all checks pass — discipline clean`.
-- [ ] **Commit Message:** Formatted with an effect-first conventional commit subject and an issue reference when applicable (e.g. `feat: description (fixes #123)`).
+- [ ] **Commit Message:** Formatted with an effect-first conventional commit subject and roadmap attribution (e.g. `feat: description (goals/<slug>/goal.md)`).
 
 ---
 
@@ -41,7 +41,7 @@ Before pushing changes or submitting a Pull Request, verify each item:
 
 ### Prerequisites
 
-- **Go 1.27.2+** (download from [go.dev](https://go.dev/dl/))
+- **Go 1.27.1+** (download from [go.dev](https://go.dev/dl/))
 - **Git**
 - **SQLite:** Pure-Go SQLite (`modernc.org/sqlite`) is embedded directly in the binary. No local SQLite C-libraries, header files, or `gcc` required.
 - **No Node.js, Python, or auxiliary runtimes:** Sila is an entirely self-contained Go application.
@@ -50,7 +50,7 @@ Before pushing changes or submitting a Pull Request, verify each item:
 
 ```bash
 # Clone the repository
-git clone https://github.com/jadmadi/sila.git && cd sila
+git clone https://github.com/jadmadi/sila.git && cd sila/cli
 
 # Run full test suite with race detector (acceptance gate)
 go test -race ./...
@@ -85,10 +85,8 @@ sila gate
 
 Every contribution must honor Sila's foundational architectural invariants:
 
-1. **Local Verification First:**
-   Run the same checks locally that CI runs: `go test -race ./...`,
-   `go vet ./...`, `gofmt`, and `./build.sh --check --no-install`. CI mirrors
-   those commands; it is not a substitute for a local preflight.
+1. **Zero CI Sprawl / Local Verification First:**
+   All builds, race-detector tests, format checks, dependency audits, and parity verifications must pass locally via `sila gate` before opening a pull request. We do not use remote CI as a trial-and-error debugging harness.
 2. **Rights-Based Data Sovereignty:**
    - External harness logs and IDE transcripts are treated as strictly **read-only**.
    - Zero ambient or unconsented telemetry, analytics beacons, or remote tracking. Network calls must be strictly explicit, opt-in, and consented by the user.
@@ -98,10 +96,11 @@ Every contribution must honor Sila's foundational architectural invariants:
    - Sila's core identity is a fast, pure-Go local knowledge store and search engine (`sync`, `search`, `prime`, `memo`, `handoff`, `doc`, `gate`, `goals`). Keep it focused and lean.
 4. **Offline by Default:**
    All core operations (`sync`, `search`, `prime`, `doc`, `gate`, `goals`, `mcp`) operate entirely offline against local SQLite and filesystem state.
-5. **Single Public Core:**
-   This repository is the public Go core. The private development archive and
-   the optional edge Worker are not part of the public contribution surface.
-   Keep the public repository self-contained and buildable with `go build ./...`.
+5. **Radical Decoupling & Multi-Repo Isolation:**
+   When working within the broader Sila workspace:
+   - `cli/` is the public Go core repository.
+   - `research/` is strictly private competitive research; never leak, copy, or stage files from `research/` into `cli/`.
+   - `worker/` is the edge Cloudflare Worker bridge; keep Node/TypeScript dependencies strictly isolated there.
 
 ---
 
@@ -109,7 +108,7 @@ Every contribution must honor Sila's foundational architectural invariants:
 
 ### Language & Dependencies
 
-- **Pure Go 1.27.2+:** We strictly enforce `CGO_ENABLED=0`. Never introduce dependencies requiring CGO or native C compilation.
+- **Pure Go 1.27.1+:** We strictly enforce `CGO_ENABLED=0`. Never introduce dependencies requiring CGO or native C compilation.
 - **Approved Permissive Licenses:** Direct and indirect dependencies must carry approved permissive open-source licenses (MIT, BSD-2-Clause, BSD-3-Clause, Apache-2.0, ISC). Copyleft dependencies (GPL, AGPL, LGPL, SSPL, MPL) are strictly prohibited.
 - **Zero Script Sprawl:** Do not write Python or Bash automation scripts for repo logic. Write all automation, checkers, and tooling in Go. The only exception is the root `build.sh` compilation wrapper.
 
@@ -130,14 +129,12 @@ Every contribution must honor Sila's foundational architectural invariants:
 
 Sila adheres to strict quality benchmarks:
 
-- **Formatting and static checks:** `gofmt` and `go vet` must be clean.
-- **Coverage:** Coverage thresholds are enforced by `./build.sh --check`; do not
-  lower a threshold to make a change pass.
-- **Concurrency Safety:** Clean `-race` suite pass across all packages. Zero
-  leaked goroutines or data races allowed.
-- **Documentation Parity:** Every user-facing command and flag must be
-  documented in `docs/reference.md`. Repository URLs and relative markdown
-  links must resolve without drift.
+- **Go Report Card Grade A+:** Zero issues from `gofmt`, `go vet`, `gocyclo`, `ineffassign`, `misspell`, and `staticcheck`.
+- **Code Coverage Thresholds:**
+  - Overall codebase statement coverage: **>= 80%**.
+  - Core data packages (`internal/store`, `internal/ingest`): **>= 90%**.
+- **Concurrency Safety:** Clean `-race` suite pass across all packages. Zero leaked goroutines or data races allowed.
+- **Documentation Parity:** Every user-facing command and flag must be documented in `docs/reference.md`. Canonical author links, repository URLs, and local relative markdown links must resolve without drift.
 
 ---
 
@@ -176,7 +173,7 @@ sila gate install
 
 ### 1. Source-Adapter Fixtures (Highest Value)
 
-Sila ingests session logs and transcripts from twelve AI session sources (Claude Code, Codex, OpenCode, MiMoCode, Devin, Command Code, Codewhale, Antigravity, ZCode, Muse, Zed, and Git). Cursor, Grok CLI, and Droid are detected but not indexed. As AI tools evolve, their on-disk log schemas, JSON formats, or SQLite schemas change.
+Sila ingests session logs and transcripts from ten AI CLI harnesses (Claude Code, Devin, MiMo, Codex, OpenCode, Gemini/AGY, Cursor, ZCode, etc.). As AI tools evolve, their on-disk log schemas, JSON formats, or SQLite schemas change.
 
 - **Synthetic & Sanitized Fixtures:** Always create synthetic, sanitized test fixtures. **Never commit real user transcripts**, which may contain proprietary code, tokens, or personal data.
 - **Test Pattern:** Follow existing patterns in `internal/loaders/*_test.go` (e.g. creating temp JSONL files via `t.TempDir()` or SQLite test databases via `mustExec`).
@@ -194,7 +191,7 @@ Bug fixes, documentation improvements, error message clarifications, and code si
 
 ---
 
-## Commit Conventions
+## Commit Conventions & Goal Attribution
 
 ### Conventional Commits with Effect-First Subjects
 
@@ -212,18 +209,18 @@ Allowed types:
 - `perf:` Performance improvements.
 - `docs:` Documentation updates.
 - `test:` Adding or updating tests.
-- `chore:` Maintenance, dependency bumps, or tooling updates.
+- `chore:` Maintenance, dependency bumps, or goal matrices.
 
-### Issue References
+### Closed-Loop Goal Attribution
 
-Reference the issue a change closes when one exists:
-
-```bash
-git commit -m "fix(store): preserve project scope on same-basename reads (fixes #42)"
-```
-
-The internal Sila goal registry is private. Public contributors do not need it;
-use conventional commits, tests, and issue references instead.
+When working on a roadmap goal defined under `goals/<slug>/`:
+1. Claim the goal: `sila goals claim <slug> --agent=<your-name>`.
+2. Implement, test, and verify via `sila gate`.
+3. Include the goal attribution path in the commit message:
+   ```bash
+   git commit -m "feat(store): improve search ranking for hybrid queries (goals/hybrid-search-ranking/goal.md)"
+   ```
+4. Run `sila goals` to automatically verify the goal's completion and sync the status matrix.
 
 ---
 

@@ -304,3 +304,103 @@ func (s *Store) DocStats(projectSel string) (int, int64, error) {
 	}
 	return count, totalBytes, err
 }
+
+// DefaultDocSnippetChars bounds a search_docs content snippet.
+const DefaultDocSnippetChars = 700
+
+// ExtractDocSnippet selects the Markdown section with the most case-insensitive
+// query term hits and bounds it to maxChars. The section heading line is kept
+// when the bound allows. SearchDocsFTS still returns full Doc.Content.
+func ExtractDocSnippet(content, query string, maxChars int) string {
+	if maxChars <= 0 {
+		maxChars = DefaultDocSnippetChars
+	}
+	content = strings.TrimSpace(content)
+	if content == "" {
+		return ""
+	}
+	terms := strings.Fields(strings.ToLower(query))
+	sections := splitDocSections(content)
+	best := sections[0]
+	bestHits := -1
+	for _, section := range sections {
+		lower := strings.ToLower(section)
+		hits := 0
+		for _, term := range terms {
+			if term != "" {
+				hits += strings.Count(lower, term)
+			}
+		}
+		if hits > bestHits {
+			bestHits = hits
+			best = section
+		}
+	}
+	return boundDocSnippet(best, maxChars)
+}
+
+// splitDocSections splits Markdown at ATX heading lines. The heading line stays
+// with its section; text before the first heading is its own section.
+func splitDocSections(content string) []string {
+	var sections []string
+	var current []string
+	flush := func() {
+		text := strings.TrimSpace(strings.Join(current, "\n"))
+		if text != "" {
+			sections = append(sections, text)
+		}
+		current = nil
+	}
+	for _, line := range strings.Split(content, "\n") {
+		if isDocHeading(line) {
+			flush()
+		}
+		current = append(current, line)
+	}
+	flush()
+	if len(sections) == 0 {
+		return []string{strings.TrimSpace(content)}
+	}
+	return sections
+}
+
+func isDocHeading(line string) bool {
+	trimmed := strings.TrimLeft(line, " \t")
+	if !strings.HasPrefix(trimmed, "#") {
+		return false
+	}
+	level := 0
+	for level < len(trimmed) && trimmed[level] == '#' {
+		level++
+	}
+	if level < 1 || level > 6 {
+		return false
+	}
+	return level == len(trimmed) || trimmed[level] == ' ' || trimmed[level] == '\t'
+}
+
+func boundDocSnippet(section string, maxChars int) string {
+	if len(section) <= maxChars {
+		return section
+	}
+	firstLineEnd := strings.IndexByte(section, '\n')
+	if firstLineEnd < 0 || firstLineEnd+1 >= maxChars {
+		return truncateUTF8(section, maxChars)
+	}
+	heading := section[:firstLineEnd+1]
+	return heading + truncateUTF8(section[firstLineEnd+1:], maxChars-len(heading))
+}
+
+func truncateUTF8(text string, maxBytes int) string {
+	if len(text) <= maxBytes {
+		return text
+	}
+	cut := 0
+	for i := range text {
+		if i > maxBytes {
+			break
+		}
+		cut = i
+	}
+	return text[:cut]
+}

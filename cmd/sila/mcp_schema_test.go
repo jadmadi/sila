@@ -11,7 +11,7 @@ import (
 func TestRunMCPSchemaSingleTool(t *testing.T) {
 	var code int
 	out := captureStdout(t, func() {
-		code = runMCPSchema("recall", true)
+		code = runMCPSchema("recall", "", true)
 	})
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
@@ -35,7 +35,7 @@ func TestRunMCPSchemaSingleTool(t *testing.T) {
 func TestRunMCPSchemaUnknownTool(t *testing.T) {
 	var code int
 	_ = captureStdout(t, func() {
-		code = runMCPSchema("not_a_tool", true)
+		code = runMCPSchema("not_a_tool", "", true)
 	})
 	if code != 2 {
 		t.Fatalf("exit code = %d, want 2", code)
@@ -45,7 +45,7 @@ func TestRunMCPSchemaUnknownTool(t *testing.T) {
 func TestRunMCPSchemaAllTools(t *testing.T) {
 	var code int
 	out := captureStdout(t, func() {
-		code = runMCPSchema("", true)
+		code = runMCPSchema("", "", true)
 	})
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0", code)
@@ -56,7 +56,19 @@ func TestRunMCPSchemaAllTools(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &payload); err != nil {
 		t.Fatalf("invalid JSON: %v", err)
 	}
+	if len(payload.Tools) != mcp.ContinuityToolCount {
+		t.Fatalf("got %d tools, want %d", len(payload.Tools), mcp.ContinuityToolCount)
+	}
+	out = captureStdout(t, func() {
+		code = runMCPSchema("", "full", true)
+	})
+	if code != 0 {
+		t.Fatalf("full exit code = %d", code)
+	}
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("invalid full JSON: %v", err)
+	}
 	if len(payload.Tools) != len(mcp.ToolDefinitions()) {
-		t.Fatalf("got %d tools, want %d", len(payload.Tools), len(mcp.ToolDefinitions()))
+		t.Fatalf("full got %d tools, want %d", len(payload.Tools), len(mcp.ToolDefinitions()))
 	}
 }

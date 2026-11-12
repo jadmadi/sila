@@ -135,7 +135,7 @@ func TestOpenRejectsFutureSchema(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	future := len(migrations) + 25
+	future := CurrentSchemaVersion() + 25
 	if _, err := s.DB.Exec("PRAGMA user_version = " + itoa(future)); err != nil {
 		t.Fatal(err)
 	}
@@ -167,8 +167,8 @@ func TestMigrateRecordsVersionTransactionally(t *testing.T) {
 	if err := s.DB.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != len(migrations) {
-		t.Fatalf("user_version = %d, want %d", version, len(migrations))
+	if version != CurrentSchemaVersion() {
+		t.Fatalf("user_version = %d, want %d", version, CurrentSchemaVersion())
 	}
 	if err := s.DB.QueryRow(`SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('source_occurrences','messages','facts')`).Scan(&tables); err != nil {
 		t.Fatal(err)
@@ -335,7 +335,7 @@ func TestOpenROReopensReadOnlyAfterUpgrade(t *testing.T) {
 	if err := after.DB.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
 		t.Fatal(err)
 	}
-	if version != len(migrations) {
-		t.Fatalf("store left at version %d after a read; want %d", version, len(migrations))
+	if version != CurrentSchemaVersion() {
+		t.Fatalf("store left at version %d after a read; want %d", version, CurrentSchemaVersion())
 	}
 }

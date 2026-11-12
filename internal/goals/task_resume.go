@@ -6,10 +6,15 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 )
 
 // Diagnostic code for a task checkpoint that is blocked.
 const DiagTaskCheckpointBlocked = "TASK_CHECKPOINT_BLOCKED"
+
+// Diagnostic code for a task past the claim's stop-at checkpoint lease.
+const DiagTaskStopBoundaryReached = "TASK_STOP_BOUNDARY_REACHED"
 
 // BuildTaskResumePacket constructs a verified resume TaskPacket for taskID under goal slug.
 // It integrates the latest task checkpoint, validates spec and source drift, re-evaluates
@@ -40,6 +45,23 @@ func BuildTaskResumePacket(rootDir, slug, taskID string) (*TaskPacket, error) {
 	packet.Resume = cp
 	if len(cpDiags) > 0 {
 		packet.Diagnostics = append(packet.Diagnostics, cpDiags...)
+	}
+
+	// 2b. Stop-at checkpoint lease: progression past the boundary halts until
+	// a human clears the lease on the active claim.
+	if claim, claimErr := LoadGoalClaim(rootDir, slug); claimErr == nil && claim != nil {
+		stopAt := strings.TrimSpace(claim.StopAtTaskID)
+		if stopAt != "" && taskIDAfterBoundary(taskID, stopAt) {
+			packet.Diagnostics = append(packet.Diagnostics, Diagnostic{
+				Code:        DiagTaskStopBoundaryReached,
+				Severity:    "error",
+				GoalSlug:    slug,
+				Path:        fmt.Sprintf("tasks[%s]", taskID),
+				Message:     fmt.Sprintf("task %s is past the stop-at checkpoint %s", taskID, stopAt),
+				Remediation: "Clear the stop lease with `sila goals checkpoint <slug> <task-id> --clear-stop` after human review",
+			})
+			packet.Executable = false
+		}
 	}
 
 	// 3. AC-008: Validate spec drift
@@ -186,4 +208,30 @@ func BuildTaskResumePacket(rootDir, slug, taskID string) (*TaskPacket, error) {
 	packet.PacketDigest = newPacketDigest
 
 	return packet, nil
+}
+
+// taskIDAfterBoundary reports whether taskID sorts after stopAt. Numeric
+// suffixes are compared numerically so T-10 follows T-2.
+func taskIDAfterBoundary(taskID, stopAt string) bool {
+	a, aok := taskSequence(taskID)
+	b, bok := taskSequence(stopAt)
+	if aok && bok {
+		return a > b
+	}
+	return strings.Compare(taskID, stopAt) > 0
+}
+
+func taskSequence(id string) (int, bool) {
+	i := len(id)
+	for i > 0 && id[i-1] >= '0' && id[i-1] <= '9' {
+		i--
+	}
+	if i == len(id) {
+		return 0, false
+	}
+	n, err := strconv.Atoi(id[i:])
+	if err != nil {
+		return 0, false
+	}
+	return n, true
 }

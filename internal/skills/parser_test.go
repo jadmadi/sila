@@ -94,3 +94,46 @@ Content
 		t.Errorf("unexpected compatibility: %v", pf.Compatibility)
 	}
 }
+
+func TestParseSkillContent_QuotedHashAndColon(t *testing.T) {
+	cases := []struct {
+		name        string
+		description string
+		want        string
+	}{
+		{
+			name:        "double quoted hash and colon",
+			description: `"Fix issue #42: keep the quote"`,
+			want:        "Fix issue #42: keep the quote",
+		},
+		{
+			name:        "single quoted hash and colon",
+			description: `'It''s a # sign: okay'`,
+			want:        "It's a # sign: okay",
+		},
+		{
+			name:        "escaped double quote",
+			description: `"Say \"hi\" # not a comment"`,
+			want:        `Say "hi" # not a comment`,
+		},
+		{
+			name:        "trailing comment outside quotes",
+			description: `"quoted value" # comment`,
+			want:        "quoted value",
+		},
+		{
+			name:        "unquoted trailing comment",
+			description: `plain value # comment`,
+			want:        "plain value",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			content := "---\nname: quote-skill\ndescription: " + tc.description + "\n---\nBody\n"
+			pf := ParseSkillContent("quote-skill", content)
+			if pf.Description != tc.want {
+				t.Fatalf("description = %q, want %q", pf.Description, tc.want)
+			}
+		})
+	}
+}

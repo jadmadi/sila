@@ -7,6 +7,8 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
+	"sort"
 	"strings"
 	"time"
 
@@ -133,14 +135,27 @@ func ReconcileSemanticDrift(ctx context.Context, st *store.Store, provider assis
 	out.NewlyStale = phys.NewlyStale
 	out.Recovered = phys.Recovered
 
-	if provider == nil {
-		out.DurationMs = time.Since(start).Milliseconds()
-		return out, nil
-	}
-
 	projects, err := st.Projects()
 	if err != nil {
 		return out, err
+	}
+	for _, p := range projects {
+		if projectSel != "" && !store.ProjectSelectorMatches(p, projectSel) {
+			continue
+		}
+		facts, fErr := st.FactsByProject(p.ID)
+		if fErr != nil {
+			continue
+		}
+		for _, pair := range DetectContradictingFacts(facts) {
+			out.DriftWarnings = append(out.DriftWarnings, fmt.Sprintf(
+				"contradiction: %q vs %q (scope %s)", pair.ClaimA, pair.ClaimB, pair.ScopeKey))
+		}
+	}
+
+	if provider == nil {
+		out.DurationMs = time.Since(start).Milliseconds()
+		return out, nil
 	}
 
 	var items []assist.FactVerificationItem
@@ -242,4 +257,183 @@ func ReconcileSemanticDrift(ctx context.Context, st *store.Store, provider assis
 
 	out.DurationMs = time.Since(start).Milliseconds()
 	return out, nil
+}
+
+// ContradictionPair names two active facts that assert opposing directives in
+// the same project and scope.
+type ContradictionPair struct {
+	ProjectID string `json:"project_id"`
+	ScopeKey  string `json:"scope_key"`
+	FactA     string `json:"fact_a"`
+	FactB     string `json:"fact_b"`
+	ClaimA    string `json:"claim_a"`
+	ClaimB    string `json:"claim_b"`
+}
+
+// contradictionNegationRE marks a directive as negative. A contradiction needs
+// exactly one side to match.
+var contradictionNegationRE = regexp.MustCompile(`(?i)\b(?:not|never|avoid|cannot|can't|won't|doesn't|shouldn't|do not|don't|disable|disabled|disallow|forbid|prohibit|remove|drop|reject|no longer|instead of)\b`)
+
+// DetectContradictingFacts reports active facts in the same project and
+// scope_key that assert opposing directives without a supersedes_id edge.
+// Facts are grouped by (project, scope) first so the all-pairs scan stays
+// bounded by each scope's size rather than the whole store.
+func DetectContradictingFacts(facts []store.Fact) []ContradictionPair {
+	type groupKey struct{ project, scope string }
+	groups := map[groupKey][]store.Fact{}
+	var keys []groupKey
+	for _, f := range facts {
+		if !contradictionCandidate(f) {
+			continue
+		}
+		key := groupKey{project: f.ProjectID, scope: f.ScopeKey}
+		if _, ok := groups[key]; !ok {
+			keys = append(keys, key)
+		}
+		groups[key] = append(groups[key], f)
+	}
+	sort.Slice(keys, func(i, j int) bool {
+		if keys[i].project != keys[j].project {
+			return keys[i].project < keys[j].project
+		}
+		return keys[i].scope < keys[j].scope
+	})
+
+	var pairs []ContradictionPair
+	for _, key := range keys {
+		group := groups[key]
+		for i := 0; i < len(group); i++ {
+			a := group[i]
+			for j := i + 1; j < len(group); j++ {
+				b := group[j]
+				if a.ID == b.ID || a.SupersedesID == b.ID || b.SupersedesID == a.ID {
+					continue
+				}
+				if !opposingDirectives(a.Claim, b.Claim) {
+					continue
+				}
+				pairs = append(pairs, ContradictionPair{
+					ProjectID: a.ProjectID,
+					ScopeKey:  a.ScopeKey,
+					FactA:     a.ID,
+					FactB:     b.ID,
+					ClaimA:    a.Claim,
+					ClaimB:    b.Claim,
+				})
+			}
+		}
+	}
+	return pairs
+}
+
+func contradictionCandidate(f store.Fact) bool {
+	if f.ReviewStatus != store.ReviewApproved || f.IsStaleFlag {
+		return false
+	}
+	if strings.TrimSpace(f.ScopeKey) == "" || strings.TrimSpace(f.Claim) == "" {
+		return false
+	}
+	return true
+}
+
+func opposingDirectives(a, b string) bool {
+	if strings.EqualFold(strings.TrimSpace(a), strings.TrimSpace(b)) {
+		return false
+	}
+	aNegated := contradictionNegationRE.MatchString(a)
+	bNegated := contradictionNegationRE.MatchString(b)
+	if aNegated == bNegated {
+		return false
+	}
+	return Similarity(a, b) >= 0.50
+}
+
+// UnmergeResult reports the rows touched by a dream merge rollback.
+type UnmergeResult struct {
+	MergedID   string `json:"merged_id"`
+	RestoredID string `json:"restored_id"`
+}
+
+// UnmergeConsolidatedFact reverses a dream merge: it archives the merged fact
+// and restores the original it superseded. It refuses when either row changed
+// after the merge timestamp, so a post-merge edit is never silently lost.
+func UnmergeConsolidatedFact(ctx context.Context, st *store.Store, mergedID string, now time.Time) (*UnmergeResult, error) {
+	if st == nil {
+		return nil, errors.New("unmerge: store is nil")
+	}
+	mergedID = strings.TrimSpace(mergedID)
+	if mergedID == "" {
+		return nil, errors.New("unmerge: merged fact id is required")
+	}
+	merged, err := st.FactByID(mergedID)
+	if err != nil {
+		return nil, fmt.Errorf("unmerge: read merged fact: %w", err)
+	}
+	if merged == nil {
+		return nil, fmt.Errorf("unmerge: merged fact %s not found", mergedID)
+	}
+	if strings.TrimSpace(merged.SupersedesID) == "" {
+		return nil, fmt.Errorf("unmerge: fact %s does not supersede another fact", mergedID)
+	}
+	original, err := st.FactByID(merged.SupersedesID)
+	if err != nil {
+		return nil, fmt.Errorf("unmerge: read original fact: %w", err)
+	}
+	if original == nil {
+		return nil, fmt.Errorf("unmerge: original fact %s not found", merged.SupersedesID)
+	}
+	if !original.IsStaleFlag {
+		return nil, fmt.Errorf("unmerge: original fact %s is already current", original.ID)
+	}
+
+	mergeTime := factTime(merged.PromotedAt)
+	if mergeTime.IsZero() {
+		mergeTime = factTime(merged.FirstSeen)
+	}
+	if mergeTime.IsZero() {
+		return nil, fmt.Errorf("unmerge: merged fact %s has no merge timestamp", mergedID)
+	}
+	if factTouchedAfter(merged, mergeTime) {
+		return nil, fmt.Errorf("unmerge: merged fact %s was modified after the merge", mergedID)
+	}
+	if factTouchedAfter(original, mergeTime) {
+		return nil, fmt.Errorf("unmerge: original fact %s was modified after the merge", original.ID)
+	}
+
+	if now.IsZero() {
+		now = time.Now().UTC()
+	}
+	tx, err := st.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, fmt.Errorf("unmerge: begin transaction: %w", err)
+	}
+	defer tx.Rollback()
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE facts SET review_status = 'archived', is_stale = 1, supersedes_id = '' WHERE id = ?`, mergedID); err != nil {
+		return nil, fmt.Errorf("unmerge: archive merged fact: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE facts SET is_stale = 0 WHERE id = ?`, original.ID); err != nil {
+		return nil, fmt.Errorf("unmerge: restore original fact: %w", err)
+	}
+	if err := tx.Commit(); err != nil {
+		return nil, fmt.Errorf("unmerge: commit: %w", err)
+	}
+	return &UnmergeResult{MergedID: mergedID, RestoredID: original.ID}, nil
+}
+
+func factTime(raw string) time.Time {
+	parsed, err := time.Parse(time.RFC3339, strings.TrimSpace(raw))
+	if err != nil {
+		return time.Time{}
+	}
+	return parsed.UTC()
+}
+
+func factTouchedAfter(f *store.Fact, cutoff time.Time) bool {
+	if f == nil || cutoff.IsZero() {
+		return false
+	}
+	checked := factTime(f.RefsCheckedAt)
+	return !checked.IsZero() && checked.After(cutoff)
 }

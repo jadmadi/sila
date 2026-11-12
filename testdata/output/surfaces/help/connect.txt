@@ -1,0 +1,17 @@
+# surface: help__connect
+# argv: sila connect --help
+# mode: help
+# exit: 0
+--- stdout ---
+sila connect  -  connect, verify, and remove sila MCP in a second harness
+
+Usage
+  sila connect list
+  sila connect add <harness>
+  sila connect verify <harness>
+  sila connect demo
+  sila connect remove <harness> [--yes]
+
+Options
+  --json                   Emit machine-readable JSON on stdout
+  --db=<path>              Knowledge store path

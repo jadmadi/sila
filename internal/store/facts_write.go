@@ -3,10 +3,12 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
@@ -78,22 +80,39 @@ func (s *Store) UpsertFact(f Fact) error {
 	factMu.Lock()
 	defer factMu.Unlock()
 
+	if mergeID, veto, guardErr := s.nearDuplicateGuard(f); guardErr == nil && mergeID != "" && len(veto) == 0 {
+		return s.mergeFactEvidence(mergeID, f)
+	}
 	return WithRetry(context.Background(), func() error {
 		return s.upsertFactTx(f)
 	})
 }
 
 func (s *Store) upsertFactTx(f Fact) error {
-	f.PackProvenance()
-	if f.ID == "" {
-		f.ID = FactID(f.ProjectID, f.Claim)
-	}
-
 	tx, err := s.DB.Begin()
 	if err != nil {
 		return fmt.Errorf("begin upsert fact tx: %w", err)
 	}
 	defer tx.Rollback()
+	if _, err := upsertFactInTx(tx, f); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// upsertFactInTx writes one fact and repairs the hash chain inside a caller
+// transaction. It is the single implementation shared by plain fact writes and
+// typed-memory bridge writes so the ledger can never diverge.
+func upsertFactInTx(tx *sql.Tx, f Fact) (string, error) {
+	f.PackProvenance()
+	visibility, visErr := NormalizeVisibility(f.Visibility)
+	if visErr != nil {
+		return "", visErr
+	}
+	f.Visibility = visibility
+	if f.ID == "" {
+		f.ID = FactID(f.ProjectID, f.Claim)
+	}
 
 	// Invariant check: if a fact already exists with (project_id, claim),
 	// preserve its canonical ID so the update in place honors both primary key and UNIQUE(project_id, claim).
@@ -105,7 +124,7 @@ func (s *Store) upsertFactTx(f Fact) error {
 	if existingID != "" {
 		f.ID = existingID
 		if err := guardImmutableFields(existingID, existingClaim, existingKind, existingOriginRole, f); err != nil {
-			return err
+			return "", err
 		}
 		// origin_role is provenance and the first write wins; preserving it
 		// keeps the stored digest valid.
@@ -119,7 +138,7 @@ func (s *Store) upsertFactTx(f Fact) error {
 			Scan(&existingRowid, &existingClaim, &existingKind, &existingOriginRole, &existingFactHash, &existingPrevHash)
 		if err == nil && existingFactHash != "" {
 			if err := guardImmutableFields(f.ID, existingClaim, existingKind, existingOriginRole, f); err != nil {
-				return err
+				return "", err
 			}
 			f.OriginRole = existingOriginRole
 			// Metadata-only update: preserve the existing hash and link. The
@@ -192,8 +211,8 @@ func (s *Store) upsertFactTx(f Fact) error {
 		bEnd = -1
 	}
 
-	_, err = tx.Exec(`INSERT INTO facts(id,project_id,claim,confidence,verified,file_refs_exist,repo_files,tools,session_ref,first_seen,promoted_at,refs_checked_at,distilled,distill_status,kind,review_status,origin_role,quoted,fact_hash,prev_hash,compacted_at,supersedes_id,access_count,last_accessed_at,distinct_tools,tier,salience,is_stale,byte_start,byte_end,source_ref)
-		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+	_, err := tx.Exec(`INSERT INTO facts(id,project_id,claim,confidence,verified,file_refs_exist,repo_files,tools,session_ref,first_seen,promoted_at,refs_checked_at,distilled,distill_status,kind,review_status,origin_role,quoted,fact_hash,prev_hash,compacted_at,supersedes_id,access_count,last_accessed_at,distinct_tools,tier,salience,is_stale,byte_start,byte_end,source_ref,visibility)
+		VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 		ON CONFLICT(id) DO UPDATE SET
 			confidence      = excluded.confidence,
 			verified        = excluded.verified,
@@ -205,7 +224,8 @@ func (s *Store) upsertFactTx(f Fact) error {
 			distilled       = CASE WHEN excluded.distilled != '' THEN excluded.distilled ELSE facts.distilled END,
 			distill_status  = CASE WHEN excluded.distill_status != 'pending' THEN excluded.distill_status ELSE facts.distill_status END,
 			kind            = CASE WHEN excluded.kind != '' THEN excluded.kind ELSE facts.kind END,
-			review_status   = CASE WHEN facts.review_status = 'approved' THEN 'approved'
+			review_status   = CASE WHEN facts.review_status = 'archived' THEN 'archived'
+			                       WHEN facts.review_status = 'approved' THEN 'approved'
 			                       WHEN excluded.review_status != '' THEN excluded.review_status
 			                       ELSE facts.review_status END,
 			origin_role     = CASE WHEN excluded.origin_role != '' THEN excluded.origin_role ELSE facts.origin_role END,
@@ -219,15 +239,16 @@ func (s *Store) upsertFactTx(f Fact) error {
 			is_stale        = CASE WHEN excluded.is_stale != 0 THEN excluded.is_stale ELSE facts.is_stale END,
 			byte_start      = CASE WHEN excluded.byte_start >= 0 THEN excluded.byte_start ELSE facts.byte_start END,
 			byte_end        = CASE WHEN excluded.byte_end >= 0 THEN excluded.byte_end ELSE facts.byte_end END,
-			source_ref      = CASE WHEN excluded.source_ref != '' THEN excluded.source_ref ELSE facts.source_ref END`,
+			source_ref      = CASE WHEN excluded.source_ref != '' THEN excluded.source_ref ELSE facts.source_ref END,
+			visibility      = CASE WHEN excluded.visibility = 'global' THEN 'global' ELSE facts.visibility END`,
 		f.ID, f.ProjectID, f.Claim, conf, boolInt(f.Verified), boolInt(f.FileRefsExist),
 		joinJSON(f.RepoFiles), joinJSON(f.Tools), f.SessionRef, f.FirstSeen, f.PromotedAt,
 		refsChecked, f.Distilled, distStatus, f.Kind, reviewStatus, f.OriginRole, boolInt(f.Quoted),
 		f.FactHash, f.PrevHash, f.CompactedAt, f.SupersedesID,
 		f.AccessCount, f.LastAccessedAt, distinct, tier, salience, boolInt(f.IsStaleFlag),
-		bStart, bEnd, f.SourceRef)
+		bStart, bEnd, f.SourceRef, f.Visibility)
 	if err != nil {
-		return fmt.Errorf("insert/update fact %s: %w", f.ID, err)
+		return "", fmt.Errorf("insert/update fact %s: %w", f.ID, err)
 	}
 
 	// Maintain assertion-to-evidence lineage links (Goal: knowledge-assertion-lineage)
@@ -235,18 +256,18 @@ func (s *Store) upsertFactTx(f Fact) error {
 	_ = tx.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='table' AND name='assertions'`).Scan(&hasAssertionsTable)
 	if hasAssertionsTable > 0 {
 		if err := linkFactEvidenceTx(tx, f); err != nil {
-			return fmt.Errorf("link fact evidence lineage: %w", err)
+			return "", fmt.Errorf("link fact evidence lineage: %w", err)
 		}
 	}
 
 	// If a payload changed on an existing fact that is not at the tip, rechain subsequent blocks to preserve determinism
 	if existingRowid > 0 && existingFactHash != "" && existingFactHash != f.FactHash {
 		if err := rechainFactsFromTx(tx, existingRowid); err != nil {
-			return err
+			return "", err
 		}
 	}
 
-	return tx.Commit()
+	return f.ID, nil
 }
 
 // rechainFactsFromTx recalculates fact_hash and prev_hash for all hashed rows in facts
@@ -416,11 +437,28 @@ func (s *Store) InsertMemoWithKind(projectID, content, agent, projectDir string,
 
 // InsertMemoWithProvenance records an explicit architectural decision, milestone, or non-goal with provenance metadata.
 func (s *Store) InsertMemoWithProvenance(projectID, content, agent, projectDir string, repoFiles []string, kind string, prov Provenance) (*Fact, error) {
+	return s.InsertMemoWithProvenanceAndVisibility(projectID, content, agent, projectDir, repoFiles, kind, "", prov)
+}
+
+// InsertMemoWithProvenanceAndVisibility records an explicit memory with an
+// explicit visibility scope: "project" (default) or "global".
+func (s *Store) InsertMemoWithProvenanceAndVisibility(projectID, content, agent, projectDir string, repoFiles []string, kind, visibility string, prov Provenance) (*Fact, error) {
+	vis, err := NormalizeVisibility(visibility)
+	if err != nil {
+		return nil, err
+	}
 	if agent == "" {
 		if prov.ToolName != "" {
 			agent = prov.ToolName
 		} else {
 			agent = "user"
+		}
+	}
+	if kind == "lesson" {
+		if existing, found, recErr := s.bumpRecurrence(projectID, content); recErr != nil {
+			return nil, recErr
+		} else if found && existing != nil {
+			return existing, nil
 		}
 	}
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -465,17 +503,103 @@ func (s *Store) InsertMemoWithProvenance(projectID, content, agent, projectDir s
 		PromotedAt:    now,
 		RefsCheckedAt: now,
 		ReviewStatus:  ReviewApproved,
+		Visibility:    vis,
 		OriginRole:    originRole,
 		ToolName:      prov.ToolName,
 		ClientKind:    prov.ClientKind,
 		OriginEntity:  prov.OriginEntity,
 	}
 
-	if err := s.UpsertFact(fact); err != nil {
+	if env := legacyMemoryEnvelope(projectID, content, kind, agent, agent, prov); env != nil {
+		if _, _, err := s.saveFactWithMemoryEnvelope(fact, env); err != nil {
+			return nil, err
+		}
+	} else if err := s.UpsertFact(fact); err != nil {
 		return nil, err
 	}
-	_ = s.DB.QueryRow(`SELECT fact_hash, prev_hash FROM facts WHERE id = ?`, fact.ID).Scan(&fact.FactHash, &fact.PrevHash)
+	_ = s.DB.QueryRow(`SELECT fact_hash, prev_hash, recurrence_count, auto_promoted FROM facts WHERE id = ?`, fact.ID).Scan(&fact.FactHash, &fact.PrevHash, &fact.RecurrenceCount, &fact.AutoPromoted)
+	if kind == "lesson" {
+		_, _ = s.DB.Exec(`UPDATE facts SET recurrence_count = MAX(recurrence_count, 1) WHERE id = ? AND COALESCE(review_status, '') != 'archived'`, fact.ID)
+		_ = s.DB.QueryRow(`SELECT recurrence_count, auto_promoted FROM facts WHERE id = ?`, fact.ID).Scan(&fact.RecurrenceCount, &fact.AutoPromoted)
+	}
 	return &fact, nil
+}
+
+// legacyMemoryEnvelope synthesizes a sila/memory/v1 sidecar for an explicit
+// legacy memo, lesson, case or decision. It returns nil for kinds the v1 enum
+// does not model (non-goals, milestones, operational learnings).
+func legacyMemoryEnvelope(projectID, content, kind, agent, provAgent string, prov Provenance) *MemoryEnvelope {
+	var envKind, predicate string
+	switch kind {
+	case "", "memo", "decision":
+		envKind, predicate = MemoryKindArchitectureDecision, "has_property"
+	case "lesson":
+		envKind, predicate = MemoryKindFix, "causes"
+	case "case":
+		envKind, predicate = MemoryKindProcedure, "has_property"
+	case "invariant":
+		envKind, predicate = MemoryKindInvariant, "requires"
+	default:
+		return nil
+	}
+	summary := truncateMemoryText(content, 2000)
+	title := truncateMemoryText(strings.TrimSpace(strings.SplitN(content, "\n", 2)[0]), 200)
+	if title == "" {
+		title = truncateMemoryText(summary, 200)
+	}
+	if summary == "" {
+		summary = title
+	}
+	author := firstNonEmptyMemoryString(provAgent, prov.ToolName, agent, "user")
+	factID := FactID(projectID, content)
+	env := &MemoryEnvelope{
+		SchemaVersion: MemorySchemaVersion,
+		MemoryID:      "mem_" + factID,
+		ProjectID:     projectID,
+		Kind:          envKind,
+		Title:         title,
+		Summary:       summary,
+		Assertions: []MemoryAssertion{{
+			ID:            "A-001",
+			AssertionType: MemoryAssertionDescriptive,
+			Predicate:     predicate,
+			Statement:     summary,
+			Subject:       MemorySubject{ContextEntity: "project", Value: projectID},
+			Object: MemoryObject{Literal: &MemoryLiteral{
+				Type:  "string",
+				Value: truncateMemoryText(summary, 512),
+			}},
+			Confidence:   0.8,
+			Importance:   4,
+			EvidenceRefs: []string{"E-001"},
+		}},
+		Evidence: []MemoryEvidence{{
+			ID:      "E-001",
+			Kind:    MemoryEvidenceAgentInitiated,
+			Summary: truncateMemoryText("Recorded by "+author+" through the legacy "+firstNonEmptyMemoryString(kind, "memo")+" command", 500),
+		}},
+		IdempotencyKey: "legacy:" + factID,
+		Provenance: &MemoryProvenance{
+			Agent:        author,
+			ToolName:     prov.ToolName,
+			ClientKind:   prov.ClientKind,
+			OriginEntity: prov.OriginEntity,
+			SessionRef:   prov.SessionRef,
+		},
+	}
+	if envKind == MemoryKindInvariant {
+		// Normative assertions require a normative predicate.
+		env.Assertions[0].AssertionType = MemoryAssertionNormative
+	}
+	return env
+}
+
+func truncateMemoryText(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max])
 }
 
 // InsertNonGoal records an explicit negative constraint / non-goal in the project's vision store.
@@ -608,4 +732,129 @@ func (s *Store) CompactFact(ctx context.Context, id, compactedClaim string, newR
 		}
 	}
 	return tx.Commit()
+}
+
+// nearDuplicateGuard looks for a near-duplicate claim in the same project and
+// kind. It returns a merge target or veto terms; a timeout proceeds unmerged.
+func (s *Store) nearDuplicateGuard(f Fact) (string, []string, error) {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("SILA_IDF_VETO"))) {
+	case "off", "0", "false":
+		return "", nil, nil
+	case "on", "1", "true":
+	case "":
+		if idfVetoDisabled.Load() {
+			return "", nil, nil
+		}
+	}
+	if strings.TrimSpace(f.Kind) == "" || strings.TrimSpace(f.Claim) == "" {
+		return "", nil, nil
+	}
+	var existing string
+	if err := s.DB.QueryRow(`SELECT id FROM facts WHERE project_id = ? AND claim = ?`, f.ProjectID, f.Claim).Scan(&existing); err == nil {
+		return "", nil, nil
+	}
+	tokens := TokenizeMemoryText(f.Claim)
+	if len(tokens) < 3 {
+		return "", nil, nil
+	}
+	candidates, err := s.ListFactsByKind(f.Kind, f.ProjectID, time.Time{}, 50)
+	if err != nil {
+		return "", nil, err
+	}
+	best := 0.0
+	var bestFact Fact
+	for _, candidate := range candidates {
+		if candidate.ID == f.ID {
+			continue
+		}
+		candidateTokens := TokenizeMemoryText(candidate.Claim)
+		if len(candidateTokens) < 3 {
+			continue
+		}
+		score := TokenJaccard(tokens, candidateTokens)
+		if score > best || (score == best && candidate.FirstSeen > bestFact.FirstSeen) {
+			best = score
+			bestFact = candidate
+		}
+	}
+	if best < 0.85 || bestFact.ID == "" {
+		return "", nil, nil
+	}
+	diff := symmetricDifference(tokens, TokenizeMemoryText(bestFact.Claim))
+	if len(diff) == 0 {
+		return "", nil, nil
+	}
+	if len(diff) > 16 {
+		diff = diff[:16]
+	}
+	deadline := time.Now().Add(20 * time.Millisecond)
+	var vetoTerms []string
+	for _, term := range diff {
+		if time.Now().After(deadline) {
+			return "", nil, nil
+		}
+		df, dfErr := s.DocumentFrequency(f.ProjectID, term)
+		if dfErr != nil {
+			return "", nil, nil
+		}
+		if df <= 3 {
+			vetoTerms = append(vetoTerms, term)
+			if len(vetoTerms) == 3 {
+				break
+			}
+		}
+	}
+	if len(vetoTerms) > 0 {
+		s.recordPrecisionCounter(f.ProjectID, "idf_veto")
+		return "", vetoTerms, nil
+	}
+	s.recordPrecisionCounter(f.ProjectID, "near_dup_merge")
+	return bestFact.ID, nil, nil
+}
+
+// mergeFactEvidence folds a near-duplicate claim into the candidate.
+func (s *Store) mergeFactEvidence(targetID string, incoming Fact) error {
+	var existingRepos, existingTools string
+	if err := s.DB.QueryRow(`SELECT repo_files, tools FROM facts WHERE id = ?`, targetID).Scan(&existingRepos, &existingTools); err != nil {
+		return err
+	}
+	var repos, tools []string
+	_ = json.Unmarshal([]byte(existingRepos), &repos)
+	_ = json.Unmarshal([]byte(existingTools), &tools)
+	repos = mergeStringSet(repos, incoming.RepoFiles)
+	tools = mergeStringSet(tools, incoming.Tools)
+	reposJSON, _ := json.Marshal(repos)
+	toolsJSON, _ := json.Marshal(tools)
+	_, err := s.DB.Exec(`UPDATE facts SET repo_files = ?, tools = ?, refs_checked_at = ? WHERE id = ?`,
+		string(reposJSON), string(toolsJSON), time.Now().UTC().Format(time.RFC3339), targetID)
+	return err
+}
+
+func mergeStringSet(base, extra []string) []string {
+	seen := map[string]bool{}
+	out := make([]string, 0, len(base)+len(extra))
+	for _, value := range append(append([]string{}, base...), extra...) {
+		if value == "" || seen[value] {
+			continue
+		}
+		seen[value] = true
+		out = append(out, value)
+	}
+	sort.Strings(out)
+	return out
+}
+
+// recordPrecisionCounter records a guard event without content.
+func (s *Store) recordPrecisionCounter(projectID, verb string) {
+	s.RecordToolEventCounter(projectID, verb)
+}
+
+// RecordToolEventCounter increments a guard counter without content.
+func (s *Store) RecordToolEventCounter(projectID, toolName string) {
+	now := time.Now().UTC().Format(time.RFC3339Nano)
+	id := FactID("tool-event", projectID+"|"+toolName+"|"+now)
+	_, _ = s.DB.Exec(`INSERT OR IGNORE INTO tool_events
+		(id, project_id, session_id, agent, source, tool_name, category, outcome, duration_ms, created_at)
+		VALUES (?, ?, '', 'system', 'guard', ?, 'retrieval', 'ok', 0, ?)`,
+		id, projectID, toolName, now)
 }

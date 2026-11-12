@@ -91,6 +91,7 @@ type AuditResult struct {
 	VerifiedCount         int            `json:"verified_count"`
 	UnverifiedCount       int            `json:"unverified_count"`
 	StaleCount            int            `json:"stale_count,omitempty"`
+	UnboundCount          int            `json:"unbound_count,omitempty"`
 	SupersededCount       int            `json:"superseded_count,omitempty"`
 	ReopenedCount         int            `json:"reopened_count,omitempty"`
 	TaintedCount          int            `json:"tainted_count,omitempty"`
@@ -912,8 +913,7 @@ func ScanGoals(rootDir string) (*AuditResult, error) {
 		}
 	}
 
-	gitCommits, skippedCommits, nearMissCommits, carriedForwardCommits, commitParents := scanGitCommits(rootDir, goalSlugs)
-	dirtyFiles := scanDirtyFiles(rootDir)
+	gitCommits, skippedCommits, nearMissCommits, carriedForwardCommits, _ := scanGitCommits(rootDir, goalSlugs)
 
 	var rawList []Goal
 	statusMap := make(map[string]string)
@@ -1168,6 +1168,15 @@ func ScanGoals(rootDir string) (*AuditResult, error) {
 
 		statusMap[slug] = status
 
+		contentState := ""
+		if status == "implemented" {
+			if vrec, verr := LoadVerification(rootDir, slug); verr == nil && vrec != nil {
+				if st, _, serr := ComputeVerificationState(rootDir, slug, vrec); serr == nil {
+					contentState = st
+				}
+			}
+		}
+
 		verificationStatus := "unverified"
 		verificationLabel := "unverified"
 
@@ -1175,81 +1184,15 @@ func ScanGoals(rootDir string) (*AuditResult, error) {
 			verificationStatus = "reopened"
 			verificationLabel = "reopened"
 		} else if status == "implemented" {
-			var evidenceCommits []string
-			hasEvidence := false
-			if auditReceipt != nil {
-				if err := VerifyAuditReceipt(auditReceipt); err == nil {
-					hasEvidence = true
-					evidenceCommits = append(evidenceCommits, auditReceipt.CommitSHA)
-				}
+			// Only a content-bound verification.json can prove what was
+			// verified. A legacy audit receipt or certification cannot, so it
+			// is reported as unbound rather than promoted to verified.
+			if contentState != "" {
+				verificationStatus = contentState
+			} else {
+				verificationStatus = StateUnbound
 			}
-			if certRec != nil && certRec.Verified {
-				hasEvidence = true
-				ec := certRec.CommitSHA
-				if ec == "" && commit != "" {
-					ec = commit
-				}
-				evidenceCommits = append(evidenceCommits, ec)
-			}
-
-			if hasEvidence {
-				isStale := false
-				if commit != "" && commit != "evidence" {
-					matchedAny := false
-					for _, evidenceCommit := range evidenceCommits {
-						if evidenceCommit == "" {
-							continue
-						}
-						matches := strings.HasPrefix(commit, evidenceCommit) || strings.HasPrefix(evidenceCommit, commit)
-						if !matches && commitParents != nil {
-							if parents, ok := commitParents[commit]; ok {
-								for _, p := range parents {
-									if strings.HasPrefix(p, evidenceCommit) || strings.HasPrefix(evidenceCommit, p) {
-										matches = true
-										break
-									}
-								}
-							}
-						}
-						if !matches && isCommitAncestor(rootDir, commit, evidenceCommit) {
-							matches = true
-						}
-						if !matches && isCommitAncestor(rootDir, evidenceCommit, commit) && isGoalsOnlyDiffBetweenCommits(rootDir, evidenceCommit, commit) {
-							matches = true
-						}
-						if matches {
-							matchedAny = true
-							break
-						}
-					}
-					if !matchedAny {
-						isStale = true
-					}
-				}
-				if !isStale && len(dirtyFiles) > 0 {
-					for _, f := range filesToTouch {
-						cleanF := filepath.Clean(f)
-						if cleanF == "goals/README.md" ||
-							cleanF == filepath.Join("goals", slug, "audit-receipt.json") ||
-							cleanF == filepath.Join("goals", slug, "certification.json") ||
-							cleanF == filepath.Join("goals", slug, "evidence.md") ||
-							cleanF == filepath.Join("goals", slug, "goal.md") {
-							continue
-						}
-						if dirtyFiles[cleanF] {
-							isStale = true
-							break
-						}
-					}
-				}
-				if isStale {
-					verificationStatus = "stale"
-					verificationLabel = "stale"
-				} else {
-					verificationStatus = "verified"
-					verificationLabel = "verified"
-				}
-			}
+			verificationLabel = verificationStatus
 		}
 
 		skippedCandidates := skippedCommits[slug]
@@ -1363,7 +1306,7 @@ func ScanGoals(rootDir string) (*AuditResult, error) {
 	// Second pass: evaluate dependency blockers & graph properties
 	var list []Goal
 	var implemented, claimed, pending, ready, blocked, contestedCount, independentCount, draft, reopenedCount, supersededCount, taintedCount int
-	var verifiedCount, unverifiedCount, staleCount int
+	var verifiedCount, unverifiedCount, staleCount, unboundCount int
 	var readyIndependentCount, readyUnblockedCount int
 	var immediateCount, roadmapCount, niceToHaveCount, wontFixCount int
 	var totalTasks, completedTasks int
@@ -1478,6 +1421,8 @@ func ScanGoals(rootDir string) (*AuditResult, error) {
 				verifiedCount++
 			case "stale":
 				staleCount++
+			case "unbound":
+				unboundCount++
 			case "unverified":
 				unverifiedCount++
 			default:
@@ -1622,6 +1567,7 @@ func ScanGoals(rootDir string) (*AuditResult, error) {
 		VerifiedCount:         verifiedCount,
 		UnverifiedCount:       unverifiedCount,
 		StaleCount:            staleCount,
+		UnboundCount:          unboundCount,
 		SupersededCount:       supersededCount,
 		ReopenedCount:         reopenedCount,
 		TaintedCount:          taintedCount,
@@ -1673,6 +1619,8 @@ func (r *AuditResult) FilterByTier(tier string) *AuditResult {
 					out.VerifiedCount++
 				case "stale":
 					out.StaleCount++
+				case "unbound":
+					out.UnboundCount++
 				case "unverified":
 					out.UnverifiedCount++
 				default:
@@ -1759,6 +1707,16 @@ type CreateGoalParams struct {
 }
 
 // CreateGoal scaffolds a complete goal package directory with goal.md, facts.md, and plan.md.
+// RequireFilesToTouch enforces the authoring guard for new goal packages. A
+// goal without declared touch paths can never bind a content verification, so
+// creation fails before any file is written.
+func RequireFilesToTouch(slug string, files []string) error {
+	if len(files) > 0 {
+		return nil
+	}
+	return fmt.Errorf("goal %q declares no Files To Touch; pass --files=<path,...> (alias --touch) so verification can bind content", slug)
+}
+
 func CreateGoal(params CreateGoalParams) (*Goal, error) {
 	if params.Slug == "" {
 		return nil, fmt.Errorf("goal slug is required")
@@ -3647,33 +3605,6 @@ func scanGitCommits(rootDir string, validSlugs []string) (map[string]string, map
 	return commits, skipped, nearMisses, carriedForward, commitParents
 }
 
-// scanDirtyFiles returns the set of cleaned relative file paths with uncommitted modifications.
-func scanDirtyFiles(rootDir string) map[string]bool {
-	dirty := make(map[string]bool)
-	cmd := exec.Command("git", "status", "--porcelain")
-	cmd.Dir = rootDir
-	out, err := cmd.Output()
-	if err != nil {
-		return dirty
-	}
-	lines := strings.Split(string(out), "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if len(line) < 3 {
-			continue
-		}
-		pathPart := strings.TrimSpace(line[2:])
-		if idx := strings.Index(pathPart, " -> "); idx != -1 {
-			pathPart = strings.TrimSpace(pathPart[idx+4:])
-		}
-		pathPart = strings.Trim(pathPart, `"`)
-		if pathPart != "" {
-			dirty[filepath.Clean(pathPart)] = true
-		}
-	}
-	return dirty
-}
-
 // documentationOnlyCommit reports whether a commit subject represents documentation,
 // testing, or goal registration/scaffolding work that should not close a goal unless
 // an explicit git trailer is present.
@@ -4260,7 +4191,7 @@ func SyncReadmeWithOpts(rootDir string, res *AuditResult, opts SyncReadmeOptions
 	b.WriteString("This index tracks all goal packages under `goals/`, their execution mode (Independent ⚡ vs Dependent 🔗), dependencies, and progress status.\n\n")
 	b.WriteString("## 🤖 Agent Guide: How to Create, Claim & Execute Goals\n\n")
 	b.WriteString("1. **Create a Goal**: Scaffold a new goal package conforming to standards:\n")
-	b.WriteString("   ```bash\n   sila goals create <slug> --title=\"...\" [--depends-on=\"...\"] [--independent]\n   ```\n")
+	b.WriteString("   ```bash\n   sila goals create <slug> --title=\"...\" --files=\"path/to/file.go\" [--depends-on=\"...\"] [--independent]\n   ```\n")
 	b.WriteString("2. **Claim a Goal**: Lock the goal so no other agent duplicates work:\n")
 	b.WriteString("   ```bash\n   sila goals claim <slug> --agent=<name> [--note=\"evaluating...\"]\n   ```\n")
 	b.WriteString("3. **Launch & Implement**: Follow `facts.md` and `plan.md` until all tests pass:\n")
@@ -4281,9 +4212,9 @@ func SyncReadmeWithOpts(rootDir string, res *AuditResult, opts SyncReadmeOptions
 	if res.BlockedCount > 0 {
 		fmt.Fprintf(&b, "- ⛔ **Blocked on Prerequisites**: %d\n", res.BlockedCount)
 	}
-	if res.StaleCount > 0 {
-		fmt.Fprintf(&b, "- 🟢 **Implemented**: %d (%d verified 📜, %d stale ⚠️, %d unverified)\n",
-			res.ImplementedCount, res.VerifiedCount, res.StaleCount, res.UnverifiedCount)
+	if res.StaleCount > 0 || res.UnboundCount > 0 {
+		fmt.Fprintf(&b, "- 🟢 **Implemented**: %d %s\n",
+			res.ImplementedCount, formatVerificationBreakdown(res, strconv.Itoa))
 	} else {
 		fmt.Fprintf(&b, "- 🟢 **Implemented**: %d (%d verified 📜, %d unverified)\n",
 			res.ImplementedCount, res.VerifiedCount, res.UnverifiedCount)
@@ -4495,6 +4426,8 @@ func SyncReadmeWithOpts(rootDir string, res *AuditResult, opts SyncReadmeOptions
 				verStr = "verified 📜"
 			case "stale":
 				verStr = "stale ⚠️"
+			case "unbound":
+				verStr = "unbound ○"
 			case "reopened":
 				verStr = "reopened 🔁"
 			}
@@ -4660,10 +4593,7 @@ func PrintAuditTable(ui render.UI, res *AuditResult, filterMode string, showAll 
 	// 1. History first: Implemented goals
 	if (filterMode == "" || filterMode == "implemented" || filterMode == "done") && len(implemented) > 0 {
 		fmt.Fprintln(out, ui.Dim("---------------------------------------------------------------"))
-		verifiedBreakdown := fmt.Sprintf("(%d verified 📜, %d unverified)", res.VerifiedCount, res.UnverifiedCount)
-		if res.StaleCount > 0 {
-			verifiedBreakdown = fmt.Sprintf("(%d verified 📜, %d stale ⚠️, %d unverified)", res.VerifiedCount, res.StaleCount, res.UnverifiedCount)
-		}
+		verifiedBreakdown := formatVerificationBreakdown(res, strconv.Itoa)
 		fmt.Fprintf(out, "🟢 RECENTLY IMPLEMENTED (%d) %s:\n", len(implemented), ui.Dim(verifiedBreakdown))
 		fmt.Fprintln(out, ui.Dim("---------------------------------------------------------------"))
 		limit := 5
@@ -4694,6 +4624,8 @@ func PrintAuditTable(ui render.UI, res *AuditResult, filterMode string, showAll 
 				vBadge = " " + ui.Green("[verified 📜]")
 			case "stale":
 				vBadge = " " + ui.Yellow("[stale ⚠️]")
+			case "unbound":
+				vBadge = " " + ui.Yellow("[unbound ○]")
 			case "unverified":
 				vBadge = " " + ui.Dim("[unverified]")
 			}
@@ -4942,9 +4874,18 @@ func PrintAuditTable(ui render.UI, res *AuditResult, filterMode string, showAll 
 	if res.BlockedCount > 0 {
 		rows = append(rows, summaryRow{"⛔ Blocked on Deps:", ui.Red(fmt.Sprint(res.BlockedCount))})
 	}
-	if res.StaleCount > 0 {
-		rows = append(rows, summaryRow{"🟢 Implemented:", fmt.Sprintf("%s (%s verified 📜, %s stale ⚠️, %s unverified)",
-			ui.Green(fmt.Sprint(res.ImplementedCount)), ui.Green(fmt.Sprint(res.VerifiedCount)), ui.Yellow(fmt.Sprint(res.StaleCount)), ui.Dim(fmt.Sprint(res.UnverifiedCount)))})
+	if res.StaleCount > 0 || res.UnboundCount > 0 {
+		var parts []string
+		parts = append(parts, ui.Green(fmt.Sprint(res.VerifiedCount))+" verified 📜")
+		if res.UnboundCount > 0 {
+			parts = append(parts, ui.Yellow(fmt.Sprint(res.UnboundCount))+" unbound ○")
+		}
+		if res.StaleCount > 0 {
+			parts = append(parts, ui.Yellow(fmt.Sprint(res.StaleCount))+" stale ⚠️")
+		}
+		parts = append(parts, ui.Dim(fmt.Sprint(res.UnverifiedCount))+" unverified")
+		rows = append(rows, summaryRow{"🟢 Implemented:", fmt.Sprintf("%s (%s)",
+			ui.Green(fmt.Sprint(res.ImplementedCount)), strings.Join(parts, ", "))})
 	} else if res.ImplementedCount > 0 {
 		rows = append(rows, summaryRow{"🟢 Implemented:", fmt.Sprintf("%s (%s verified 📜, %s unverified)",
 			ui.Green(fmt.Sprint(res.ImplementedCount)), ui.Green(fmt.Sprint(res.VerifiedCount)), ui.Dim(fmt.Sprint(res.UnverifiedCount)))})
@@ -5215,11 +5156,86 @@ func isCheckedMarker(rest string) bool {
 	return strings.HasPrefix(rest, "[x]") || strings.HasPrefix(rest, "[X]")
 }
 
+// fencedLineMask reports, per line, whether it belongs to a fenced code block
+// (including the fence lines themselves). It follows CommonMark 0.31.2: ```
+// or ~~~ runs of at least three characters, a closing run of the same character
+// at least as long as the opener with only whitespace after it, and no backtick
+// in a backtick fence's info string.
+func fencedLineMask(lines []string) []bool {
+	mask := make([]bool, len(lines))
+	inFence := false
+	var fenceChar byte
+	fenceLen := 0
+	for i, line := range lines {
+		indent := 0
+		for indent < len(line) && line[indent] == ' ' {
+			indent++
+		}
+		if indent > 3 {
+			if inFence {
+				mask[i] = true
+			}
+			continue
+		}
+		trimmed := line[indent:]
+		if !inFence {
+			ch, n, info, ok := openingFence(trimmed)
+			if !ok {
+				continue
+			}
+			if ch == '`' && strings.Contains(info, "`") {
+				continue
+			}
+			inFence, fenceChar, fenceLen = true, ch, n
+			mask[i] = true
+			continue
+		}
+		mask[i] = true
+		if closingFence(trimmed, fenceChar, fenceLen) {
+			inFence = false
+		}
+	}
+	return mask
+}
+
+func openingFence(trimmed string) (ch byte, run int, info string, ok bool) {
+	if len(trimmed) < 3 {
+		return 0, 0, "", false
+	}
+	ch = trimmed[0]
+	if ch != '`' && ch != '~' {
+		return 0, 0, "", false
+	}
+	for run < len(trimmed) && trimmed[run] == ch {
+		run++
+	}
+	if run < 3 {
+		return 0, 0, "", false
+	}
+	return ch, run, trimmed[run:], true
+}
+
+func closingFence(trimmed string, ch byte, min int) bool {
+	run := 0
+	for run < len(trimmed) && trimmed[run] == ch {
+		run++
+	}
+	if run < min {
+		return false
+	}
+	return strings.TrimSpace(trimmed[run:]) == ""
+}
+
 // usesStepHeadings reports whether a plan tracks work as "## Step N" headings.
 // When it does, those headings are the tasks, and numbered prose under them is
 // detail rather than a checklist.
 func usesStepHeadings(content string) bool {
-	for line := range strings.SplitSeq(content, "\n") {
+	lines := strings.Split(content, "\n")
+	mask := fencedLineMask(lines)
+	for i, line := range lines {
+		if mask[i] {
+			continue
+		}
 		if stepHeadingRE.MatchString(strings.TrimSpace(line)) {
 			return true
 		}
@@ -5274,7 +5290,11 @@ func toggleStepHeadingLine(line string, completed bool) string {
 // checkbox-only counts and nothing is double-counted.
 func countCheckboxes(content string) (met, total int) {
 	lines := strings.Split(content, "\n")
-	for _, line := range lines {
+	mask := fencedLineMask(lines)
+	for i, line := range lines {
+		if mask[i] {
+			continue
+		}
 		trimmed := strings.TrimSpace(line)
 		if !isCheckboxLine(trimmed) {
 			continue
@@ -5288,7 +5308,10 @@ func countCheckboxes(content string) (met, total int) {
 		return met, total
 	}
 	steps := usesStepHeadings(content)
-	for _, line := range lines {
+	for i, line := range lines {
+		if mask[i] {
+			continue
+		}
 		if steps {
 			if _, completed, ok := stepHeadingTask(strings.TrimSpace(line)); ok {
 				if completed {
@@ -5442,7 +5465,12 @@ func GetGoalTasks(rootDir, slug string) ([]GoalTask, error) {
 func parseTasksFromContent(content, file string, startIdx int) []GoalTask {
 	var tasks []GoalTask
 	cur := startIdx
-	for line := range strings.SplitSeq(content, "\n") {
+	lines := strings.Split(content, "\n")
+	mask := fencedLineMask(lines)
+	for i, line := range lines {
+		if mask[i] {
+			continue
+		}
 		trimmed := strings.TrimSpace(line)
 		isDone := false
 		var text string
@@ -5476,7 +5504,10 @@ func parseTasksFromContent(content, file string, startIdx int) []GoalTask {
 	// the tasks. This mirrors countCheckboxes and ToggleGoalTasks so listings,
 	// counts, and toggle indices never diverge.
 	steps := usesStepHeadings(content)
-	for line := range strings.SplitSeq(content, "\n") {
+	for i, line := range lines {
+		if mask[i] {
+			continue
+		}
 		var text string
 		completed := false
 		if steps {
@@ -5620,8 +5651,12 @@ func ToggleGoalTasks(rootDir, slug string, taskIndices []int, completed bool) ([
 	// Task identity matches GetGoalTasks: checkboxes win when present, then
 	// step headings, then numbered steps. Mixed files stay checkbox-only so
 	// toggle indices always agree with the task listing.
+	fenceMask := fencedLineMask(lines)
 	numberedMode := true
-	for _, line := range lines {
+	for i, line := range lines {
+		if fenceMask[i] {
+			continue
+		}
 		if isCheckboxLine(strings.TrimSpace(line)) {
 			numberedMode = false
 			break
@@ -5630,6 +5665,9 @@ func ToggleGoalTasks(rootDir, slug string, taskIndices []int, completed bool) ([
 	stepMode := numberedMode && usesStepHeadings(string(data))
 
 	for i, line := range lines {
+		if fenceMask[i] {
+			continue
+		}
 		trimmed := strings.TrimSpace(line)
 		isCheckbox := !numberedMode && isCheckboxLine(trimmed)
 		isStep := false
@@ -5731,6 +5769,7 @@ type GlobalAuditResult struct {
 	VerifiedCount         int                     `json:"verified_count"`
 	UnverifiedCount       int                     `json:"unverified_count"`
 	StaleCount            int                     `json:"stale_count,omitempty"`
+	UnboundCount          int                     `json:"unbound_count,omitempty"`
 	SupersededCount       int                     `json:"superseded_count,omitempty"`
 	ClaimedCount          int                     `json:"claimed_count"`
 	PendingCount          int                     `json:"pending_count"`
@@ -5875,6 +5914,7 @@ func ScanAllProjectsGoals(st *store.Store) (*GlobalAuditResult, error) {
 		res.VerifiedCount += audit.VerifiedCount
 		res.UnverifiedCount += audit.UnverifiedCount
 		res.StaleCount += audit.StaleCount
+		res.UnboundCount += audit.UnboundCount
 		res.SupersededCount += audit.SupersededCount
 		res.ClaimedCount += audit.ClaimedCount
 		res.PendingCount += audit.PendingCount
@@ -6154,6 +6194,21 @@ func sameRealDirectory(a, b string) bool {
 		return filepath.Clean(ra) == filepath.Clean(rb)
 	}
 	return filepath.Clean(a) == filepath.Clean(b)
+}
+
+// formatVerificationBreakdown summarizes implemented goals by evidence state.
+// Only verified and stale states can come from a content-bound record; unbound
+// means the goal has no record at all, and legacy receipts never count.
+func formatVerificationBreakdown(res *AuditResult, num func(int) string) string {
+	parts := []string{num(res.VerifiedCount) + " verified 📜"}
+	if res.UnboundCount > 0 {
+		parts = append(parts, num(res.UnboundCount)+" unbound ○")
+	}
+	if res.StaleCount > 0 {
+		parts = append(parts, num(res.StaleCount)+" stale ⚠️")
+	}
+	parts = append(parts, num(res.UnverifiedCount)+" unverified")
+	return "(" + strings.Join(parts, ", ") + ")"
 }
 
 // formatClaimAge renders how long a claim has been held in one compact token.

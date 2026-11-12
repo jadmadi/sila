@@ -1,6 +1,7 @@
 package onboard
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -189,5 +190,29 @@ func TestDeferSurfaceWithStore(t *testing.T) {
 	}
 	if !foundLegacy {
 		t.Fatalf("expected Legacy inventory item in check report")
+	}
+}
+
+func TestRegisterMCPServerSetsHarnessAgent(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, ".cursor", "mcp.json")
+	if err := RegisterMCPServer(path); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var cfg map[string]any
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		t.Fatal(err)
+	}
+	servers := cfg["mcpServers"].(map[string]any)
+	env := servers["sila"].(map[string]any)["env"].(map[string]any)
+	if env["SILA_AGENT"] != "cursor" {
+		t.Fatalf("SILA_AGENT = %v, want cursor", env["SILA_AGENT"])
+	}
+	if err := RegisterMCPServer(path); err != nil {
+		t.Fatal(err)
 	}
 }

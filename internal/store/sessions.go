@@ -16,6 +16,7 @@ type AgentSession struct {
 	ClaimID         string     `json:"claim_id,omitempty"`
 	Cwd             string     `json:"cwd,omitempty"`
 	PID             int        `json:"pid,omitempty"`
+	PIDStartTicks   int64      `json:"pid_start_ticks,omitempty"`
 	Source          string     `json:"source"`
 	Branch          string     `json:"branch,omitempty"`
 	Head            string     `json:"head,omitempty"`
@@ -96,8 +97,8 @@ func (s *Store) UpsertAgentSession(sess AgentSession) error {
 		sess.ContextDriftAt = &now
 	}
 	_, err := s.DB.Exec(`INSERT INTO agent_sessions
-		(session_id, project_id, harness, agent, parent_session_id, active_goal, claim_id, cwd, pid, source, branch, head, detached, context_drift, context_drift_at, started_at, last_seen_at, closed_at)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		(session_id, project_id, harness, agent, parent_session_id, active_goal, claim_id, cwd, pid, pid_start_ticks, source, branch, head, detached, context_drift, context_drift_at, started_at, last_seen_at, closed_at)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(session_id) DO UPDATE SET
 			project_id=excluded.project_id,
 			harness=excluded.harness,
@@ -107,6 +108,7 @@ func (s *Store) UpsertAgentSession(sess AgentSession) error {
 			claim_id=excluded.claim_id,
 			cwd=excluded.cwd,
 			pid=excluded.pid,
+			pid_start_ticks=excluded.pid_start_ticks,
 			source=excluded.source,
 			branch=COALESCE(NULLIF(excluded.branch, ''), agent_sessions.branch),
 			head=COALESCE(NULLIF(excluded.head, ''), agent_sessions.head),
@@ -116,7 +118,7 @@ func (s *Store) UpsertAgentSession(sess AgentSession) error {
 			last_seen_at=excluded.last_seen_at,
 			closed_at=excluded.closed_at`,
 		sess.SessionID, sess.ProjectID, sess.Harness, sess.Agent, sess.ParentSessionID,
-		sess.ActiveGoal, sess.ClaimID, sess.Cwd, sess.PID, sess.Source,
+		sess.ActiveGoal, sess.ClaimID, sess.Cwd, sess.PID, sess.PIDStartTicks, sess.Source,
 		sess.Branch, sess.Head, sess.Detached, sess.ContextDrift, sessionTimePtr(sess.ContextDriftAt),
 		sessionTime(sess.StartedAt), sessionTime(sess.LastSeenAt), sessionTime(sess.ClosedAt))
 	return err
@@ -125,7 +127,7 @@ func (s *Store) UpsertAgentSession(sess AgentSession) error {
 // GetAgentSession returns one session or nil when absent.
 func (s *Store) GetAgentSession(sessionID string) (*AgentSession, error) {
 	row := s.DB.QueryRow(`SELECT session_id, project_id, harness, agent, parent_session_id,
-		active_goal, claim_id, cwd, pid, source, branch, head, detached, context_drift, context_drift_at,
+		active_goal, claim_id, cwd, pid, pid_start_ticks, source, branch, head, detached, context_drift, context_drift_at,
 		started_at, last_seen_at, closed_at
 		FROM agent_sessions WHERE session_id = ?`, sessionID)
 	return scanAgentSession(row)
@@ -138,9 +140,9 @@ type sessionScanner interface {
 func scanAgentSession(row sessionScanner) (*AgentSession, error) {
 	var sess AgentSession
 	var parent, goal, claim, cwd, source, branch, head, drift, driftAt, started, lastSeen, closed sql.NullString
-	var pid, detached sql.NullInt64
+	var pid, startTicks, detached sql.NullInt64
 	err := row.Scan(&sess.SessionID, &sess.ProjectID, &sess.Harness, &sess.Agent,
-		&parent, &goal, &claim, &cwd, &pid, &source, &branch, &head, &detached, &drift, &driftAt, &started, &lastSeen, &closed)
+		&parent, &goal, &claim, &cwd, &pid, &startTicks, &source, &branch, &head, &detached, &drift, &driftAt, &started, &lastSeen, &closed)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -152,6 +154,7 @@ func scanAgentSession(row sessionScanner) (*AgentSession, error) {
 	sess.ClaimID = claim.String
 	sess.Cwd = cwd.String
 	sess.PID = int(pid.Int64)
+	sess.PIDStartTicks = startTicks.Int64
 	sess.Source = source.String
 	sess.Branch = branch.String
 	sess.Head = head.String
@@ -191,7 +194,7 @@ func (s *Store) ListAgentSessions(projectID string, since time.Time, limit int) 
 		limit = 100
 	}
 	query := `SELECT session_id, project_id, harness, agent, parent_session_id,
-		active_goal, claim_id, cwd, pid, source, branch, head, detached, context_drift, context_drift_at,
+		active_goal, claim_id, cwd, pid, pid_start_ticks, source, branch, head, detached, context_drift, context_drift_at,
 		started_at, last_seen_at, closed_at
 		FROM agent_sessions`
 	var args []any

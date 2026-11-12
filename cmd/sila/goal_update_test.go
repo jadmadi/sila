@@ -27,7 +27,7 @@ func TestGoalsUpdateAndDependCLI(t *testing.T) {
 	ui := render.New(os.Stdout, true)
 
 	// Create goal
-	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "CLI Update Target", "Description", "", "", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"create", "cli-target"})
+	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "CLI Update Target", "Description", "", "internal/update/target.go", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"create", "cli-target"})
 
 	// Update with --add-dep
 	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "", "", "", "", 0, false, false, false, false, false, false, false, false, true, false, false, false, false, "", "dep-1,dep-2", "", false, []string{"update", "cli-target"})

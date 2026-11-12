@@ -7,13 +7,14 @@ import (
 )
 
 var (
-	homeUnixRE    = regexp.MustCompile(`/(?:home|Users)/[a-zA-Z0-9_\.\-]+`)
-	homeWindowsRE = regexp.MustCompile(`[a-zA-Z]:\\(?:[Uu]sers)\\[a-zA-Z0-9_\.\-]+`)
-	ghTokenRE     = regexp.MustCompile(`\b(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9]{36}\b|\bgithub_pat_[a-zA-Z0-9_]{82}\b`)
-	bearerRE      = regexp.MustCompile(`(?i)\b(Bearer\s+)[a-zA-Z0-9_\-\.]{20,}\b`)
-	apiKeyRE      = regexp.MustCompile(`\b(?:sk-[a-zA-Z0-9]{20,})\b`)
-	pemKeyRE      = regexp.MustCompile("-----" + "BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----")
-	paramSecretRE = regexp.MustCompile(`(?i)(password|token|secret|api_key|client_secret)=([^&\s]+)`)
+	homeUnixRE     = regexp.MustCompile(`/(?:home|Users)/[a-zA-Z0-9_\.\-]+`)
+	homeWindowsRE  = regexp.MustCompile(`[a-zA-Z]:\\(?:[Uu]sers)\\[a-zA-Z0-9_\.\-]+`)
+	ghTokenRE      = regexp.MustCompile(`\b(?:ghp|gho|ghu|ghs|ghr)_[a-zA-Z0-9_]{8,}\b|\bgithub_pat_[a-zA-Z0-9_]{8,}\b`)
+	bearerRE       = regexp.MustCompile(`(?i)\b(Bearer\s+)[a-zA-Z0-9_\-\.]{20,}\b`)
+	apiKeyRE       = regexp.MustCompile(`\b(?:sk-(?:ant-|proj-)?[a-zA-Z0-9_\-]{8,})\b`)
+	pemClosedRE    = regexp.MustCompile("-----" + "BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----")
+	pemTruncatedRE = regexp.MustCompile("-----" + "BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*$")
+	paramSecretRE  = regexp.MustCompile(`(?i)(password|token|secret|api_key|client_secret)=([^&\s]+)`)
 )
 
 // Redact sanitizes sensitive data from outgoing gateway notifications, stripping
@@ -32,8 +33,11 @@ func Redact(text string) string {
 	text = homeUnixRE.ReplaceAllString(text, "~")
 	text = homeWindowsRE.ReplaceAllString(text, "~")
 
-	// 3. Scrub secrets, tokens, and private keys
-	text = pemKeyRE.ReplaceAllString(text, "[REDACTED_PRIVATE_KEY]")
+	// 3. Scrub secrets, tokens, and private keys. Closed PEM blocks are
+	// replaced first so the truncated pattern cannot swallow safe text
+	// between two blocks.
+	text = pemClosedRE.ReplaceAllString(text, "[REDACTED_PRIVATE_KEY]")
+	text = pemTruncatedRE.ReplaceAllString(text, "[REDACTED_PRIVATE_KEY]")
 	text = ghTokenRE.ReplaceAllString(text, "[REDACTED_GH_TOKEN]")
 	text = bearerRE.ReplaceAllString(text, "$1[REDACTED]")
 	text = apiKeyRE.ReplaceAllString(text, "[REDACTED_API_KEY]")

@@ -10,7 +10,9 @@ import (
 
 // coreHubContent is the embedded safe fallback when agents/AGENTS.latest.md
 // is not present on disk. It contains only universal rules; repository-specific
-// policy lives in opt-in policy packs (see MaintainerPolicyPack).
+// policy lives in opt-in policy packs (see MaintainerPolicyPack). It is also the
+// compact baseline for project rule blocks, so maintainer-only lines such as
+// release-soak telemetry live in the canonical on-disk hub instead.
 const coreHubContent = `# AGENTS.md — Universal Agent Operating Rules (Core Hub)
 
 ## 0. Safety Rails (NEVER Do This)
@@ -20,7 +22,7 @@ const coreHubContent = `# AGENTS.md — Universal Agent Operating Rules (Core Hu
 ## 1. Working Relationship & Discipline
 - Concise and direct.
 - Terminal Markdown: Keep visible line and table width under 80 chars; no hard breaks inside bullets or links.
-- Decision Brief & ` + "`/adoo`" + ` Receipts: Lead with 1-line verdict ("X happens because Y, confirmed by Z"), compact receipt/risk table, file links, and next action. No 1-5 scores.
+- Decision Brief & ` + "`/adoo`" + ` Receipts: Lead with 1-line verdict ("X happens because Y, confirmed by Z"), compact receipt/risk table, file links, and a 1-line next action at the end (never bury actions or questions in prose). No 1-5 scores.
 - Verified Repo Runbook Primacy: Never guess commands; verify exit code 0 locally.
 - Closed-Loop Goal Attribution (6 Steps) for ` + "`goals/<slug>/`" + `:
   1. Check every completed task ` + "`- [x]`" + ` in ` + "`goals/<slug>/plan.md`" + `.
@@ -72,7 +74,7 @@ var MemoryVerbNames = []string{"prime", "recall", "memo", "lesson", "case", "fac
 // concrete CLI and MCP commands. TriggerContract and `sila salam` both render
 // this slice, so the routing cannot drift between the rulebook and orientation.
 var TriggerRoutingChecklist = []string{
-	"- Prior project docs (BEFORE grep/find): `sila search \"<q>\" --omni` (`omni_search`), `sila search expand <id>` (`get_message_context`), `sila doc search \"<q>\"` (`search_docs`).",
+	"- Prior research/specs (BEFORE grep/find): `sila search \"<q>\" --omni` (`omni_search`), `sila search expand <id>` (`get_message_context`), `sila doc search \"<q>\"` (`search_docs`).",
 	"- Activity/domains/review/skills: `sila standup last 24h`, `sila digest --since=24h`, `sila recap`; `sila guide` (`get_operational_guidebook`), `sila learn`, `sila persona`, `sila hire --for-goal=<slug>`, `sila audit` (`audit_goal`), `sila skill` (`skill_search`, `skill_load`).",
 	"- Symbols/decisions: `sila edit-check --symbol=<sym>`, `sila safe-delete --symbol=<sym>`, `sila note --symbol=<sym>`, `sila decision` (`create_decision`), `sila vision triage`.",
 }

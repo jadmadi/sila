@@ -228,3 +228,45 @@ func SplitPath(p string) []string {
 	}
 	return parts
 }
+
+// forbiddenHomePrefixes are user directories that must never become Sila state roots.
+var forbiddenHomePrefixes = []string{
+	".agents", ".gemini", ".claude", ".cursor", ".devin", ".zcode",
+	".config", ".local", ".cache", ".var",
+	"Downloads", "Pictures", "Documents", "Music", "Videos", "Desktop",
+	"temp", "temp-agy", "temp-mise", "tmp",
+}
+
+// IsForbiddenLocalStateDir reports whether dir is a bare home, temp, or
+// non-repository state directory that must not receive .sila/ state.
+func IsForbiddenLocalStateDir(dir string) bool {
+	clean := filepath.Clean(filepath.FromSlash(strings.TrimSpace(dir)))
+	if clean == "" || clean == "." || clean == string(filepath.Separator) || clean == "/" || clean == "/tmp" || clean == "/var/tmp" {
+		return true
+	}
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		home = os.Getenv("HOME")
+	}
+	if home == "" {
+		return false
+	}
+	home = filepath.Clean(home)
+	if clean == home {
+		return true
+	}
+	rel, relErr := filepath.Rel(home, clean)
+	if relErr != nil || strings.HasPrefix(filepath.ToSlash(rel), "..") {
+		return false
+	}
+	if _, statErr := os.Stat(filepath.Join(clean, ".git")); statErr == nil {
+		return false
+	}
+	rel = filepath.ToSlash(rel)
+	for _, prefix := range forbiddenHomePrefixes {
+		if rel == prefix || strings.HasPrefix(rel, prefix+"/") {
+			return true
+		}
+	}
+	return false
+}

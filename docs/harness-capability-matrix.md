@@ -50,8 +50,8 @@ removes only Sila-owned handlers while preserving foreign ones (`orca-status`,
 
 | Harness | Kind | Plugin API | Events/hooks | Config | Constraint |
 |---|---|---|---|---|---|
-| **OpenCode** | `plugin_hook` | JavaScript/TypeScript module loaded in-process (`SilaBridge`) | `session.created`, `session.idle`, `session.compacted`, `session.error`, `tool.execute.before`, `tool.execute.after`, `experimental.session.compacting` | `.opencode/plugins/sila-bridge.js`, `~/.config/opencode/plugins/`, npm `plugin` array | No shell-hook config; `session.idle` cannot hard-block (returns `unsupported` on deny); `tool.execute.before` throws on deny |
-| **MiMoCode** | `plugin_hook` | OpenCode-derived plugin API (`SilaBridge`) | Same plugin surface as OpenCode (MiMoCode repo packages `opencode`; config exposes `plugin`) | `mimocode.json` `plugin` array + `.mimocode/plugins/sila-bridge.js` | Official `/plugins` page returned 404; installer requires existing `"plugin": []` array in `mimocode.json` or `SILA_MIMOCODE_PLUGIN_VERIFIED=1` and refuses with `unsupported` otherwise |
+| **OpenCode** | `plugin_hook` | OpenCode 2 server plugin (`export default { id: "sila-bridge", setup }`) | `session.created` via `ctx.event.subscribe`, `experimental.idle`, `compaction`, `execute.before`, `execute.after` | `.opencode/plugins/sila-bridge.js`, `~/.config/opencode/plugins/`, npm `plugins` array | No shell-hook config; idle warns only; `execute.before` throws on deny; V2-only artifact, MiMoCode uses a separate template; a file without `sila:plugin-api=2` reports installed but not configured |
+| **MiMoCode** | `plugin_hook` | OpenCode 1 plugin API (`SilaBridge` async function) | `session.created`, `session.idle`, `session.compacted`, `session.error`, `tool.execute.before`, `tool.execute.after`, `experimental.session.compacting` | `mimocode.json` `plugin` array + `.mimocode/plugins/sila-bridge.js` | Separate V1 template, no OpenCode 2 code; official `/plugins` page returned 404; installer requires existing `"plugin": []` array in `mimocode.json` or `SILA_MIMOCODE_PLUGIN_VERIFIED=1` and refuses with `unsupported` otherwise |
 
 ## Output encoding families
 
@@ -64,6 +64,29 @@ removes only Sila-owned handlers while preserving foreign ones (`orca-status`,
 | Antigravity | `decision: "deny"` + reason | `injectSteps[].systemMessage` | `decision: "continue"` + reason | camelCase payload (`conversationId`, `toolCall`) |
 | Codewhale | `decision: "deny"` + reason | `additionalContext` | `turn_end` decision | Conditions and trust digests are adapter-specific |
 | Muse | documented lifecycle exists; exact JSON fields must be verified from official docs/source before coding | — | — | Do not invent an output shape |
+
+## Recall gate hook coverage
+
+The opt-in pre-tool recall gate (`recall_gate_policy`) uses the same
+`PhaseToolBefore` row as every other pre-tool sentry. It never reads transcript
+content or tool results.
+
+| Harness | Pre-tool event | Recall gate decision | Failure behavior |
+|---|---|---|---|
+| Claude Code | `PreToolUse` | `hookSpecificOutput.permissionDecision: "deny"` + reason | stderr diagnostic, allow |
+| Codex | `PreToolUse` | `hookSpecificOutput.permissionDecision: "deny"` + reason | stderr diagnostic, allow |
+| Cursor | `preToolUse` | `permission: "deny"` + `agent_message` | stderr diagnostic, allow |
+| Antigravity | `PreToolUse` | `decision: "deny"` + reason | stderr diagnostic, allow |
+| Command Code | `PreToolUse` | `hookSpecificOutput.permissionDecision: "deny"` + reason | stderr diagnostic, allow |
+| Devin | `PreToolUse` | `decision: "block"` + reason | stderr diagnostic, allow |
+| Codewhale | `tool_call_before` | `decision: "deny"` + reason | stderr diagnostic, allow |
+| ZCode | `PreToolUse` | `permissionDecision: "deny"` + reason | stderr diagnostic, allow |
+| Muse | `PreToolUse` | unverified; returns `unsupported` | stderr diagnostic, allow |
+| OpenCode / MiMoCode | `tool.execute.before` | plugin bridge throws on deny | plugin warning, allow |
+| Unknown harness | none | no native decision | stderr diagnostic, allow |
+
+Denial is limited to one signature per prompt; retries pass. Reads and unknown
+tools are never denied.
 
 ## Native goal features to integrate, not duplicate
 

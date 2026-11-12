@@ -390,6 +390,16 @@ var keyDefinitions = []KeyDoc{
 		ValidValues: []string{"true", "false"},
 		IsSecret:    false,
 	},
+	{
+		Key:         "recall_gate_policy",
+		Type:        "string",
+		Default:     "warn",
+		Description: "Pre-tool recall gate policy: off disables the gate, warn advises once per prompt, enforce denies the first mutating tool call until a recall is observed.",
+		Security:    "Local behavioral nudge, not a security boundary. State is content-free and stored locally in mode 0600 under .sila/state/recall.",
+		Example:     "enforce",
+		ValidValues: []string{"off", "warn", "enforce"},
+		IsSecret:    false,
+	},
 }
 
 // AllKeys returns documentation for all configuration keys.
@@ -467,6 +477,8 @@ func ExplainKey(key string) (KeyDoc, bool) {
 		k = "gateway_mcp_token"
 	case "upstreams_enabled", "mcp_upstream_enabled":
 		k = "mcp_upstreams_enabled"
+	case "recall_gate", "recall-policy":
+		k = "recall_gate_policy"
 	}
 
 	for _, d := range keyDefinitions {

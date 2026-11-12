@@ -62,6 +62,42 @@ func TestRedact(t *testing.T) {
 			contains: "token=[REDACTED]",
 			omits:    "secret123",
 		},
+		{
+			name:     "anthropic style api key",
+			input:    "Using key " + "sk-ant-" + "api03abcdef123456 in prompt",
+			contains: "[REDACTED_API_KEY]",
+			omits:    "sk-ant-" + "api03abcdef123456",
+		},
+		{
+			name:     "openai project api key",
+			input:    "Using key " + "sk-proj-" + "abcdefgh12345678 in prompt",
+			contains: "[REDACTED_API_KEY]",
+			omits:    "sk-proj-" + "abcdefgh12345678",
+		},
+		{
+			name:     "truncated github token",
+			input:    "Using token " + "ghp_" + "1234abcd for git sync",
+			contains: "[REDACTED_GH_TOKEN]",
+			omits:    "ghp_" + "1234abcd",
+		},
+		{
+			name:     "truncated github pat",
+			input:    "Using token " + "github_pat_" + "1234abcd for git sync",
+			contains: "[REDACTED_GH_TOKEN]",
+			omits:    "github_pat_" + "1234abcd",
+		},
+		{
+			name:     "unclosed private key",
+			input:    "-----" + "BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEA0truncated",
+			contains: "[REDACTED_PRIVATE_KEY]",
+			omits:    "MIIEowIBAAKCAQEA0truncated",
+		},
+		{
+			name:     "short prefixes are not secrets",
+			input:    "sk-short ghp_1234",
+			contains: "sk-short ghp_1234",
+			omits:    "[REDACTED",
+		},
 	}
 
 	for _, tc := range tests {
@@ -74,5 +110,23 @@ func TestRedact(t *testing.T) {
 				t.Errorf("expected redacted output to omit sensitive %q, got: %s", tc.omits, got)
 			}
 		})
+	}
+}
+
+func TestRedactPreservesSafeTextBetweenPEMBlocks(t *testing.T) {
+	closedBody := "MIIEclosed"
+	openBody := "MIIEopen"
+	input := "-----" + "BEGIN RSA PRIVATE KEY-----\n" + closedBody + "\n-----" + "END RSA PRIVATE KEY-----" +
+		" safe diagnostic text " +
+		"-----" + "BEGIN RSA PRIVATE KEY-----\n" + openBody
+	got := Redact(input)
+	if !strings.Contains(got, "safe diagnostic text") {
+		t.Fatalf("safe text between PEM blocks was lost: %s", got)
+	}
+	if strings.Contains(got, closedBody) || strings.Contains(got, openBody) {
+		t.Fatalf("PEM body leaked: %s", got)
+	}
+	if strings.Count(got, "[REDACTED_PRIVATE_KEY]") != 2 {
+		t.Fatalf("expected two redactions, got: %s", got)
 	}
 }

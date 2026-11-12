@@ -8,7 +8,7 @@ import (
 func TestBuildDistillPrompt(t *testing.T) {
 	req := DistillRequest{
 		ClaimID:    "fact_123",
-		ProjectID:  "example-app",
+		ProjectID:  "example-app-App",
 		RawMessage: "Done. Fixed issue 2 in auth/tokens.ts by setting refresh token expiry to 7d.",
 		RepoFiles:  []string{"auth/tokens.ts"},
 		Tools:      []string{"devin", "mimocode"},
@@ -16,7 +16,7 @@ func TestBuildDistillPrompt(t *testing.T) {
 	}
 
 	prompt := BuildDistillPrompt(req)
-	if !strings.Contains(prompt, "example-app") {
+	if !strings.Contains(prompt, "example-app-App") {
 		t.Fatalf("prompt missing project ID: %s", prompt)
 	}
 	if !strings.Contains(prompt, "auth/tokens.ts") {

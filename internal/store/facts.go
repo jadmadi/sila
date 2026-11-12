@@ -5,10 +5,31 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 )
+
+// Fact visibility scopes. Project records stay inside their project; global
+// records may cross project boundaries under an ACL-scoped read.
+const (
+	VisibilityProject = "project"
+	VisibilityGlobal  = "global"
+)
+
+// NormalizeVisibility validates a fact visibility scope. The empty value means
+// the safe default: project-scoped.
+func NormalizeVisibility(visibility string) (string, error) {
+	vis := strings.TrimSpace(visibility)
+	if vis == "" {
+		return VisibilityProject, nil
+	}
+	if vis != VisibilityProject && vis != VisibilityGlobal {
+		return "", fmt.Errorf("invalid visibility %q: must be project or global", visibility)
+	}
+	return vis, nil
+}
 
 func boolInt(b bool) int {
 	if b {
@@ -56,21 +77,32 @@ type Fact struct {
 	// Authority lifecycle: a candidate is an attributed observation (e.g. a
 	// directive-looking transcript line) that no consumer may treat as an
 	// authorized rule until it is approved.
-	ReviewStatus string `json:"review_status"` // candidate | approved
-	OriginRole   string `json:"origin_role,omitempty"`
-	Quoted       bool   `json:"quoted,omitempty"`
-	FactHash     string `json:"fact_hash,omitempty"`
-	PrevHash     string `json:"prev_hash,omitempty"`
-	CompactedAt  string `json:"compacted_at,omitempty"`
-	SupersedesID string `json:"supersedes_id,omitempty"`
+	ReviewStatus           string `json:"review_status"`        // candidate | approved
+	Visibility             string `json:"visibility,omitempty"` // project | global
+	OriginRole             string `json:"origin_role,omitempty"`
+	Quoted                 bool   `json:"quoted,omitempty"`
+	FactHash               string `json:"fact_hash,omitempty"`
+	PrevHash               string `json:"prev_hash,omitempty"`
+	CompactedAt            string `json:"compacted_at,omitempty"`
+	SupersedesID           string `json:"supersedes_id,omitempty"`
+	LegacyUnknownTimestamp bool   `json:"legacy_unknown_timestamp,omitempty"`
 
 	// Access-weighted retention decay telemetry (Migration 25)
-	AccessCount    int     `json:"access_count"`
-	LastAccessedAt string  `json:"last_accessed_at,omitempty"`
-	DistinctTools  int     `json:"distinct_tools"`
-	Tier           string  `json:"tier,omitempty"`
-	Salience       float64 `json:"salience,omitempty"`
-	IsStaleFlag    bool    `json:"is_stale,omitempty"`
+	AccessCount     int     `json:"access_count"`
+	LastAccessedAt  string  `json:"last_accessed_at,omitempty"`
+	DistinctTools   int     `json:"distinct_tools"`
+	Tier            string  `json:"tier,omitempty"`
+	Salience        float64 `json:"salience,omitempty"`
+	IsStaleFlag     bool    `json:"is_stale,omitempty"`
+	StaleReason     string  `json:"stale_reason,omitempty"`
+	ScopeKey        string  `json:"scope_key,omitempty"`
+	ValidFrom       string  `json:"valid_from,omitempty"`
+	ValidUntil      string  `json:"valid_until,omitempty"`
+	MaturityTier    string  `json:"maturity_tier,omitempty"`
+	MaturityScore   float64 `json:"maturity_score,omitempty"`
+	RecurrenceCount int     `json:"recurrence_count,omitempty"`
+	AutoPromoted    bool    `json:"auto_promoted,omitempty"`
+	DisputedBy      string  `json:"disputed_by,omitempty"`
 
 	// Provenance metadata (Goal: agent-provenance-metadata-schema)
 	ToolName     string `json:"tool_name,omitempty"`     // e.g. "antigravity", "cursor", "claude_code"
@@ -417,8 +449,8 @@ func (f Fact) IsCase() bool {
 	return strings.HasPrefix(claimLower, "case:") || strings.Contains(claimLower, "\ncase:")
 }
 
-const selectFactsFields = `id, project_id, claim, confidence, verified, file_refs_exist, repo_files, tools, session_ref, first_seen, promoted_at, refs_checked_at, distilled, distill_status, kind, review_status, origin_role, quoted, fact_hash, prev_hash, compacted_at, supersedes_id, access_count, last_accessed_at, distinct_tools, tier, salience, is_stale, byte_start, byte_end, source_ref`
-const selectFactsPrefixed = `f.id, f.project_id, f.claim, f.confidence, f.verified, f.file_refs_exist, f.repo_files, f.tools, f.session_ref, f.first_seen, f.promoted_at, f.refs_checked_at, f.distilled, f.distill_status, f.kind, f.review_status, f.origin_role, f.quoted, f.fact_hash, f.prev_hash, f.compacted_at, f.supersedes_id, f.access_count, f.last_accessed_at, f.distinct_tools, f.tier, f.salience, f.is_stale, f.byte_start, f.byte_end, f.source_ref`
+const selectFactsFields = `id, project_id, claim, confidence, verified, file_refs_exist, repo_files, tools, session_ref, first_seen, promoted_at, refs_checked_at, distilled, distill_status, kind, review_status, origin_role, quoted, fact_hash, prev_hash, compacted_at, supersedes_id, access_count, last_accessed_at, distinct_tools, tier, salience, is_stale, byte_start, byte_end, source_ref, disputed_by, stale_reason, scope_key, valid_from, valid_until, maturity_tier, maturity_score, recurrence_count, auto_promoted, visibility`
+const selectFactsPrefixed = `f.id, f.project_id, f.claim, f.confidence, f.verified, f.file_refs_exist, f.repo_files, f.tools, f.session_ref, f.first_seen, f.promoted_at, f.refs_checked_at, f.distilled, f.distill_status, f.kind, f.review_status, f.origin_role, f.quoted, f.fact_hash, f.prev_hash, f.compacted_at, f.supersedes_id, f.access_count, f.last_accessed_at, f.distinct_tools, f.tier, f.salience, f.is_stale, f.byte_start, f.byte_end, f.source_ref, f.disputed_by, f.stale_reason, f.scope_key, f.valid_from, f.valid_until, f.maturity_tier, f.maturity_score, f.recurrence_count, f.auto_promoted, f.visibility`
 
 // ErrFactConflict indicates an attempt to modify the immutable hashed claim or kind of an existing hashed fact.
 var ErrFactConflict = errors.New("fact conflict")
@@ -435,6 +467,9 @@ func scanFact(rows *sql.Rows) (Fact, error) {
 		&f.OriginRole, &quoted, &f.FactHash, &f.PrevHash, &f.CompactedAt, &f.SupersedesID, &f.AccessCount,
 		&f.LastAccessedAt, &f.DistinctTools, &f.Tier, &f.Salience, &isStale,
 		&f.ByteStart, &f.ByteEnd, &f.SourceRef,
+		&f.DisputedBy, &f.StaleReason, &f.ScopeKey, &f.ValidFrom, &f.ValidUntil,
+		&f.MaturityTier, &f.MaturityScore, &f.RecurrenceCount, &f.AutoPromoted,
+		&f.Visibility,
 	); err != nil {
 		return f, err
 	}
@@ -467,4 +502,53 @@ func scanFact(rows *sql.Rows) (Fact, error) {
 
 func (s *Store) facts(query string, args ...any) ([]Fact, error) {
 	return s.QueryRows(context.Background(), query, scanFact, args...)
+}
+
+// FactsAround returns the anchor fact plus up to before and after chronological
+// neighbours in the same project, oldest first, capped at 10 total.
+func (s *Store) FactsAround(projectID, anchorID string, before, after int) ([]Fact, error) {
+	if before < 0 {
+		before = 0
+	}
+	if after < 0 {
+		after = 0
+	}
+	if before+after > 9 {
+		after = 9 - before
+		if after < 0 {
+			after = 0
+		}
+	}
+	rows, err := s.DB.Query(`SELECT `+selectFactsFields+` FROM facts WHERE project_id = ? AND review_status != 'archived' ORDER BY first_seen ASC, id ASC`, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var all []Fact
+	anchorIndex := -1
+	for rows.Next() {
+		fact, scanErr := scanFact(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		if fact.ID == anchorID {
+			anchorIndex = len(all)
+		}
+		all = append(all, fact)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	if anchorIndex < 0 {
+		return nil, nil
+	}
+	start := anchorIndex - before
+	if start < 0 {
+		start = 0
+	}
+	end := anchorIndex + after + 1
+	if end > len(all) {
+		end = len(all)
+	}
+	return append([]Fact{}, all[start:end]...), nil
 }

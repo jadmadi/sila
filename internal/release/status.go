@@ -144,17 +144,20 @@ func GetReleaseStatus(opts ReleaseStatusOptions) (ReleaseStatusReport, error) {
 	if repoDir == "" {
 		repoDir = ResolveGitRepoDir("")
 	}
+	repoDir = soakReleaseScope(repoDir)
 
 	pubRelease := fetchPublicRelease(repoDir, opts.Offline)
 	devState := inspectDevState(repoDir)
 	workingTree := inspectWorkingTree(repoDir, opts.ShowDiff)
-	commits, impact := analyzeCommits(repoDir, pubRelease.Tag)
+	commits, impact := analyzeCommits(repoDir, pubRelease.Tag, pubRelease.PublishedAt)
 	roadmap := inspectRoadmap(repoDir)
 	mcpContract := inspectMCPContract(repoDir)
+	_, baseTime := resolveBaseRange(repoDir, pubRelease.Tag, pubRelease.PublishedAt)
 	soak := EvaluateSoak(SoakOptions{
-		RepoDir: repoDir,
-		BaseTag: pubRelease.Tag,
-		DBPath:  opts.DBPath,
+		RepoDir:  repoDir,
+		BaseTag:  pubRelease.Tag,
+		BaseTime: baseTime,
+		DBPath:   opts.DBPath,
 	})
 
 	candidates, verdict := computeSemverCandidates(pubRelease.Tag, impact, roadmap, workingTree, opts.AllowDirty)
@@ -378,16 +381,49 @@ func inspectWorkingTree(repoDir string, showDiff bool) WorkingTreeInfo {
 	}
 }
 
-func analyzeCommits(repoDir, baseTag string) ([]StatusCommit, ImpactSummaryInfo) {
-	tagRange := ""
-	if baseTag != "" && baseTag != "v0.0.0" {
-		tagRange = baseTag + "..HEAD"
+// resolveBaseRange finds a usable git range for "since the last release".
+// The tag may be absent after a history re-root, so fall back to the release
+// publication time, then to the newest local tag.
+func resolveBaseRange(repoDir, tag, publishedAt string) (string, time.Time) {
+	if tag != "" && tag != "v0.0.0" && refExists(repoDir, tag) {
+		if t, ok := refCommitTime(repoDir, tag); ok {
+			return tag, t
+		}
+		return tag, time.Time{}
 	}
+	if publishedAt != "" {
+		if t, err := time.Parse(time.RFC3339, publishedAt); err == nil {
+			return "", t
+		}
+	}
+	if local := latestLocalTag(repoDir); local != "" && refExists(repoDir, local) {
+		return local, time.Time{}
+	}
+	return "", time.Time{}
+}
 
+func refExists(repoDir, ref string) bool {
+	return exec.Command("git", "-C", repoDir, "rev-parse", "--verify", ref+"^{commit}").Run() == nil
+}
+
+func refCommitTime(repoDir, ref string) (time.Time, bool) {
+	out, err := exec.Command("git", "-C", repoDir, "show", "-s", "--format=%cI", ref).Output()
+	if err != nil {
+		return time.Time{}, false
+	}
+	t, err := time.Parse(time.RFC3339, strings.TrimSpace(string(out)))
+	return t, err == nil
+}
+
+func analyzeCommits(repoDir, baseTag, publishedAt string) ([]StatusCommit, ImpactSummaryInfo) {
+	ref, since := resolveBaseRange(repoDir, baseTag, publishedAt)
 	args := []string{"log", "--pretty=format:%h%x1f%s%x1f%b%x1e"}
-	if tagRange != "" {
-		args = append(args, tagRange)
-	} else {
+	switch {
+	case ref != "":
+		args = append(args, ref+"..HEAD")
+	case !since.IsZero():
+		args = append(args, "--since="+since.UTC().Format(time.RFC3339))
+	default:
 		args = append(args, "-n", "100")
 	}
 
@@ -669,6 +705,12 @@ func applySoakVerdict(verdict ReleaseVerdictInfo, soak SoakReport) ReleaseVerdic
 			ActionSteps: soak.DailyChecklist,
 		}
 	default:
+		if soak.SoakingFeatures > 0 && soak.ReadyThroughCommit != "" {
+			verdict.ActionSteps = append([]string{
+				fmt.Sprintf("Ready train commit: %s (%d ready, %d newer feature(s) soaking on own 72h timer)", soak.ReadyThroughCommit, soak.ReadyFeatures, soak.SoakingFeatures),
+				fmt.Sprintf("Export ready train to public repo: 'sila release export' (exports --ref %s to ../public-export)", soak.ReadyThroughCommit),
+			}, verdict.ActionSteps...)
+		}
 		return verdict
 	}
 }

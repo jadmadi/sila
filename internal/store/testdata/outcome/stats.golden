@@ -1,0 +1,16 @@
+[
+  {
+    "tool": "claude",
+    "success": 1,
+    "corrected": 1,
+    "neutral": 0,
+    "total": 2
+  },
+  {
+    "tool": "codex",
+    "success": 0,
+    "corrected": 0,
+    "neutral": 1,
+    "total": 1
+  }
+]

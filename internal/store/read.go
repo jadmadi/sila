@@ -114,10 +114,16 @@ func (s *Store) ProjectsWithCounts() ([]ProjectStat, error) {
 // source-tool provenance needed to score confidence, plus the source session
 // id when one is recorded.
 func (s *Store) MessagesForDistill(projectID string) ([]MessageView, error) {
+	return s.MessagesForDistillSince(projectID, 0)
+}
+
+// MessagesForDistillSince returns the assistant messages for a project with row
+// id strictly greater than afterID so incremental distillation processes only new turns.
+func (s *Store) MessagesForDistillSince(projectID string, afterID int64) ([]MessageView, error) {
 	return s.QueryRows(context.Background(),
 		`SELECT m.content, m.role, m.ts, m.source_tools,
 			COALESCE((SELECT o.session_id FROM source_occurrences o WHERE o.message_id = m.id AND o.session_id != '' ORDER BY o.id LIMIT 1), '')
-		FROM messages m WHERE m.project_id=? AND m.role='assistant' ORDER BY m.ts, m.id`,
+		FROM messages m WHERE m.project_id=? AND m.role='assistant' AND m.id > ? ORDER BY m.ts, m.id`,
 		func(rows *sql.Rows) (MessageView, error) {
 			var mv MessageView
 			var tools string
@@ -127,7 +133,7 @@ func (s *Store) MessagesForDistill(projectID string) ([]MessageView, error) {
 			mv.Tools = unjoinJSON(tools)
 			return mv, nil
 		},
-		projectID)
+		projectID, afterID)
 }
 
 // StoredMessage is a message row from the store.
@@ -140,6 +146,7 @@ type StoredMessage struct {
 	Content     string
 	SourceTools []string
 	FirstSeen   string
+	Outcome     string
 }
 
 // RecentMessages returns the most recent stored messages for a project, newest first.
@@ -148,10 +155,10 @@ func (s *Store) RecentMessages(projectID string, limit int) ([]StoredMessage, er
 		limit = 20
 	}
 	orderClause := `ORDER BY MAX(COALESCE(first_seen, ''), ts) DESC, ts DESC, id DESC`
-	query := `SELECT id, project_id, content_hash, ts, role, content, source_tools, first_seen FROM messages ` + orderClause + ` LIMIT ?`
+	query := `SELECT id, project_id, content_hash, ts, role, content, source_tools, first_seen, outcome FROM messages ` + orderClause + ` LIMIT ?`
 	var args []any
 	if projectID != "" {
-		query = `SELECT id, project_id, content_hash, ts, role, content, source_tools, first_seen FROM messages WHERE project_id = ? ` + orderClause + ` LIMIT ?`
+		query = `SELECT id, project_id, content_hash, ts, role, content, source_tools, first_seen, outcome FROM messages WHERE project_id = ? ` + orderClause + ` LIMIT ?`
 		args = append(args, projectID, limit)
 	} else {
 		args = append(args, limit)
@@ -160,7 +167,7 @@ func (s *Store) RecentMessages(projectID string, limit int) ([]StoredMessage, er
 	return s.QueryRows(context.Background(), query, func(rows *sql.Rows) (StoredMessage, error) {
 		var sm StoredMessage
 		var tools string
-		if err := rows.Scan(&sm.ID, &sm.ProjectID, &sm.ContentHash, &sm.TS, &sm.Role, &sm.Content, &tools, &sm.FirstSeen); err != nil {
+		if err := rows.Scan(&sm.ID, &sm.ProjectID, &sm.ContentHash, &sm.TS, &sm.Role, &sm.Content, &tools, &sm.FirstSeen, &sm.Outcome); err != nil {
 			return sm, err
 		}
 		sm.SourceTools = unjoinJSON(tools)
@@ -195,7 +202,7 @@ func (s *Store) SearchMessagesFTS(query string, opts SearchMessagesOptions) ([]S
 		return nil, err
 	}
 	sqlQ := `
-		SELECT m.id, m.project_id, m.content_hash, m.ts, m.role, m.content, m.source_tools, m.first_seen
+		SELECT m.id, m.project_id, m.content_hash, m.ts, m.role, m.content, m.source_tools, m.first_seen, m.outcome
 		FROM messages_fts
 		JOIN messages m ON m.id = messages_fts.rowid
 		WHERE messages_fts MATCH ?`
@@ -257,7 +264,7 @@ func (s *Store) SearchMessagesFTS(query string, opts SearchMessagesOptions) ([]S
 		for rows.Next() {
 			var sm StoredMessage
 			var tools string
-			if err := rows.Scan(&sm.ID, &sm.ProjectID, &sm.ContentHash, &sm.TS, &sm.Role, &sm.Content, &tools, &sm.FirstSeen); err != nil {
+			if err := rows.Scan(&sm.ID, &sm.ProjectID, &sm.ContentHash, &sm.TS, &sm.Role, &sm.Content, &tools, &sm.FirstSeen, &sm.Outcome); err != nil {
 				return nil, err
 			}
 			sm.SourceTools = unjoinJSON(tools)
@@ -364,11 +371,11 @@ func (s *Store) MessageInContext(msgID int64, window int, occurrence int) (*Mess
 	var target StoredMessage
 	var tools string
 	err := s.DB.QueryRow(`
-		SELECT id, project_id, content_hash, ts, role, content, source_tools, first_seen
+		SELECT id, project_id, content_hash, ts, role, content, source_tools, first_seen, outcome
 		FROM messages
 		WHERE id = ?`, msgID).Scan(
 		&target.ID, &target.ProjectID, &target.ContentHash, &target.TS,
-		&target.Role, &target.Content, &tools, &target.FirstSeen)
+		&target.Role, &target.Content, &tools, &target.FirstSeen, &target.Outcome)
 	if err != nil {
 		return nil, err
 	}

@@ -17,12 +17,17 @@ import (
 )
 
 type memoOptions struct {
-	text    string
-	since   string
-	claim   string
-	limit   int
-	jsonOut bool
-	toonOut bool
+	text             string
+	since            string
+	claim            string
+	limit            int
+	jsonOut          bool
+	toonOut          bool
+	supersedes       string
+	validFrom        string
+	validUntil       string
+	visibility       string
+	expectedRevision string
 }
 
 type memoListEntry struct {
@@ -31,7 +36,7 @@ type memoListEntry struct {
 }
 
 func memoUsage() {
-	fmt.Fprintln(os.Stderr, "usage: sila memo \"<decision>\"")
+	fmt.Fprintln(os.Stderr, "usage: sila memo \"<decision>\" [--visibility=project|global]")
 	fmt.Fprintln(os.Stderr, "       sila memo add \"<decision>\"")
 	fmt.Fprintln(os.Stderr, "       sila memo --text=\"<decision>\"")
 	fmt.Fprintln(os.Stderr, "       sila memo list [--since=<duration|RFC3339>] [--limit=N] [--claim=<text>] [--json|--toon]")
@@ -69,6 +74,25 @@ func runMemo(ui render.UI, dbPath, project, agent, files, decision string, opts 
 			if n, err := strconv.Atoi(strings.TrimPrefix(a, "--limit=")); err == nil {
 				opts.limit = n
 			}
+		case strings.HasPrefix(a, "--expected-revision="):
+			opts.expectedRevision = strings.TrimSpace(strings.TrimPrefix(a, "--expected-revision="))
+		case strings.HasPrefix(a, "--valid-from="):
+			opts.validFrom = strings.TrimSpace(strings.TrimPrefix(a, "--valid-from="))
+		case strings.HasPrefix(a, "--valid-until="):
+			opts.validUntil = strings.TrimSpace(strings.TrimPrefix(a, "--valid-until="))
+		case strings.HasPrefix(a, "--supersede="):
+			opts.supersedes = strings.TrimSpace(strings.TrimPrefix(a, "--supersede="))
+		case strings.HasPrefix(a, "--supersedes="):
+			opts.supersedes = strings.TrimSpace(strings.TrimPrefix(a, "--supersedes="))
+		case strings.HasPrefix(a, "--visibility="):
+			opts.visibility = strings.TrimSpace(strings.TrimPrefix(a, "--visibility="))
+		case a == "--visibility":
+			if i+1 >= len(args) || strings.HasPrefix(args[i+1], "-") {
+				fmt.Fprintln(os.Stderr, "sila memo: --visibility requires project or global")
+				os.Exit(2)
+			}
+			opts.visibility = strings.TrimSpace(args[i+1])
+			i++
 		case a == "--json":
 			opts.jsonOut = true
 		case a == "--toon":
@@ -94,6 +118,9 @@ func runMemo(ui render.UI, dbPath, project, agent, files, decision string, opts 
 			rest = positional[1:]
 		case "show", "get":
 			action = "show"
+			rest = positional[1:]
+		case "resolve":
+			action = "resolve"
 			rest = positional[1:]
 		case "delete", "rm", "prune":
 			memoUsage()
@@ -175,6 +202,29 @@ func runMemo(ui render.UI, dbPath, project, agent, files, decision string, opts 
 			}
 			project = p.ID
 		}
+	}
+
+	if action == "resolve" {
+		if len(rest) == 0 || opts.supersedes == "" {
+			fmt.Fprintln(os.Stderr, "sila memo resolve: usage: sila memo resolve <id> --supersede=<id>")
+			os.Exit(2)
+		}
+		winner := rest[0]
+		current, getErr := st.FactByID(winner)
+		if getErr != nil || current == nil {
+			fmt.Fprintf(os.Stderr, "sila memo resolve: fact %q not found\n", winner)
+			os.Exit(1)
+		}
+		if strings.TrimSpace(current.DisputedBy) == "" {
+			fmt.Fprintf(os.Stderr, "sila memo resolve: fact %q is not disputed\n", winner)
+			os.Exit(2)
+		}
+		if resolveErr := st.ResolveDispute(winner, opts.supersedes); resolveErr != nil {
+			fmt.Fprintf(os.Stderr, "sila memo resolve: %v\n", resolveErr)
+			os.Exit(1)
+		}
+		fmt.Fprintf(os.Stdout, "resolved %s; archived %s\n", winner, opts.supersedes)
+		return
 	}
 
 	switch action {
@@ -277,6 +327,15 @@ func runMemo(ui render.UI, dbPath, project, agent, files, decision string, opts 
 		return
 
 	case "add":
+		if err := store.ValidateValidityWindow(opts.validFrom, opts.validUntil); err != nil {
+			fmt.Fprintf(os.Stderr, "sila memo: %v\n", err)
+			memoUsage()
+			os.Exit(2)
+		}
+		if opts.expectedRevision != "" && len(opts.expectedRevision) != 64 {
+			fmt.Fprintln(os.Stderr, "sila memo: --expected-revision must be a full 64-character hash")
+			os.Exit(2)
+		}
 		content := strings.Join(rest, " ")
 		var fileList []string
 		if files != "" {
@@ -294,6 +353,17 @@ func runMemo(ui render.UI, dbPath, project, agent, files, decision string, opts 
 				}
 			}
 		}
+		if opts.expectedRevision != "" {
+			latest, _ := st.ListFactsByKind("memo", project, time.Time{}, 1)
+			current := ""
+			if len(latest) > 0 {
+				current = latest[0].FactHash
+			}
+			if current == "" || current != opts.expectedRevision {
+				fmt.Fprintf(os.Stderr, "revision conflict: current %s\n", current)
+				os.Exit(1)
+			}
+		}
 		var fact *store.Fact
 		if charter, ok, cerr := charterForWrite(os.Args[1:]); cerr != nil {
 			charterFail(cerr)
@@ -304,22 +374,48 @@ func runMemo(ui render.UI, dbPath, project, agent, files, decision string, opts 
 				}
 			}
 			project, agent = charter.ProjectID, charter.OriginRole()
-			fact, err = st.InsertMemoWithProvenance(project, content, agent, cwd, fileList, "", store.Provenance{
+			fact, err = st.InsertMemoWithProvenanceAndVisibility(project, content, agent, cwd, fileList, "", opts.visibility, store.Provenance{
 				SessionRef: charter.ParentSessionID, OriginRole: charter.OriginRole(),
 			})
 		} else if sessionRef := resolveWriteSession(project); sessionRef != "" {
-			fact, err = st.InsertMemoWithSession(project, content, agent, cwd, fileList, sessionRef)
+			fact, err = st.InsertMemoWithProvenanceAndVisibility(project, content, agent, cwd, fileList, "", opts.visibility, store.Provenance{SessionRef: sessionRef})
 		} else {
-			fact, err = st.InsertMemo(project, content, agent, cwd, fileList)
+			fact, err = st.InsertMemoWithProvenanceAndVisibility(project, content, agent, cwd, fileList, "", opts.visibility, store.Provenance{})
 		}
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "sila: %v\n", err)
 			os.Exit(1)
 		}
+		if opts.validFrom != "" || opts.validUntil != "" {
+			if _, uerr := st.DB.Exec(`UPDATE facts SET valid_from = ?, valid_until = ? WHERE id = ?`, opts.validFrom, opts.validUntil, fact.ID); uerr != nil {
+				fmt.Fprintf(os.Stderr, "sila memo: validity window: %v\n", uerr)
+				os.Exit(1)
+			}
+			fact.ValidFrom, fact.ValidUntil = opts.validFrom, opts.validUntil
+		}
+		if scopeKey := store.ScopeKey(fileList); scopeKey != "" {
+			_, _ = st.DB.Exec(`UPDATE facts SET scope_key = ? WHERE id = ?`, scopeKey, fact.ID)
+			if opts.supersedes != "" {
+				if resolveErr := st.ResolveDispute(fact.ID, opts.supersedes); resolveErr != nil {
+					fmt.Fprintf(os.Stderr, "sila memo: supersede: %v\n", resolveErr)
+					os.Exit(1)
+				}
+			} else if conflict, conflictErr := st.FindMemoConflict(project, scopeKey, fact.ID, time.Now().UTC()); conflictErr == nil && conflict != "" {
+				if markErr := st.MarkDisputed(fact.ID, conflict); markErr == nil {
+					fact.DisputedBy = conflict
+					fmt.Fprintf(os.Stderr, "sila memo: possible conflict with %s; resolve with sila memo resolve %s --supersede=%s\n", conflict, fact.ID, conflict)
+				}
+			}
+		}
 		recordMemoryEvent(st, project, agent, "memo", "ok", "", "cli", 0)
 		if opts.jsonOut {
+			type memoWithRevision struct {
+				*store.Fact
+				RevisionHash string `json:"revision_hash"`
+				Unchecked    bool   `json:"unchecked,omitempty"`
+			}
 			fact.RepoFiles = jsonCardFiles(cwd, fact.RepoFiles)
-			emitJSON(fact)
+			emitJSON(memoWithRevision{Fact: fact, RevisionHash: fact.FactHash, Unchecked: opts.expectedRevision == ""})
 			return
 		}
 		fmt.Fprint(os.Stdout, render.RenderCard(ui, render.Card{

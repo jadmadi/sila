@@ -23,7 +23,7 @@ type InstallResult struct {
 	Detail    string   `json:"detail,omitempty"`
 }
 
-// Install writes the rendered shared JS bridge for OpenCode or MiMoCode.
+// Install writes the harness-specific rendered JS bridge for OpenCode or MiMoCode.
 //   - For OpenCode: writes `.opencode/plugins/sila-bridge.js` (mode 0644),
 //     idempotently preserving any foreign files in `.opencode/plugins/`.
 //   - For MiMoCode: because the official `/plugins` page returned 404, local path
@@ -41,7 +41,7 @@ func Install(harness, projectDir, version string, dryRun bool) (InstallResult, e
 	return installOpenCode(projectDir, src, dryRun)
 }
 
-// InstallUser writes the rendered shared JS bridge into the harness user config
+// InstallUser writes the harness-specific rendered JS bridge into the user config
 // (`~/.config/opencode/plugins/sila-bridge.js` or `~/.mimocode/mimocode.json`).
 func InstallUser(harness, homeDir, version string, dryRun bool) (InstallResult, error) {
 	src, err := Render(harness, version)
@@ -54,7 +54,7 @@ func InstallUser(harness, homeDir, version string, dryRun bool) (InstallResult, 
 	}
 	switch h {
 	case "opencode":
-		return installOpenCodeBridge(userOpenCodeBridgePath(homeDir), src, dryRun)
+		return installOpenCodeBridgeTargets(userOpenCodeBridgeTargets(homeDir), src, dryRun)
 	case "mimocode":
 		cfgPath, bridgePath := userMiMoCodePaths(homeDir)
 		return installMiMoCodeBridge(cfgPath, bridgePath, userMiMoCodePluginEntry(), src, dryRun)
@@ -76,6 +76,112 @@ func normalizeHarness(harness string) string {
 
 func userOpenCodeBridgePath(homeDir string) string {
 	return filepath.Join(homeDir, ".config", "opencode", "plugins", BridgeFilename)
+}
+
+// userOpenCodeBridgeTargets returns every user-scope OpenCode plugin directory:
+// XDG_CONFIG_HOME (when set), the native ~/.config path, and the Flathub
+// Flatpak sandbox path. Duplicate paths are collapsed.
+func userOpenCodeBridgeTargets(homeDir string) []string {
+	targets := make([]string, 0, 3)
+	seen := make(map[string]bool, 3)
+	add := func(path string) {
+		clean := filepath.Clean(path)
+		if clean == "" || seen[clean] {
+			return
+		}
+		seen[clean] = true
+		targets = append(targets, clean)
+	}
+	if xdg := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); xdg != "" {
+		add(filepath.Join(xdg, "opencode", "plugins", BridgeFilename))
+	}
+	add(filepath.Join(homeDir, ".config", "opencode", "plugins", BridgeFilename))
+	add(filepath.Join(homeDir, ".var", "app", "ai.opencode.opencode", "config", "opencode", "plugins", BridgeFilename))
+	return targets
+}
+
+func installOpenCodeBridgeTargets(targets []string, src string, dryRun bool) (InstallResult, error) {
+	res := InstallResult{Harness: "opencode"}
+	if len(targets) > 0 {
+		res.Path = targets[0]
+	}
+	installedAny := false
+	for _, path := range targets {
+		if existing, err := os.ReadFile(path); err == nil {
+			if string(existing) == src {
+				continue
+			}
+		} else if !os.IsNotExist(err) {
+			return res, err
+		}
+		if dryRun {
+			installedAny = true
+			res.Plan = append(res.Plan, "write "+path)
+			continue
+		}
+		if err := atomicWrite0644(path, []byte(src)); err != nil {
+			return res, err
+		}
+		installedAny = true
+		res.Files = append(res.Files, path)
+	}
+	res.Installed = installedAny
+	res.Skipped = !installedAny
+	if installedAny {
+		res.Detail = "installed opencode plugin bridge"
+	} else {
+		res.Detail = "opencode plugin bridge already current"
+	}
+	return res, nil
+}
+
+func uninstallOpenCodeBridgeTargets(targets []string, dryRun bool) (InstallResult, error) {
+	res := InstallResult{Harness: "opencode"}
+	if len(targets) > 0 {
+		res.Path = targets[0]
+	}
+	removedAny := false
+	for _, path := range targets {
+		if _, err := os.Stat(path); err != nil {
+			if os.IsNotExist(err) {
+				continue
+			}
+			return res, err
+		}
+		if dryRun {
+			removedAny = true
+			res.Plan = append(res.Plan, "remove "+path)
+			continue
+		}
+		if err := os.Remove(path); err != nil {
+			return res, err
+		}
+		removedAny = true
+		res.Files = append(res.Files, path)
+	}
+	res.Installed = removedAny
+	if removedAny {
+		res.Detail = "removed opencode plugin bridge"
+	} else {
+		res.Detail = "no plugin bridge file"
+	}
+	return res, nil
+}
+
+func isInstalledOpenCodeBridgeTargets(targets []string) (bool, string) {
+	for _, path := range targets {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		if strings.Contains(string(data), "SilaBridge") {
+			return true, path
+		}
+	}
+	if len(targets) > 0 {
+		return false, targets[0]
+	}
+	return false, ""
 }
 
 func userMiMoCodePaths(homeDir string) (cfgPath, bridgePath string) {
@@ -242,7 +348,7 @@ func UninstallUser(harness, homeDir string, dryRun bool) (InstallResult, error) 
 	}
 	switch normalizeHarness(harness) {
 	case "opencode":
-		return uninstallOpenCodeBridge(userOpenCodeBridgePath(homeDir), dryRun)
+		return uninstallOpenCodeBridgeTargets(userOpenCodeBridgeTargets(homeDir), dryRun)
 	case "mimocode":
 		cfgPath, bridgePath := userMiMoCodePaths(homeDir)
 		return uninstallMiMoCodeBridge(cfgPath, bridgePath, dryRun)
@@ -364,7 +470,7 @@ func IsInstalledUser(harness, homeDir string) (bool, string) {
 	}
 	switch normalizeHarness(harness) {
 	case "opencode":
-		return isInstalledOpenCodeBridge(userOpenCodeBridgePath(homeDir))
+		return isInstalledOpenCodeBridgeTargets(userOpenCodeBridgeTargets(homeDir))
 	case "mimocode":
 		cfgPath, bridgePath := userMiMoCodePaths(homeDir)
 		return isInstalledMiMoCodeBridge(cfgPath, bridgePath)

@@ -209,6 +209,10 @@ func TestScopedIngestDoesNotAdvanceGlobalWatermark(t *testing.T) {
 	if wm != "" {
 		t.Fatalf("expected global watermark to remain unset under scoped ingest, got %q", wm)
 	}
+	scopedWM, _ := st.GetWatermark("", "codex:other")
+	if scopedWM == "" {
+		t.Fatalf("expected project-scoped watermark codex:other to advance under scoped ingest")
+	}
 }
 
 func TestIngestOnProgressCallback(t *testing.T) {

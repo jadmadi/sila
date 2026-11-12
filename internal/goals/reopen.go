@@ -36,10 +36,28 @@ func ReopenGoal(rootDir, slug, agent, reason string, claim bool) (*ReopenRecord,
 		return nil, nil, fmt.Errorf("goal package %q does not exist in goals/%s", slug, slug)
 	}
 
-	// Check if already actively reopened
+	// A repeated failure updates the existing record instead of erroring, so
+	// the auditor can always persist the latest defect.
 	existing, _ := GetActiveReopen(rootDir, slug)
 	if existing != nil && existing.Active {
-		return nil, nil, fmt.Errorf("goal %q is already actively reopened (by @%s on %s)", slug, existing.ReopenedBy, existing.ReopenedAt.Format(time.RFC3339))
+		updated := *existing
+		if reason != "" {
+			updated.Reason = reason
+		}
+		updated.ReopenedBy = strings.TrimPrefix(agent, "@")
+		if updated.ReopenedBy == "" {
+			updated.ReopenedBy = "agent"
+		}
+		updated.ReopenedAt = time.Now().UTC()
+		updated.ReopenEpoch++
+		data, err := json.MarshalIndent(updated, "", "  ")
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := AtomicWriteFile(filepath.Join(goalDir, "reopen.json"), data, 0644); err != nil {
+			return nil, nil, err
+		}
+		return &updated, nil, nil
 	}
 
 	// Check if the goal was indeed implemented in git

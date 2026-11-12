@@ -143,6 +143,22 @@ func TestDetectedUserHookHarnesses(t *testing.T) {
 	if got := detectedUserHookHarnesses(oddHome); len(got) != 0 {
 		t.Fatalf("regular files must not count as detected host dirs, got %v", got)
 	}
+	// Flatpak-only, config-only, and dual installs each report opencode once.
+	for _, rel := range [][]string{
+		{".var/app/ai.opencode.opencode"},
+		{".config/opencode"},
+		{".config/opencode/plugins", ".var/app/ai.opencode.opencode"},
+	} {
+		hostHome := t.TempDir()
+		for _, dir := range rel {
+			if err := os.MkdirAll(filepath.Join(hostHome, filepath.FromSlash(dir)), 0o755); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if got := detectedUserHookHarnesses(hostHome); !reflect.DeepEqual(got, []string{"opencode"}) {
+			t.Fatalf("host dirs %v detected %v, want [opencode]", rel, got)
+		}
+	}
 }
 
 func TestInstall_DetectedHostHarnessesReceiveUserHooks(t *testing.T) {

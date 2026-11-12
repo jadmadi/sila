@@ -1,68 +1,77 @@
 package mcp
 
 import (
+	"fmt"
+	"os"
 	"strings"
 	"sync"
 )
 
 // PublicToolCount is the documented size of the MCP contract. Tests keep this
 // marker synchronized with the executable registry below and public docs.
-const PublicToolCount = 76
+const PublicToolCount = 90
 
 // ContinuityToolCount is the default agent-workflow surface exposed by
 // --profile=continuity.
-const ContinuityToolCount = 36
+const ContinuityToolCount = 10
 
-// ContinuityToolNames defines the 32-tool agent-workflow surface for focused
-// continuity across orientation, archaeology, memory writes, and goal/gate
-// workflows. Administrative, destructive, external-network, and swarm tools
-// remain behind --profile=full.
-var ContinuityToolNames = map[string]bool{
-	// Group 1: Orientation, Routing & Guidebooks (5)
-	"salam":                     true,
-	"prime_context":             true,
-	"route_workflow":            true,
-	"get_status":                true,
-	"get_operational_guidebook": true,
+// ContinuityToolOrder is the curated ten-tool continuity surface. The order is
+// part of the contract; FilterToolsByProfile and tools/list preserve it.
+var ContinuityToolOrder = []string{
+	"prime_context",
+	"recall",
+	"omni_search",
+	"save_memo",
+	"save_lesson",
+	"save_handoff",
+	"get_project_facts",
+	"list_goals",
+	"reconcile_drift",
+	"get_status",
+}
 
-	// Group 2: Archaeology, Transcript Unroll & Documentation (7)
-	"omni_search":         true,
-	"search_knowledge":    true,
-	"search_messages":     true,
-	"get_message_context": true,
-	"search_docs":         true,
-	"get_doc":             true,
-	"recall":              true,
+// GraphToolOrder is the continuity surface plus the three graph tools.
+var GraphToolOrder = []string{
+	"prime_context", "recall", "omni_search", "save_memo", "save_lesson",
+	"save_handoff", "get_project_facts", "list_goals", "reconcile_drift",
+	"get_status", "query_graph", "shortest_path", "graph_report",
+}
 
-	// Group 3: Active 9-Verb Memory Writes, Handoffs & Grounding (7)
-	"save_memo":          true,
-	"save_lesson":        true,
-	"save_case":          true,
-	"save_handoff":       true,
-	"get_latest_handoff": true,
-	"get_project_facts":  true,
-	"reconcile_drift":    true,
+// ContinuityToolNames is the membership set derived from ContinuityToolOrder.
+var ContinuityToolNames = func() map[string]bool {
+	names := make(map[string]bool, len(ContinuityToolOrder))
+	for _, name := range ContinuityToolOrder {
+		names[name] = true
+	}
+	return names
+}()
 
-	// Group 4: Goal Lifecycle, Quality Gates, Audits, Decisions, Skills & Feedback (13)
-	"list_goals":        true,
-	"claim_goal":        true,
-	"touch_goal":        true,
-	"report_goal":       true,
-	"certify_goal":      true,
-	"audit_goals":       true,
-	"audit_goal":        true,
-	"run_gate_pipeline": true,
-	"list_skills":       true,
-	"skill_search":      true,
-	"skill_load":        true,
-	"list_decisions":    true,
-	"record_feedback":   true,
-
-	// Group 5: Temporal, Specialist & Symbol Parity (4)
-	"get_activity_digest":       true,
-	"consult_personas":          true,
-	"save_domain_learning":      true,
-	"check_symbol_blast_radius": true,
+// ContinuityTools returns the curated tools in contract order. A name that is
+// missing from the definition table is an error naming it, never a silent drop.
+// SILA_MCP_EXTRA_TOOLS adds known names at the end; unknown names warn on stderr
+// and are ignored.
+func ContinuityTools(tools []Tool) ([]Tool, error) {
+	byName := make(map[string]Tool, len(tools))
+	for _, tool := range tools {
+		byName[tool.Name] = tool
+	}
+	out, err := filterToolsByOrder(tools, ContinuityToolOrder)
+	if err != nil {
+		return nil, err
+	}
+	for _, raw := range strings.Split(os.Getenv("SILA_MCP_EXTRA_TOOLS"), ",") {
+		name := strings.TrimSpace(raw)
+		if name == "" || ContinuityToolNames[name] {
+			continue
+		}
+		tool, ok := byName[name]
+		if !ok {
+			fmt.Fprintf(os.Stderr, "sila mcp: SILA_MCP_EXTRA_TOOLS ignores unknown tool %q\n", name)
+			continue
+		}
+		out = append(out, tool)
+	}
+	return out, nil
 }
 
 // FilterToolsByProfile filters tools according to the target profile.
@@ -72,13 +81,32 @@ func FilterToolsByProfile(tools []Tool, profile string) []Tool {
 	if profile == "" || strings.EqualFold(profile, ProfileFull) {
 		return tools
 	}
-	filtered := make([]Tool, 0, len(ContinuityToolNames))
-	for _, t := range tools {
-		if ContinuityToolNames[t.Name] {
-			filtered = append(filtered, t)
-		}
+	order := ContinuityToolOrder
+	if strings.EqualFold(profile, ProfileGraph) {
+		order = GraphToolOrder
 	}
-	return filtered
+	curated, err := filterToolsByOrder(tools, order)
+	if err != nil {
+		return nil
+	}
+	return curated
+}
+
+// filterToolsByOrder returns the named tools in the requested order.
+func filterToolsByOrder(tools []Tool, order []string) ([]Tool, error) {
+	byName := make(map[string]Tool, len(tools))
+	for _, tool := range tools {
+		byName[tool.Name] = tool
+	}
+	out := make([]Tool, 0, len(order))
+	for _, name := range order {
+		tool, ok := byName[name]
+		if !ok {
+			return nil, fmt.Errorf("continuity tool %q is missing from the definition table", name)
+		}
+		out = append(out, tool)
+	}
+	return out, nil
 }
 
 var (
@@ -86,7 +114,7 @@ var (
 	coreToolNamesMap  map[string]bool
 )
 
-// IsCoreTool reports whether name is one of Sila's 63 reserved core MCP tools.
+// IsCoreTool reports whether name is one of Sila's reserved core MCP tools.
 func IsCoreTool(name string) bool {
 	coreToolNamesOnce.Do(func() {
 		coreToolNamesMap = make(map[string]bool, PublicToolCount)
@@ -97,12 +125,72 @@ func IsCoreTool(name string) bool {
 	return coreToolNamesMap[name]
 }
 
+// factReadTools are the five read tools that expose verification filters.
+var factReadTools = map[string]bool{
+	"recall": true, "search_knowledge": true, "get_project_facts": true,
+	"omni_search": true, "prime_context": true,
+}
+
+func attachFactReadFlags(tools []Tool) {
+	for i := range tools {
+		if !factReadTools[tools[i].Name] {
+			continue
+		}
+		if tools[i].InputSchema.Properties == nil {
+			tools[i].InputSchema.Properties = map[string]PropertySchema{}
+		}
+		props := tools[i].InputSchema.Properties
+		for key, description := range map[string]string{
+			"include_unverified": "Include unverified rows",
+			"include_stale":      "Include stale rows",
+			"include_disputed":   "Include disputed rows",
+		} {
+			if _, ok := props[key]; !ok {
+				props[key] = PropertySchema{Type: "boolean", Description: description}
+			}
+		}
+	}
+}
+
+// revisionTools maps tools to the revision field they expose.
+var revisionTools = map[string]string{
+	"save_handoff":       "expected_revision",
+	"memory_archive":     "expected_revision",
+	"memory_restore":     "expected_revision",
+	"get_latest_handoff": "revision_hash",
+	"get_memory":         "revision_hash",
+}
+
+func attachRevisionFields(tools []Tool) {
+	for i := range tools {
+		field, ok := revisionTools[tools[i].Name]
+		if !ok {
+			continue
+		}
+		if tools[i].InputSchema.Properties == nil {
+			tools[i].InputSchema.Properties = map[string]PropertySchema{}
+		}
+		if _, exists := tools[i].InputSchema.Properties[field]; !exists {
+			description := "Revision hash"
+			if field == "expected_revision" {
+				description = "Expected revision"
+			}
+			tools[i].InputSchema.Properties[field] = PropertySchema{Type: "string", Description: description}
+		}
+	}
+}
+
 // ToolDefinitions is the canonical, executable MCP public contract.
 func ToolDefinitions() []Tool {
 	tools := append(coreToolDefinitions(), opsToolDefinitions()...)
+	tools = append(tools, graphToolDefinitions()...)
 	for i := range tools {
 		tools[i].Category = toolCategories[tools[i].Name]
 	}
+	attachFactReadFlags(tools)
+	attachRevisionFields(tools)
+	attachCompactFields(tools)
+	attachAsOfFields(tools)
 	return tools
 }
 
@@ -124,6 +212,9 @@ var toolCategories = map[string]string{
 	"cloudflare_worker_status":  ToolCategoryRead,
 	"cloudflare_edge_telemetry": ToolCategoryRead,
 	"search_knowledge":          ToolCategoryRead,
+	"query_graph":               ToolCategoryRead,
+	"shortest_path":             ToolCategoryRead,
+	"graph_report":              ToolCategoryRead,
 	"list_projects":             ToolCategoryRead,
 	"get_project_facts":         ToolCategoryRead,
 	"get_status":                ToolCategoryRead,
@@ -138,6 +229,16 @@ var toolCategories = map[string]string{
 	"save_memo":                 ToolCategoryWrite,
 	"save_lesson":               ToolCategoryWrite,
 	"save_case":                 ToolCategoryWrite,
+	"save_memory":               ToolCategoryWrite,
+	"get_memory":                ToolCategoryRead,
+	"memory_archive":            ToolCategoryWrite,
+	"memory_restore":            ToolCategoryWrite,
+	"list_archived_memories":    ToolCategoryRead,
+	"memory_history":            ToolCategoryRead,
+	"memory_feedback":           ToolCategoryCollab,
+	"list_memory_feedback":      ToolCategoryRead,
+	"list_memories":             ToolCategoryRead,
+	"validate_memory":           ToolCategoryRead,
 	"save_doc":                  ToolCategoryWrite,
 	"search_docs":               ToolCategoryRead,
 	"get_doc":                   ToolCategoryRead,
@@ -153,6 +254,7 @@ var toolCategories = map[string]string{
 	"recall":                    ToolCategoryRead,
 	"diagnose_system":           ToolCategoryWrite,
 	"list_goals":                ToolCategoryRead,
+	"manage_merge_slot":         ToolCategoryWrite,
 	"audit_goals":               ToolCategoryCollab,
 	"audit_goal":                ToolCategoryCollab,
 	"claim_goal":                ToolCategoryCollab,
@@ -195,14 +297,15 @@ func coreToolDefinitions() []Tool {
 			InputSchema: InputSchema{
 				Type: "object",
 				Properties: map[string]PropertySchema{
-					"query":           {Type: "string", Description: "Search terms, topic, or keyword"},
-					"project":         {Type: "string", Description: "Optional project id or dir filter"},
-					"tool":            {Type: "string", Description: "Optional tool filter (devin, mimocode, opencode, codex, command-code, agy)"},
-					"refs_exist_only": {Type: "boolean", Description: "If true, only return claims whose referenced repo files exist on disk"},
-					"verified_only":   {Type: "boolean", Description: "Deprecated alias for refs_exist_only"},
-					"facts_only":      {Type: "boolean", Description: "If true, only return promoted, LLM-distilled verified facts"},
-					"limit":           {Type: "integer", Description: "Maximum number of results to return (default 10)"},
-					"offset":          {Type: "integer", Description: "Number of results to skip (default 0)"},
+					"query":            {Type: "string", Description: "Search terms, topic, or keyword"},
+					"project":          {Type: "string", Description: "Optional project id or dir filter"},
+					"tool":             {Type: "string", Description: "Optional tool filter (devin, mimocode, opencode, codex, command-code, agy)"},
+					"refs_exist_only":  {Type: "boolean", Description: "If true, only return claims whose referenced repo files exist on disk"},
+					"verified_only":    {Type: "boolean", Description: "Deprecated alias for refs_exist_only"},
+					"facts_only":       {Type: "boolean", Description: "If true, only return promoted, LLM-distilled verified facts"},
+					"limit":            {Type: "integer", Description: "Maximum number of results to return (default 10)"},
+					"offset":           {Type: "integer", Description: "Number of results to skip (default 0)"},
+					"include_archived": {Type: "boolean", Description: "Include archived and superseded memories (default false)"},
 				},
 				Required: []string{"query"},
 			},
@@ -270,8 +373,8 @@ func coreToolDefinitions() []Tool {
 					"since":      {Type: "string", Description: "Optional timestamp filter in RFC3339 format"},
 					"limit":      {Type: "integer", Description: "Maximum number of results to return (default 10)"},
 					"offset":     {Type: "integer", Description: "Number of results to skip (default 0)"},
-					"two_pass":   {Type: "boolean", Description: "Optional: if true, executes two-pass asymmetric retrieval and returns resolved conversation exchange pairs (default false)"},
-					"window":     {Type: "integer", Description: "Optional surrounding turns to retrieve in two-pass mode (+/- turns, default 2)"},
+					"two_pass":   {Type: "boolean", Description: "Two-pass asymmetric retrieval (default false)"},
+					"window":     {Type: "integer", Description: "Turns in two-pass mode (default 2)"},
 					"max_tokens": {Type: "integer", Description: "Optional maximum token budget per unrolled turn (default 800)"},
 				},
 				Required: []string{"query"},
@@ -291,7 +394,7 @@ func coreToolDefinitions() []Tool {
 		},
 		{
 			Name:        "prime_context",
-			Description: "Retrieve a session briefing for the current project: latest handoff with open tasks, key architectural facts, candidate directives, and disk grounding. Call this ONCE at the start of a session in a known project instead of reconstructing context from files — it is the machine-readable equivalent of `sila prime`.",
+			Description: "Retrieve a session briefing: latest handoff, key facts, directives, and disk grounding. Call this ONCE at the start of a session in a known project.",
 			InputSchema: InputSchema{
 				Type: "object",
 				Properties: map[string]PropertySchema{
@@ -304,12 +407,15 @@ func coreToolDefinitions() []Tool {
 					"all_goals":            {Type: "boolean", Description: "Optional inclusion of all completed roadmap goals instead of aggregate count + bounded recent goals (default: false)"},
 					"disable_codebase_map": {Type: "boolean", Description: "Optional flag to disable automatic codebase symbol digest generation (default: false)"},
 					"codebase_map_chars":   {Type: "integer", Description: "Optional maximum character budget for codebase symbol digest (default: 2000)"},
+					"context":              {Type: "object", Description: "Optional task context object ({task, paths[], branch, head, symbols[]}); when present, the briefing includes a bounded task-scoped recall pack placed before the codebase map."},
+					"include_archived":     {Type: "boolean", Description: "Include archived and superseded memories in the briefing (default false)"},
+					"graph":                {Type: "boolean", Description: "Append a bounded graph summary (default false)"},
 				},
 			},
 		},
 		{
 			Name:        "save_handoff",
-			Description: "Call before ending a session or handing work to another agent. Save a structured session handoff record (summary, open tasks, decisions, branch) to pass the baton cleanly to the next agent session.",
+			Description: "Call before ending a session. Save a structured handoff (summary, open tasks, decisions, branch) to pass the baton.",
 			InputSchema: InputSchema{
 				Type: "object",
 				Properties: map[string]PropertySchema{
@@ -423,6 +529,144 @@ func coreToolDefinitions() []Tool {
 					"origin_entity": {Type: "string", Description: "Attribution identity or organization (e.g. org:waqftech, pat:personal, system)"},
 				},
 				Required: []string{"intent"},
+			},
+		},
+		{
+			Name:        "save_memory",
+			Description: "Persist a strict sila/memory/v1 envelope with typed assertions, evidence locators, relations and idempotency. Use when a decision needs machine-checkable structure beyond a prose memo. Unknown envelope fields are rejected with stable MEMORY_* codes.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]PropertySchema{
+					"memory":        {Type: "object", Description: "sila/memory/v1 envelope object (a JSON-encoded object string is also accepted)"},
+					"project":       {Type: "string", Description: "Optional project ID or directory name (default: active workspace)"},
+					"agent":         {Type: "string", Description: "Agent or author identifier (default: user)"},
+					"tool_name":     {Type: "string", Description: "Client or tool name (e.g. antigravity, cursor, claude-code)"},
+					"client_kind":   {Type: "string", Description: "Client runtime kind (e.g. ai_agent, human, ci_job)"},
+					"origin_entity": {Type: "string", Description: "Attribution identity or organization (e.g. org:waqftech, pat:personal, system)"},
+				},
+				Required: []string{"memory"},
+			},
+		},
+		{
+			Name:        "get_memory",
+			Description: "Read one typed sila/memory/v1 record by id, including its envelope, authority label, grounding state and supersession status.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]PropertySchema{
+					"id":      {Type: "string", Description: "Memory record id (mem_...)"},
+					"project": {Type: "string", Description: "Optional project ID or directory name"},
+				},
+				Required: []string{"id"},
+			},
+		},
+		{
+			Name:        "list_memories",
+			Description: "List typed memory records with kind, recency and supersession filters, plus grounded/authority counts. Superseded records are excluded unless include_superseded is true.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]PropertySchema{
+					"project":            {Type: "string", Description: "Optional project ID or directory name"},
+					"kind":               {Type: "string", Description: "Optional memory kind filter"},
+					"since":              {Type: "string", Description: "Optional RFC3339 timestamp or duration (e.g. 24h)"},
+					"limit":              {Type: "integer", Description: "Maximum records (default 50, max 500)"},
+					"include_superseded": {Type: "boolean", Description: "Include records superseded by a relation"},
+				},
+			},
+		},
+		{
+			Name:        "validate_memory",
+			Description: "Validate an envelope without writing; never mutates the store",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]PropertySchema{
+					"memory":  {Type: "object", Description: "sila/memory/v1 envelope object (a JSON-encoded object string is also accepted)"},
+					"project": {Type: "string", Description: "Optional project ID or directory name used for evidence checks"},
+				},
+				Required: []string{"memory"},
+			},
+		},
+		{
+			Name:        "memory_archive",
+			Description: "Archive a current memory with an explicit reason and authority. Archived memories leave recall, prime and default search but stay readable, auditable and restorable. Archive never deletes content; hard delete is refused.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]PropertySchema{
+					"id":           {Type: "string", Description: "Memory record id (mem_...)"},
+					"project":      {Type: "string", Description: "Optional project ID or directory name"},
+					"authority":    {Type: "string", Description: "Required authority: user_request, agent_verified, sensitive"},
+					"reason":       {Type: "string", Description: "Required reason: wrong, outdated, duplicate, sensitive, superseded, user_requested, other"},
+					"note":         {Type: "string", Description: "Optional bounded note (max 500 characters); required for reason other"},
+					"duplicate_of": {Type: "string", Description: "Required target memory id when reason is duplicate"},
+					"actor":        {Type: "string", Description: "Actor identifier (default agent)"},
+				},
+				Required: []string{"id", "authority", "reason"},
+			},
+		},
+		{
+			Name:        "memory_restore",
+			Description: "Restore an archived memory to current by memory id or archive event id. Restoring an already-current memory is an idempotent no-op. Sensitive archives are user-restorable only; agent-verified archives expire after 24 hours for agents; superseded records cannot be restored.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]PropertySchema{
+					"id":        {Type: "string", Description: "Memory id or archive event id"},
+					"project":   {Type: "string", Description: "Optional project ID or directory name"},
+					"authority": {Type: "string", Description: "Restore authority: user_request (default) or agent_verified"},
+					"actor":     {Type: "string", Description: "Actor identifier (default user)"},
+				},
+				Required: []string{"id"},
+			},
+		},
+		{
+			Name:        "list_archived_memories",
+			Description: "List archived and superseded memories with state, reason, authority, actor, restore deadline and restorable flag, plus aggregate counts and hash-chain health. Sensitive archive titles and notes are redacted.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]PropertySchema{
+					"project": {Type: "string", Description: "Optional project ID or directory name"},
+				},
+			},
+		},
+		{
+			Name:        "memory_history",
+			Description: "Return the append-only, hash-linked lifecycle chain for one memory and optionally verify it. A tampered chain reports the first broken event with MEMORY_CHAIN_BROKEN.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]PropertySchema{
+					"id":      {Type: "string", Description: "Memory record id (mem_...)"},
+					"project": {Type: "string", Description: "Optional project ID or directory name"},
+					"verify":  {Type: "boolean", Description: "Verify hashes and chain (default true)"},
+				},
+				Required: []string{"id"},
+			},
+		},
+		{
+			Name:        "memory_feedback",
+			Description: "Report whether a memory returned by a specific recall pack helped, was verified, mattered less, was irrelevant, or was wrong. Requires the pack retrieval_id and the memory_id it returned; later signals from the same agent supersede the earlier one. Feedback only adjusts recall ranking inside the memory's authority tier and never edits, archives, or deletes the memory.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]PropertySchema{
+					"memory_id":    {Type: "string", Description: "Memory record id returned by the retrieval (mem_...)"},
+					"retrieval_id": {Type: "string", Description: "Retrieval id reported by recall or prime_context (ret_...)"},
+					"signal":       {Type: "string", Description: "Relevance signal: helped, verified, less_important, irrelevant, wrong"},
+					"note":         {Type: "string", Description: "Optional bounded note (max 500 characters); secrets and absolute paths are rejected"},
+					"agent":        {Type: "string", Description: "Agent identifier (default agent)"},
+					"project":      {Type: "string", Description: "Optional project ID or directory name"},
+				},
+				Required: []string{"memory_id", "retrieval_id", "signal"},
+			},
+		},
+		{
+			Name:        "list_memory_feedback",
+			Description: "List memory relevance feedback with signal counts, accepted versus superseded rows, bound versus unbound rows, and the most adjusted memories. Archived and superseded history is included; notes are local only.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]PropertySchema{
+					"project":   {Type: "string", Description: "Optional project ID or directory name"},
+					"memory_id": {Type: "string", Description: "Optional memory record id filter"},
+					"signal":    {Type: "string", Description: "Optional signal filter: helped, verified, less_important, irrelevant, wrong"},
+					"since":     {Type: "string", Description: "Optional RFC3339 timestamp or duration (e.g. 7d)"},
+					"limit":     {Type: "integer", Description: "Maximum rows (default 50, max 500)"},
+				},
 			},
 		},
 		{
@@ -560,7 +804,7 @@ func coreToolDefinitions() []Tool {
 				Type: "object",
 				Properties: map[string]PropertySchema{
 					"id":         {Type: "integer", Description: "Message ID to expand"},
-					"window":     {Type: "integer", Description: "Number of preceding and following turns to retrieve (default 3, max 20)"},
+					"window":     {Type: "integer", Description: "Turns around the hit (default 3, max 20)"},
 					"occurrence": {Type: "integer", Description: "1-based selection among multiple recorded source occurrences of a deduplicated message (default 1)"},
 				},
 				Required: []string{"id"},
@@ -568,31 +812,35 @@ func coreToolDefinitions() []Tool {
 		},
 		{
 			Name:        "omni_search",
-			Description: "Call BEFORE running raw grep, find, or git log when looking for prior research, decisions, lessons, docs, or cross-session history. One query across every knowledge tier: architectural invariants, distilled claims, raw conversation transcripts, git commits, and attached docs. The broadest recall tool for questions about past work, prior sessions, or anything an AI CLI did on this machine — use it when a targeted search returns nothing or when the right source tier is unknown.",
+			Description: "Call BEFORE running raw grep, find, or git log. Search every knowledge tier in one query: invariants, claims, transcripts, commits, docs, and handoffs, looking for prior research, decisions, or cross-session history.",
 			InputSchema: InputSchema{
 				Type: "object",
 				Properties: map[string]PropertySchema{
-					"query":    {Type: "string", Description: "Search query or technical keywords"},
-					"project":  {Type: "string", Description: "Optional project selector to scope search"},
-					"limit":    {Type: "integer", Description: "Maximum results to return (default 15)"},
-					"tool":     {Type: "string", Description: "Only return hits attributed to this source tool"},
-					"role":     {Type: "string", Description: "Only return transcript hits with this role (user, assistant, commit)"},
-					"since":    {Type: "string", Description: "RFC3339 lower bound on result timestamps"},
-					"semantic": {Type: "boolean", Description: "Optional: if true, reranks candidates using TypeSafe System One assistance while preserving evidentiary tiers"},
+					"query":            {Type: "string", Description: "Search query or technical keywords"},
+					"project":          {Type: "string", Description: "Optional project selector to scope search"},
+					"limit":            {Type: "integer", Description: "Maximum results to return (default 15)"},
+					"tool":             {Type: "string", Description: "Only return hits attributed to this source tool"},
+					"role":             {Type: "string", Description: "Only return transcript hits with this role (user, assistant, commit)"},
+					"since":            {Type: "string", Description: "RFC3339 lower bound on result timestamps"},
+					"semantic":         {Type: "boolean", Description: "Optional: if true, reranks candidates using TypeSafe System One assistance while preserving evidentiary tiers"},
+					"include_archived": {Type: "boolean", Description: "Include archived and superseded memories (default false)"},
 				},
 				Required: []string{"query"},
 			},
 		},
 		{
 			Name:        "recall",
-			Description: "Find prior resolutions for a problem before searching the web or trying workarounds. Use it when a command fails, a package misbehaves, an API is unfamiliar, or an error message appears. Returns deliberate lessons first, then grounded claims and memos, then transcript hits, each with project, age, grounding, and an unroll command.",
+			Description: "Find prior resolutions for a problem before searching the web or trying workarounds. Use it when a command fails, a package misbehaves, or an error appears. Returns lessons first, then grounded claims and memos, then transcript hits with grounding and an unroll command.",
 			InputSchema: InputSchema{
 				Type: "object",
 				Properties: map[string]PropertySchema{
-					"query":    {Type: "string", Description: "Symptom, error message, package name, or API in the words you would search"},
-					"project":  {Type: "string", Description: "Optional project selector; ranks its hits first, never filters them out"},
-					"limit":    {Type: "integer", Description: "Maximum hits to return (default 5)"},
-					"semantic": {Type: "boolean", Description: "Optional: rerank within tiers using TypeSafe System One assistance"},
+					"query":            {Type: "string", Description: "Symptom, error message, package name, or API in the words you would search"},
+					"project":          {Type: "string", Description: "Optional project selector; ranks its hits first, never filters them out"},
+					"limit":            {Type: "integer", Description: "Maximum hits to return (default 5, max 50)"},
+					"semantic":         {Type: "boolean", Description: "Optional: rerank within tiers using TypeSafe System One assistance"},
+					"max_tokens":       {Type: "integer", Description: "Estimated token budget for the recall pack (256-8192, default 1200)"},
+					"context":          {Type: "object", Description: "Optional task context object: {task, paths[], branch, head, symbols[]}. A JSON-encoded object string is also accepted. Unknown fields are rejected."},
+					"include_archived": {Type: "boolean", Description: "Include archived and superseded memories (default false)"},
 				},
 				Required: []string{"query"},
 			},
@@ -682,5 +930,39 @@ func coreToolDefinitions() []Tool {
 				Required: []string{"slug"},
 			},
 		},
+	}
+}
+
+// compactTools lists tools that accept a compact projection.
+var compactTools = map[string]bool{"recall": true, "omni_search": true}
+
+func attachCompactFields(tools []Tool) {
+	for i := range tools {
+		if !compactTools[tools[i].Name] {
+			continue
+		}
+		if tools[i].InputSchema.Properties == nil {
+			tools[i].InputSchema.Properties = map[string]PropertySchema{}
+		}
+		if _, exists := tools[i].InputSchema.Properties["compact"]; !exists {
+			tools[i].InputSchema.Properties["compact"] = PropertySchema{Type: "boolean", Description: "Compact, default false"}
+		}
+	}
+}
+
+// asOfTools lists tools that accept point-in-time reads.
+var asOfTools = map[string]bool{"recall": true, "search_knowledge": true, "get_project_facts": true}
+
+func attachAsOfFields(tools []Tool) {
+	for i := range tools {
+		if !asOfTools[tools[i].Name] {
+			continue
+		}
+		if tools[i].InputSchema.Properties == nil {
+			tools[i].InputSchema.Properties = map[string]PropertySchema{}
+		}
+		if _, exists := tools[i].InputSchema.Properties["as_of"]; !exists {
+			tools[i].InputSchema.Properties["as_of"] = PropertySchema{Type: "string", Description: "As-of timestamp"}
+		}
 	}
 }

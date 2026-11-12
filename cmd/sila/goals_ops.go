@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -149,8 +150,12 @@ func (gc *goalsContext) handleClaim(targetDir string, args []string, isDirect bo
 			_ = goals.SyncReadmeWithOpts(targetDir, res, goals.SyncReadmeOptions{Stage: stage, CommitMsg: commitMsg})
 		}
 	}
+	missingTouch := false
+	if paths, err := goals.DeclaredTouchPaths(targetDir, slug); err == nil && len(paths) == 0 {
+		missingTouch = true
+	}
 	if jsonOut {
-		res := map[string]any{"slug": slug, "claimed": true, "claim": claim}
+		res := map[string]any{"slug": slug, "claimed": true, "claim": claim, "files_to_touch_missing": missingTouch}
 		if charter != nil {
 			res["charter"] = charter
 		}
@@ -167,6 +172,9 @@ func (gc *goalsContext) handleClaim(targetDir string, args []string, isDirect bo
 	if charter != nil && len(charter.AllowPaths) > 0 {
 		fmt.Fprintf(os.Stdout, "  Charter: %d allowed paths, %d denied boundaries (lock token: %s)\n",
 			len(charter.AllowPaths), len(charter.DenyPaths), ui.Dim(charter.LockToken))
+	}
+	if missingTouch {
+		fmt.Fprintf(os.Stdout, "  %s goal declares no Files To Touch; verification cannot bind content. Add one before certifying.\n", ui.Yellow("⚠"))
 	}
 	fmt.Fprintln(os.Stdout, ui.Dim("  Run `/goal goals/"+slug+"/goal.md` to begin execution."))
 	return
@@ -745,7 +753,160 @@ func (gc *goalsContext) handleCertify(targetDir string, args []string) {
 	return
 }
 
+// handleStaleAudit audits the next bounded batch of goals that have changed
+// content or only hold a legacy audit receipt. It runs one goal at a time,
+// records each outcome in .sila/verification-audit-queue.json, and never
+// retries a conclusive or inconclusive attempt automatically.
+func (gc *goalsContext) handleStaleAudit(targetDir string, args []string) {
+	limit := 10
+	if gc.limitSet && gc.limitOpt > 0 {
+		limit = gc.limitOpt
+	}
+	dryRun := gc.dryRun
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if after, ok := strings.CutPrefix(a, "--limit="); ok {
+			if n, err := strconv.Atoi(after); err == nil && n > 0 {
+				limit = n
+			}
+		} else if (a == "--limit" || a == "-limit") && i+1 < len(args) {
+			if n, err := strconv.Atoi(args[i+1]); err == nil && n > 0 {
+				limit = n
+			}
+			i++
+		} else if a == "--dry-run" {
+			dryRun = true
+		}
+	}
+
+	root := gc.verificationRoot(targetDir)
+	candidates, err := goals.SelectStaleAuditCandidates(root, limit)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sila goals audit --stale: %v\n", err)
+		os.Exit(1)
+	}
+	if dryRun {
+		if gc.jsonOut {
+			emitJSON(map[string]any{"batch": "stale", "limit": limit, "dry_run": true, "candidates": candidates})
+			return
+		}
+		fmt.Fprintf(os.Stdout, "Stale audit batch: %d candidate(s), limit %d\n", len(candidates), limit)
+		for _, c := range candidates {
+			fmt.Fprintf(os.Stdout, "  %-14s %s\n", c.State, c.Slug)
+		}
+		return
+	}
+
+	personaID := "mystery-auditor"
+	timeout := 10 * time.Minute
+	for i := 0; i < len(args); i++ {
+		if after, ok := strings.CutPrefix(args[i], "--hire="); ok {
+			personaID = after
+		} else if after, ok := strings.CutPrefix(args[i], "--persona="); ok {
+			personaID = after
+		} else if after, ok := strings.CutPrefix(args[i], "--timeout="); ok {
+			if d, err := time.ParseDuration(after); err == nil {
+				timeout = d
+			}
+		}
+	}
+
+	passed, rejected, inconclusive := 0, 0, 0
+	for _, c := range candidates {
+		if !gc.jsonOut {
+			fmt.Fprintf(os.Stdout, "%s auditing %s (%s)\n", gc.ui.Cyan("·"), gc.ui.Bold(c.Slug), c.State)
+		}
+		eval, err := audit.AuditGoal(context.Background(), gc.st, audit.GoalAuditOptions{
+			GoalSlug:   c.Slug,
+			ProjectDir: root,
+			PersonaID:  personaID,
+			SessionID:  gc.sessionID,
+			CommitSHA:  strings.TrimSpace(gc.commitMsg),
+			Timeout:    timeout,
+			Blindfold:  true,
+		})
+		switch {
+		case err != nil:
+			inconclusive++
+			if _, rerr := goals.RecordAuditOutcome(root, c.Slug, goals.AuditStateInconclusive, err.Error()); rerr != nil {
+				fmt.Fprintf(os.Stderr, "sila goals audit --stale: record %s: %v\n", c.Slug, rerr)
+			}
+			if !gc.jsonOut {
+				fmt.Fprintf(os.Stdout, "  %s %s: inconclusive - %v\n", gc.ui.Yellow("▲"), c.Slug, err)
+			}
+		case eval == nil:
+			inconclusive++
+			if _, rerr := goals.RecordAuditOutcome(root, c.Slug, goals.AuditStateInconclusive, "audit returned no evaluation"); rerr != nil {
+				fmt.Fprintf(os.Stderr, "sila goals audit --stale: record %s: %v\n", c.Slug, rerr)
+			}
+			if !gc.jsonOut {
+				fmt.Fprintf(os.Stdout, "  %s %s: inconclusive - no evaluation\n", gc.ui.Yellow("▲"), c.Slug)
+			}
+		case eval.Verdict == assess.VerdictPass:
+			if _, verr := goals.RecordVerification(root, c.Slug, goals.LevelL3, "audit"); verr != nil {
+				inconclusive++
+				reason := "audit passed but content could not be bound: " + verr.Error()
+				if _, rerr := goals.RecordAuditOutcome(root, c.Slug, goals.AuditStateInconclusive, reason); rerr != nil {
+					fmt.Fprintf(os.Stderr, "sila goals audit --stale: record %s: %v\n", c.Slug, rerr)
+				}
+				if !gc.jsonOut {
+					fmt.Fprintf(os.Stdout, "  %s %s: %s\n", gc.ui.Yellow("▲"), c.Slug, reason)
+				}
+				continue
+			}
+			passed++
+			if _, rerr := goals.RecordAuditOutcome(root, c.Slug, goals.AuditStatePassed, ""); rerr != nil {
+				fmt.Fprintf(os.Stderr, "sila goals audit --stale: record %s: %v\n", c.Slug, rerr)
+			}
+			if !gc.jsonOut {
+				fmt.Fprintf(os.Stdout, "  %s %s: passed and bound at L3\n", gc.ui.Green("✔"), c.Slug)
+			}
+		case eval.Verdict == assess.VerdictInconclusive:
+			inconclusive++
+			reason := eval.InconclusiveReason
+			if reason == "" {
+				reason = "audit could not decide"
+			}
+			if _, rerr := goals.RecordAuditOutcome(root, c.Slug, goals.AuditStateInconclusive, reason); rerr != nil {
+				fmt.Fprintf(os.Stderr, "sila goals audit --stale: record %s: %v\n", c.Slug, rerr)
+			}
+			if !gc.jsonOut {
+				fmt.Fprintf(os.Stdout, "  %s %s: inconclusive - %s\n", gc.ui.Yellow("▲"), c.Slug, reason)
+			}
+		default:
+			rejected++
+			reason := "audit verdict did not pass"
+			if eval.CCDSI.FailureReason != "" {
+				reason = eval.CCDSI.FailureReason
+			}
+			if _, rerr := goals.RecordAuditOutcome(root, c.Slug, goals.AuditStateRejected, reason); rerr != nil {
+				fmt.Fprintf(os.Stderr, "sila goals audit --stale: record %s: %v\n", c.Slug, rerr)
+			}
+			if !gc.jsonOut {
+				fmt.Fprintf(os.Stdout, "  %s %s: rejected - %s\n", gc.ui.Red("✖"), c.Slug, reason)
+			}
+		}
+	}
+
+	if gc.jsonOut {
+		emitJSON(map[string]any{
+			"batch": "stale", "candidates": len(candidates),
+			"passed": passed, "rejected": rejected, "inconclusive": inconclusive,
+		})
+		return
+	}
+	fmt.Fprintf(os.Stdout, "Stale audit batch: %d candidate(s), %s passed, %s rejected, %s inconclusive\n",
+		len(candidates), gc.ui.Green(fmt.Sprint(passed)), gc.ui.Red(fmt.Sprint(rejected)), gc.ui.Yellow(fmt.Sprint(inconclusive)))
+	if inconclusive > 0 {
+		fmt.Fprintln(os.Stdout, gc.ui.Dim("  Inconclusive goals stay unbound and are not retried automatically; re-run `sila goals audit <slug>` to retry one."))
+	}
+}
+
 func (gc *goalsContext) handleAudit(targetDir string, args []string) {
+	if gc.staleRelease {
+		gc.handleStaleAudit(targetDir, args)
+		return
+	}
 	slug := ""
 	personaID := "mystery-auditor"
 	targetURL := ""
@@ -833,29 +994,57 @@ func (gc *goalsContext) handleAudit(targetDir string, args []string) {
 
 	if gc.jsonOut {
 		emitJSON(eval)
+		if eval.Verdict != "PASS" {
+			os.Exit(auditExitCode(eval.Verdict))
+		}
 		return
 	}
 
-	if eval.Verdict == "PASS" {
+	switch eval.Verdict {
+	case "PASS":
 		fmt.Fprintf(os.Stdout, "%s Goal %s passed epistemic mystery audit!\n\n", gc.ui.Green("✔"), gc.ui.Bold(slug))
 		fmt.Fprintf(os.Stdout, "  CCDSI Score:          %0.2f (floor: 0.40)\n", eval.CCDSI.CCDSIScore)
 		fmt.Fprintf(os.Stdout, "  Probes Passed:        %d/%d\n", eval.CCDSI.PassedProbes, eval.CCDSI.TotalProbes)
 		fmt.Fprintf(os.Stdout, "  Requirement Coverage: %0.2f (floor: 0.50)\n", eval.CCDSI.ReqCoverage)
-		fmt.Fprintf(os.Stdout, "  Canary Detected:      %v\n", eval.CanaryPassed)
+		fmt.Fprintf(os.Stdout, "  Canary Detected:      %v (%s)\n", eval.CanaryPassed, eval.CanaryStatus)
 		fmt.Fprintf(os.Stdout, "  Blindfold Isolation:  %v\n", eval.BlindfoldVerified)
 		if eval.Receipt != nil {
 			fmt.Fprintf(os.Stdout, "  Receipt:              goals/%s/audit-receipt.json\n", slug)
 		}
-	} else {
+	case "INCONCLUSIVE":
+		fmt.Fprintf(os.Stdout, "%s Goal %s audit was inconclusive; the goal state is unchanged.\n\n", gc.ui.Yellow("▲"), gc.ui.Bold(slug))
+		fmt.Fprintf(os.Stdout, "  Canary Status:        %s\n", eval.CanaryStatus)
+		fmt.Fprintf(os.Stdout, "  Canary Detail:        %s\n", eval.CanaryDetail)
+		fmt.Fprintf(os.Stdout, "  Inconclusive Reason:  %s\n", eval.InconclusiveReason)
+		fmt.Fprintf(os.Stdout, "  Probes Passed:        %d/%d\n", eval.CCDSI.PassedProbes, eval.CCDSI.TotalProbes)
+		os.Exit(auditExitCode(eval.Verdict))
+	default:
 		fmt.Fprintf(os.Stdout, "%s Goal %s was rejected by mystery audit and reopened for remediation.\n\n", gc.ui.Red("✖"), gc.ui.Bold(slug))
 		fmt.Fprintf(os.Stdout, "  CCDSI Score:          %0.2f\n", eval.CCDSI.CCDSIScore)
 		fmt.Fprintf(os.Stdout, "  Probes Passed:        %d/%d\n", eval.CCDSI.PassedProbes, eval.CCDSI.TotalProbes)
 		fmt.Fprintf(os.Stdout, "  Failure Reason:       %s\n", eval.CCDSI.FailureReason)
+		if eval.CanaryStatus != "" && eval.CanaryStatus != "passed" && eval.CanaryStatus != "skipped" {
+			fmt.Fprintf(os.Stdout, "  Canary Status:        %s\n", eval.CanaryStatus)
+			fmt.Fprintf(os.Stdout, "  Canary Detail:        %s\n", eval.CanaryDetail)
+		}
 		if eval.Dossier != nil {
 			fmt.Fprintf(os.Stdout, "  Failed Probe:         %s\n", eval.Dossier.FailedProbeName)
 			fmt.Fprintf(os.Stdout, "  Defect Dossier:       goals/%s/defect-dossier.json\n", slug)
 			fmt.Fprintf(os.Stdout, "  Remediation Guide:    goals/%s/remediation.md\n", slug)
 		}
+		os.Exit(auditExitCode(eval.Verdict))
+	}
+}
+
+// auditExitCode maps an audit verdict to a process exit code.
+func auditExitCode(verdict string) int {
+	switch verdict {
+	case "PASS":
+		return 0
+	case "INCONCLUSIVE":
+		return 3
+	default:
+		return 1
 	}
 }
 
@@ -937,7 +1126,7 @@ func (gc *goalsContext) handleImport(targetDir string, args []string) {
 // handleContract implements the harness-neutral goal contract surfaces.
 func (gc *goalsContext) handleContract(targetDir string, args []string) {
 	if len(args) < 2 {
-		fmt.Fprintln(os.Stderr, "Usage: sila goals contract <link|unlink|status|check|waive> [flags]")
+		fmt.Fprintln(os.Stderr, "Usage: sila goals contract <link|unlink|status|check|waive|set> [flags]")
 		os.Exit(2)
 	}
 	if targetDir == "" {
@@ -1148,6 +1337,8 @@ func (gc *goalsContext) handleContract(targetDir string, args []string) {
 			return
 		}
 		fmt.Printf("waived %s until %s\n", session, w.ExpiresAt.Format(time.RFC3339))
+	case "set":
+		gc.handleContractSet(targetDir, args)
 	default:
 		fmt.Fprintf(os.Stderr, "sila: unknown contract subcommand %q\n", sub)
 		os.Exit(2)

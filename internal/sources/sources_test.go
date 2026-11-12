@@ -302,3 +302,37 @@ func TestDiscoverZedSessions(t *testing.T) {
 		t.Errorf("zed sessions = %d, want 3", got.Sessions)
 	}
 }
+
+func TestDiscoverOpenCodeFlatpakSessions(t *testing.T) {
+	home := t.TempDir()
+	flatpak := filepath.Join(home, ".var", "app", "ai.opencode.opencode", "data", "opencode", "opencode.db")
+	if err := os.MkdirAll(filepath.Dir(flatpak), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", flatpak)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`CREATE TABLE session (id TEXT PRIMARY KEY, directory TEXT)`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := db.Exec(`INSERT INTO session (id, directory) VALUES ('s1', '/a'), ('s2', '/b')`); err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(home, ".cursor"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	m := discoverWith(home, nil)
+	opencode := findTool(m, "opencode")
+	if opencode.Sessions != 2 {
+		t.Fatalf("opencode sessions = %d, want 2", opencode.Sessions)
+	}
+	cursor := findTool(m, "cursor")
+	if !strings.Contains(cursor.Guidance, "sila connect add cursor") {
+		t.Fatalf("cursor guidance missing live setup: %q", cursor.Guidance)
+	}
+}

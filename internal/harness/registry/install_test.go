@@ -731,3 +731,53 @@ func TestInstallUserCodewhaleTOML(t *testing.T) {
 		t.Fatalf("codewhale user uninstall did not preserve foreign content:\n%s", data)
 	}
 }
+
+func TestPluginBridgeStatusFlagsV1OnlyBridge(t *testing.T) {
+	home := t.TempDir()
+	bridgePath := filepath.Join(home, ".config", "opencode", "plugins", pluginbridge.BridgeFilename)
+	if err := os.MkdirAll(filepath.Dir(bridgePath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bridgePath, []byte("export default async function SilaBridge() { return {}; }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	st := StatusForUser("opencode", home)
+	if !st.Installed || st.Configured {
+		t.Fatalf("V1-only bridge status = %+v, want installed but not configured", st)
+	}
+	if !strings.Contains(st.Detail, pluginbridge.BridgeAPIMarkerV2) {
+		t.Fatalf("status detail = %q, want the required V2 marker", st.Detail)
+	}
+	if st.CompactionInstalled {
+		t.Fatalf("V1-only bridge must not report compaction installed: %+v", st)
+	}
+
+	upgraded, err := pluginbridge.Render("opencode", "v-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(bridgePath, []byte(upgraded), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	st = StatusForUser("opencode", home)
+	if !st.Installed || !st.Configured || !st.CompactionInstalled {
+		t.Fatalf("V2 bridge status = %+v, want installed, configured and compaction ready", st)
+	}
+}
+
+func TestUserHookOpenCodeFlatpakPath(t *testing.T) {
+	spec, ok := Lookup("opencode")
+	if !ok {
+		t.Fatal("opencode spec missing")
+	}
+	found := false
+	for _, path := range spec.Config.UserPaths {
+		if strings.Contains(path, "ai.opencode.opencode") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("UserPaths = %v, want the Flatpak sandbox path", spec.Config.UserPaths)
+	}
+}

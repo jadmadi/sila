@@ -261,6 +261,7 @@ func startSession(ui render.UI, st *store.Store, root, cwd, project, agent, sess
 		ClaimID:         id.ClaimID,
 		Cwd:             id.Cwd,
 		PID:             id.PID,
+		PIDStartTicks:   id.PIDStartTicks,
 		Source:          id.Source,
 		Branch:          gitCtx.Branch,
 		Head:            gitCtx.Head,

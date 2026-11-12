@@ -1,6 +1,6 @@
 {
   "cwd": "/workspace/sila/cli",
-  "hook_event_name": "session.idle",
+  "hook_event_name": "experimental.idle",
   "project_id": "sila-cli",
   "session_id": "sess-opencode"
 }

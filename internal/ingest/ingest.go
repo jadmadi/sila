@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/jadmadi/sila/internal/dream"
+	"github.com/jadmadi/sila/internal/importmem"
 	"github.com/jadmadi/sila/internal/loaders"
 	"github.com/jadmadi/sila/internal/store"
 )
@@ -246,11 +247,16 @@ func loadTool(st *store.Store, src *loaders.Source, opts Options) loaded {
 		repoDir, wmKey := st.GitScope(opts.ProjectSel)
 		ld.wmKey = wmKey
 		projSel = &repoDir
+	} else if opts.ProjectSel != "" {
+		ld.wmKey = src.Name + ":" + opts.ProjectSel
 	}
 	wm, err := st.GetWatermark(opts.RunID, ld.wmKey)
 	if err != nil {
 		ld.err = err
 		return ld
+	}
+	if wm == "" && opts.ProjectSel != "" && src.Name != "git" {
+		wm, _ = st.GetWatermark(opts.RunID, src.Name)
 	}
 	if opts.Full {
 		// A full run re-reads every source record, which backfills source
@@ -290,22 +296,32 @@ func commitTool(st *store.Store, ld loaded, opts Options) Result {
 		return res
 	}
 	wmToCommit := ld.newWM
-	if opts.ProjectSel != "" && !strings.HasPrefix(ld.wmKey, "git:") {
-		// When scoped to a single project, project-scoped tools only inspected
-		// a subset of sessions. Do not advance the global tool watermark.
-		// Git is the exception: a scoped run inspected the whole repository,
-		// so its per-repository cursor advances safely.
-		wmToCommit = ""
-	}
 	if opts.DryRun {
 		res.NewRecords = len(rows)
 		return res
 	}
 
-	newRecords, merged, err := st.WriteRunScoped(opts.RunID, ld.name, ld.wmKey, wmToCommit, rows)
-	if err != nil {
-		res.Error = err
-		return res
+	const commitBatchSize = 250
+	var newRecords, merged int
+	for start := 0; start < len(rows) || (start == 0 && len(rows) == 0); start += commitBatchSize {
+		end := start + commitBatchSize
+		if end > len(rows) {
+			end = len(rows)
+		}
+		batchWM := ""
+		if end == len(rows) {
+			batchWM = wmToCommit
+		}
+		bNew, bMerged, wErr := st.WriteRunScoped(opts.RunID, ld.name, ld.wmKey, batchWM, rows[start:end])
+		if wErr != nil {
+			res.Error = wErr
+			return res
+		}
+		newRecords += bNew
+		merged += bMerged
+		if len(rows) == 0 {
+			break
+		}
 	}
 	res.NewRecords = newRecords
 	res.Merged = merged
@@ -348,12 +364,18 @@ func normalize(st *store.Store, tool string, msgs []loaders.Message, projectSel 
 			}
 			seen[projPath] = id
 		}
+		content := m.Content
+		if redacted, redactErr := importmem.Redact(m.Content, projPath); redactErr == nil {
+			content = redacted.Text
+		} else {
+			return nil, fmt.Errorf("redact transcript %s: %w", m.SourceLocation, redactErr)
+		}
 		rows = append(rows, store.LoadMessage{
 			ProjectID:      id,
-			ContentHash:    store.ContentHash(m.Role, m.Content),
+			ContentHash:    store.ContentHash(m.Role, content),
 			TS:             m.TS.UTC().Format(time.RFC3339),
 			Role:           m.Role,
-			Content:        m.Content,
+			Content:        content,
 			Tool:           tool,
 			SessionID:      m.SessionID,
 			SourceLocation: m.SourceLocation,

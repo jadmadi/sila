@@ -921,8 +921,80 @@ func TestAppJSMutationsSendJSONContentType(t *testing.T) {
 			t.Errorf("app.js mutation without a JSON content type (middleware answers 415):\n%s", call)
 		}
 	}
-	if mutations == 0 {
+	// Mutations may also go through the shared mutation() helper. The helper
+	// must carry the JSON content type, and every direct fetch must still be
+	// checked above.
+	helperCalls := strings.Count(text, "mutation(")
+	helperDef := text[strings.Index(text, "function mutation("):]
+	if i := strings.Index(helperDef, "\n}"); i > 0 {
+		helperDef = helperDef[:i]
+	}
+	if helperCalls > 0 {
+		if !strings.Contains(helperDef, "Content-Type") || !strings.Contains(helperDef, "application/json") {
+			t.Errorf("mutation() helper must set the JSON content type")
+		}
+	}
+	if mutations == 0 && helperCalls == 0 {
 		t.Fatal("no mutating fetch calls found in app.js; the scan is broken")
+	}
+}
+
+func TestConsoleShell(t *testing.T) {
+	src, err := os.ReadFile("static/index.html")
+	if err != nil {
+		t.Fatalf("read index.html: %v", err)
+	}
+	html := string(src)
+	for _, want := range []string{
+		`data-theme="light"`,
+		`data-view-panel="today"`,
+		`data-view-panel="timeline"`,
+		`data-view-panel="recall"`,
+		`data-view-panel="memory"`,
+		`data-view-panel="goals"`,
+		`data-view-panel="governance"`,
+		`id="form-ask"`,
+		`id="health-strip"`,
+		`id="today-timeline"`,
+		`id="handoff-panel"`,
+		`id="harness-list"`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("index.html missing %q", want)
+		}
+	}
+	for _, gone := range []string{`class="tab-bar"`, `data-tab="`, "What to do:", "💡"} {
+		if strings.Contains(html, gone) {
+			t.Errorf("index.html still contains legacy cockpit markup %q", gone)
+		}
+	}
+}
+
+func TestConsoleEscaping(t *testing.T) {
+	src, err := os.ReadFile("static/app.js")
+	if err != nil {
+		t.Fatalf("read app.js: %v", err)
+	}
+	text := string(src)
+	if !strings.Contains(text, "function escapeHtml(") {
+		t.Fatal("app.js has no escapeHtml helper")
+	}
+	sensitive := []string{
+		"claim", "content", "summary", "resolution", "title", "description",
+		"tool", "agent", "branch", "category", "note", "proposal",
+		"strategic_fit", "recommended_action", "open_items", "repo_files", "slug",
+	}
+	re := regexp.MustCompile(`\$\{[^}]*\}`)
+	for _, match := range re.FindAllString(text, -1) {
+		if strings.Contains(match, "escapeHtml(") || strings.Contains(match, "formatNumber(") ||
+			strings.Contains(match, "Math.") || strings.Contains(match, "Number(") {
+			continue
+		}
+		for _, id := range sensitive {
+			if regexp.MustCompile(`\b` + id + `\b`).MatchString(match) {
+				t.Errorf("unescaped sensitive field %q in template expression %s", id, match)
+			}
+		}
 	}
 }
 
@@ -978,5 +1050,76 @@ func TestServerInMemoryWithTestServer(t *testing.T) {
 	}
 	if status["project_id"] != p.ID {
 		t.Errorf("project_id = %v, want %v", status["project_id"], p.ID)
+	}
+}
+
+func TestOverviewEndpoint(t *testing.T) {
+	srv, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	resp, err := http.Get(srv.URL() + "/api/overview")
+	if err != nil {
+		t.Fatalf("GET /api/overview: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	var out overviewResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.Counts.Messages < 1 {
+		t.Errorf("messages = %d, want >= 1", out.Counts.Messages)
+	}
+	if len(out.Harnesses) < 1 {
+		t.Errorf("harnesses = %d, want >= 1", len(out.Harnesses))
+	}
+	if len(out.Recent) < 1 {
+		t.Errorf("recent = %d, want >= 1", len(out.Recent))
+	}
+	if out.ProjectID == "" {
+		t.Error("project_id is empty")
+	}
+}
+
+func TestRecallEndpoint(t *testing.T) {
+	srv, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	resp, err := http.Get(srv.URL() + "/api/recall?q=sqlite")
+	if err != nil {
+		t.Fatalf("GET /api/recall: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	var out struct {
+		Query string `json:"query"`
+		Total int    `json:"total"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if out.Query != "sqlite" {
+		t.Errorf("query = %q, want sqlite", out.Query)
+	}
+	if out.Total < 1 {
+		t.Errorf("total = %d, want >= 1", out.Total)
+	}
+}
+
+func TestRecallRejectsEmptyQuery(t *testing.T) {
+	srv, cleanup := setupTestServer(t)
+	defer cleanup()
+
+	resp, err := http.Get(srv.URL() + "/api/recall?q=")
+	if err != nil {
+		t.Fatalf("GET /api/recall: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", resp.StatusCode)
 	}
 }

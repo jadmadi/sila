@@ -1,0 +1,4 @@
+PASS tests 1.2s
+PASS format 40ms
+PASS changelog 5ms
+PASS 3 checks in 1.3s; full log: /tmp/gate.log

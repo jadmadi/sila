@@ -6,244 +6,277 @@ import (
 	"github.com/jadmadi/sila/internal/store"
 )
 
+// writeVisibility carries the --visibility scope into memory write commands
+// after the shared flag parser has consumed it.
+var writeVisibility string
+
 type rootFlags struct {
-	project             *string
-	projectAlias        *string
-	globalFlag          *bool
-	jsonOut             *bool
-	jsonEnvelopeFlag    *bool
-	toonOut             *bool
-	quietFlag           *bool
-	porcelainFlag       *bool
-	syncFlag            *bool
-	relativePathsFlag   *bool
-	advisoryFlag        *bool
-	humanOut            *bool
-	activityFlag        *bool
-	verbose             *bool
-	verboseAlias        *bool
-	noColor             *bool
-	toolFlag            *string
-	toolAlias           *string
-	role                *string
-	refsExistOnly       *bool
-	factsOnly           *bool
-	staleOnly           *bool
-	llmProvider         *string
-	retryFailed         *bool
-	top                 *int
-	scan                *bool
-	since               *string
-	minSessions         *int
-	tagFlag             *string
-	tag                 *string
-	writeFlag           *bool
-	unreleasedFlag      *bool
-	agent               *string
-	categoryFlag        *string
-	idFlag              *string
-	branch              *string
-	openItems           *string
-	openFeedback        *bool
-	closedFeedback      *bool
-	decisions           *string
-	files               *string
-	title               *string
-	decidersFlag        *string
-	decisionFlag        *string
-	lang                *string
-	repo                *string
-	repoCleanFlag       *bool
-	ext                 *string
-	eco                 *string
-	crawl               *bool
-	depth               *int
-	maxPages            *int
-	limitFlag           *int
-	autoIngest          *bool
-	autoSync            *bool
-	watchFlag           *bool
-	intervalFlag        *string
-	compactFlag         *bool
-	lineFlag            *bool
-	plainFlag           *bool
-	asciiFlag           *bool
-	changedOnlyFlag     *bool
-	adoptionFlag        *bool
-	pendingFlag         *bool
-	claimedFlag         *bool
-	claimsFlag          *bool
-	olderThanFlag       *string
-	convertTasksFlag    *bool
-	fromFlag            *string
-	strictFlag          *bool
-	requireTestsFlag    *bool
-	widthFlag           *int
-	strictMemoryFlag    *bool
-	noMemoryFlag        *bool
-	memoTextFlag        *string
-	memoClaimFlag       *string
-	stopPolicyFlag      *string
-	stopEnforceFlag     *bool
-	yesFlag             *bool
-	issueFlag           *bool
-	shareFlag           *bool
-	tokenFlag           *string
-	remoteURLFlag       *string
-	readyFlag           *bool
-	blockedFlag         *bool
-	allGoalsFlag        *bool
-	allCleanFlag        *bool
-	allChangelogFlag    *bool
-	allAgentsFlag       *bool
-	timelineFlag        *bool
-	implementedFlag     *bool
-	independentFlag     *bool
-	dependentFlag       *bool
-	descFlag            *string
-	dependsOnFlag       *string
-	addDepFlag          *string
-	removeDepFlag       *string
-	seqFlag             *int
-	touchFlag           *string
-	shapeFlag           *string
-	noteFlag            *string
-	goalFlag            *string
-	goalsFlag           *string
-	goalsAuditFlag      *bool
-	sessionFlag         *string
-	statusFlag          *string
-	tierFlag            *string
-	allowFlag           *string
-	denyFlag            *string
-	durationFlag        *string
-	invariantsFlag      *string
-	tasksFlag           *string
-	workPackageFlag     *string
-	specReviewFlag      *string
-	goalReviewFlag      *string
-	selectionFlag       *string
-	autoRunFlag         *bool
-	taskFlag            *string
-	causeFlag           *string
-	fixFlag             *string
-	unslopFixFlag       *bool
-	unslopDiffFlag      *bool
-	approachFlag        *string
-	tagsFlag            *string
-	domainFlag          *string
-	symptomFlag         *string
-	ruleFlag            *string
-	stackFlag           *string
-	principlesFlag      *bool
-	saveFlag            *bool
-	reasonFlag          *string
-	claimImmediateFlag  *bool
-	stageFlag           *bool
-	commitFlag          *string
-	noBuildFlag         *bool
-	checkTasksFlag      *bool
-	noSyncFlag          *bool
-	manifestFlag        *string
-	statsFlag           *bool
-	byFlag              *string
-	rejectFlag          *bool
-	evidenceFlag        *string
-	fullFlag            *bool
-	forceFlag           *bool
-	checkOnlyFlag       *bool
-	sourceFlag          *bool
-	repairFlag          *bool
-	skillsFlag          *bool
-	mcpFlag             *bool
-	skillsListFlag      *string
-	excludeFlag         *string
-	covenantFlag        *bool
-	edgeFlag            *bool
-	debtFlag            *bool
-	memoryFlag          *bool
-	scarTissueFlag      *bool
-	docCoverageFlag     *bool
-	reportCardFlag      *bool
-	coverageFlag        *bool
-	profileFlag         *string
-	mcpSchemaFlag       *bool
-	mcpTraceFlag        *bool
-	preCommitFlag       *bool
-	skipArchFlag        *bool
-	budgetFlag          *string
-	maxTokensFlag       *string
-	pressureFlag        *string
-	includeMarkdownFlag *bool
-	cachePinnedFlag     *bool
-	primeAllGoalsFlag   *bool
-	noMapFlag           *bool
-	mapCharsFlag        *int
-	eventFlag           *string
-	hookNoAutoHandoff   *bool
-	payloadFlag         *string
-	drainFlag           *bool
-	cwdFlag             *string
-	hookFlag            *bool
-	remoteFlag          *bool
-	forwardFlag         *string
-	noHooksFlag         *bool
-	noMCPFlag           *bool
-	shimFlag            *bool
-	runFlag             *bool
-	dryRunFlag          *bool
-	cloudSyncFlag       *bool
-	toolsFlag           *string
-	replaceFlag         *bool
-	policyPackFlag      *string
-	omniFlag            *bool
-	semanticFlag        *bool
-	windowFlag          *int
-	occurrenceFlag      *int
-	twoPassFlag         *bool
-	noTwoPassFlag       *bool
-	target              *string
-	reviewFlag          *bool
-	scopeFlag           *string
-	portFlag            *int
-	hostFlag            *string
-	exposeFlag          *bool
-	noOpenFlag          *bool
-	demoFlag            *bool
-	outFile             *string
-	dbPath              *string
-	revealFlag          *bool
-	formatFlag          *string
-	heavyCleanFlag      *bool
-	harnessFlag         *string
-	ablationFlag        *bool
-	evalDirFlag         *string
-	fromLessonFlag      *string
-	fromFeedbackFlag    *string
-	allLessonsFlag      *bool
-	caseFlag            *string
-	bareFlag            *bool
-	reportFlag          *bool
-	allowDirtyFlag      *bool
-	offlineFlag         *bool
-	promptOnlyFlag      *bool
-	registerGoalsFlag   *bool
-	squadFlag           *string
-	personasFlag        *string
-	pagesFlag           *string
-	appFlag             *string
-	recommendFlag       *string
-	presetFlag          *string
-	registerFlag        *bool
-	contextFlag         *string
-	groupFlag           *string
-	interactiveFlag     *bool
-	upstreamsFlag       *bool
-	noUpstreamsFlag     *bool
-	symbolFlag          *string
-	kindFlag            *string
-	exportFlag          *bool
-	importFlag          *bool
+	project                *string
+	projectAlias           *string
+	globalFlag             *bool
+	jsonOut                *bool
+	jsonEnvelopeFlag       *bool
+	toonOut                *bool
+	quietFlag              *bool
+	porcelainFlag          *bool
+	syncFlag               *bool
+	relativePathsFlag      *bool
+	advisoryFlag           *bool
+	humanOut               *bool
+	activityFlag           *bool
+	verbose                *bool
+	verboseAlias           *bool
+	noColor                *bool
+	toolFlag               *string
+	toolAlias              *string
+	role                   *string
+	refsExistOnly          *bool
+	factsOnly              *bool
+	staleOnly              *bool
+	llmProvider            *string
+	retryFailed            *bool
+	top                    *int
+	includeAmbiguousFlag   *bool
+	codeOnlyFlag           *bool
+	maxHopsFlag            *int
+	maxDepthFlag           *int
+	scan                   *bool
+	since                  *string
+	minSessions            *int
+	tagFlag                *string
+	tag                    *string
+	writeFlag              *bool
+	unreleasedFlag         *bool
+	agent                  *string
+	categoryFlag           *string
+	idFlag                 *string
+	branch                 *string
+	openItems              *string
+	openFeedback           *bool
+	closedFeedback         *bool
+	decisions              *string
+	files                  *string
+	visibilityFlag         *string
+	title                  *string
+	decidersFlag           *string
+	decisionFlag           *string
+	lang                   *string
+	repo                   *string
+	repoCleanFlag          *bool
+	ext                    *string
+	eco                    *string
+	crawl                  *bool
+	depth                  *int
+	maxPages               *int
+	limitFlag              *int
+	autoIngest             *bool
+	autoSync               *bool
+	watchFlag              *bool
+	intervalFlag           *string
+	compactFlag            *bool
+	lineFlag               *bool
+	plainFlag              *bool
+	asciiFlag              *bool
+	changedOnlyFlag        *bool
+	adoptionFlag           *bool
+	pendingFlag            *bool
+	claimedFlag            *bool
+	claimsFlag             *bool
+	olderThanFlag          *string
+	convertTasksFlag       *bool
+	fromFlag               *string
+	againFlag              *bool
+	forceSimilarFlag       *bool
+	includeInstructions    *bool
+	maxFilesFlag           *int
+	strictFlag             *bool
+	requireTestsFlag       *bool
+	widthFlag              *int
+	strictMemoryFlag       *bool
+	noMemoryFlag           *bool
+	memoTextFlag           *string
+	memoClaimFlag          *string
+	stopPolicyFlag         *string
+	stopEnforceFlag        *bool
+	yesFlag                *bool
+	includeTranscriptsFlag *bool
+	issueFlag              *bool
+	shareFlag              *bool
+	tokenFlag              *string
+	remoteURLFlag          *string
+	readyFlag              *bool
+	blockedFlag            *bool
+	allGoalsFlag           *bool
+	allCleanFlag           *bool
+	allChangelogFlag       *bool
+	allAgentsFlag          *bool
+	timelineFlag           *bool
+	implementedFlag        *bool
+	independentFlag        *bool
+	dependentFlag          *bool
+	descFlag               *string
+	dependsOnFlag          *string
+	addDepFlag             *string
+	removeDepFlag          *string
+	seqFlag                *int
+	touchFlag              *string
+	shapeFlag              *string
+	noteFlag               *string
+	goalFlag               *string
+	goalsFlag              *string
+	goalsAuditFlag         *bool
+	sessionFlag            *string
+	statusFlag             *string
+	tierFlag               *string
+	allowFlag              *string
+	denyFlag               *string
+	durationFlag           *string
+	invariantsFlag         *string
+	tasksFlag              *string
+	workPackageFlag        *string
+	specReviewFlag         *string
+	goalReviewFlag         *string
+	recallTaskFlag         *string
+	recallPathsFlag        *string
+	recallSymbolsFlag      *string
+	recallHeadFlag         *string
+	recallContextFile      *string
+	selectionFlag          *string
+	autoRunFlag            *bool
+	taskFlag               *string
+	causeFlag              *string
+	fixFlag                *string
+	unslopFixFlag          *bool
+	unslopDiffFlag         *bool
+	approachFlag           *string
+	tagsFlag               *string
+	domainFlag             *string
+	symptomFlag            *string
+	ruleFlag               *string
+	stackFlag              *string
+	principlesFlag         *bool
+	stateBlockFlag         *bool
+	saveFlag               *bool
+	reasonFlag             *string
+	claimImmediateFlag     *bool
+	stageFlag              *bool
+	commitFlag             *string
+	noBuildFlag            *bool
+	checkTasksFlag         *bool
+	noSyncFlag             *bool
+	manifestFlag           *string
+	statsFlag              *bool
+	byFlag                 *string
+	rejectFlag             *bool
+	evidenceFlag           *string
+	fullFlag               *bool
+	forceFlag              *bool
+	ifStaleFlag            *bool
+	checkOnlyFlag          *bool
+	sourceFlag             *bool
+	repairFlag             *bool
+	skillsFlag             *bool
+	mcpFlag                *bool
+	skillsListFlag         *string
+	excludeFlag            *string
+	covenantFlag           *bool
+	edgeFlag               *bool
+	debtFlag               *bool
+	memoryFlag             *bool
+	scarTissueFlag         *bool
+	docCoverageFlag        *bool
+	reportCardFlag         *bool
+	coverageFlag           *bool
+	profileFlag            *string
+	mcpSchemaFlag          *bool
+	mcpTraceFlag           *bool
+	preCommitFlag          *bool
+	skipArchFlag           *bool
+	budgetFlag             *string
+	maxTokensFlag          *string
+	pressureFlag           *string
+	includeMarkdownFlag    *bool
+	markdownFlag           *reportMarkdown
+	cachePinnedFlag        *bool
+	primeAllGoalsFlag      *bool
+	noMapFlag              *bool
+	mapCharsFlag           *int
+	eventFlag              *string
+	hookNoAutoHandoff      *bool
+	payloadFlag            *string
+	drainFlag              *bool
+	cwdFlag                *string
+	hookFlag               *bool
+	remoteFlag             *bool
+	forwardFlag            *string
+	noHooksFlag            *bool
+	noMCPFlag              *bool
+	shimFlag               *bool
+	runFlag                *bool
+	dryRunFlag             *bool
+	cloudSyncFlag          *bool
+	toolsFlag              *string
+	replaceFlag            *bool
+	policyPackFlag         *string
+	omniFlag               *bool
+	aclScopedFlag          *bool
+	semanticFlag           *bool
+	windowFlag             *int
+	occurrenceFlag         *int
+	twoPassFlag            *bool
+	noTwoPassFlag          *bool
+	target                 *string
+	reviewFlag             *bool
+	scopeFlag              *string
+	portFlag               *int
+	hostFlag               *string
+	exposeFlag             *bool
+	noOpenFlag             *bool
+	demoFlag               *bool
+	webFlag                *bool
+	keepFlag               *bool
+	stepFlag               *string
+	outFile                *string
+	memoryFileFlag         *string
+	dbPath                 *string
+	revealFlag             *bool
+	formatFlag             *string
+	heavyCleanFlag         *bool
+	harnessFlag            *string
+	ablationFlag           *bool
+	evalDirFlag            *string
+	fromLessonFlag         *string
+	fromFeedbackFlag       *string
+	allLessonsFlag         *bool
+	caseFlag               *string
+	bareFlag               *bool
+	reportFlag             *bool
+	allowDirtyFlag         *bool
+	offlineFlag            *bool
+	promptOnlyFlag         *bool
+	registerGoalsFlag      *bool
+	squadFlag              *string
+	personasFlag           *string
+	pagesFlag              *string
+	appFlag                *string
+	recommendFlag          *string
+	presetFlag             *string
+	registerFlag           *bool
+	contextFlag            *string
+	groupFlag              *string
+	interactiveFlag        *bool
+	upstreamsFlag          *bool
+	noUpstreamsFlag        *bool
+	symbolFlag             *string
+	kindFlag               *string
+	exportFlag             *bool
+	importFlag             *bool
+	archiveAuthorityFlag   *string
+	duplicateOfFlag        *string
+	hardDeleteFlag         *bool
+	revealSensitiveFlag    *bool
+	includeArchivedFlag    *bool
+	verifyFlag             *bool
 	// Crew & lane flags
 	briefFlag          *string
 	surfaceFlag        *string
@@ -251,6 +284,10 @@ type rootFlags struct {
 	ccliStrictExitFlag *bool
 	noInputFlag        *bool
 	confirmFlag        *string
+	asOfFlag           *string
+	postCommitFlag     *bool
+	trustTargetFlag    *string
+	showConfigFlag     *bool
 }
 
 func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
@@ -283,6 +320,11 @@ func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
 	rf.llmProvider = fs.String("llm", "", "distill pending claims with an LLM (e.g. --llm=stdio)")
 	rf.retryFailed = fs.Bool("retry-failed", false, "retry failed LLM distillation attempts")
 	rf.top = fs.Int("top", 0, "limit query/search results (0 = all)")
+	rf.includeAmbiguousFlag = fs.Bool("include-ambiguous", false, "allow AMBIGUOUS edges in graph path queries")
+	rf.codeOnlyFlag = fs.Bool("code-only", false, "restrict graph path, affected, and build to code nodes")
+	rf.maxHopsFlag = fs.Int("max-hops", 0, "maximum hops for graph path search")
+	rf.maxDepthFlag = fs.Int("max-depth", 0, "maximum depth for graph query and blast radius")
+	rf.ifStaleFlag = fs.Bool("if-stale", false, "skip the graph build when the graph is already current")
 	rf.scan = fs.Bool("scan", false, "status: live-scan tool sources for new messages (slower; ~10s)")
 	rf.since = fs.String("since", "", "only messages at or after RFC3339 or a duration (e.g. 24h)")
 	rf.minSessions = fs.Int("min-sessions", 0, "minimum project sessions to include in benchmark (sila benchmark)")
@@ -311,7 +353,8 @@ func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
 	}
 	rf.closedFeedback = fs.Bool("closed", false, "only list closed feedback (feedback)")
 	rf.decisions = fs.String("decisions", "", "comma-separated list of key decisions (handoff)")
-	rf.files = fs.String("files", "", "comma-separated list of referenced repo files (handoff, memo, adr new)")
+	rf.files = fs.String("files", "", "comma-separated list of referenced repo files (handoff, memo, adr new, graph slice)")
+	rf.visibilityFlag = fs.String("visibility", "", "memory visibility scope: project (default) or global (memo, lesson, case)")
 	rf.title = fs.String("title", "", "document title (doc)")
 	rf.decidersFlag = fs.String("deciders", "", "decision participants / agent name (adr new, adr from-memo)")
 	rf.decisionFlag = fs.String("decision", "", "addressed decision identifier (e.g. D1) (memo, decisions)")
@@ -344,7 +387,11 @@ func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
 	rf.claimsFlag = fs.Bool("claims", false, "prune claim records on implemented or superseded goals (goals prune --claims)")
 	rf.olderThanFlag = fs.String("older-than", "72h", "minimum claim age for goals release --stale (e.g. 48h, 3d)")
 	rf.convertTasksFlag = fs.Bool("convert-tasks", false, "convert a markdown task list into a backlog goal (onboard)")
-	rf.fromFlag = fs.String("from", "", "source markdown file for --convert-tasks (onboard)")
+	rf.fromFlag = fs.String("from", "", "source format for --convert-tasks (onboard) or claude|codex|grok|all (import)")
+	rf.againFlag = fs.Bool("again", false, "resend changed files under a fresh import key (import)")
+	rf.forceSimilarFlag = fs.Bool("force-similar", false, "write near-duplicate imported memories instead of skipping them (import)")
+	rf.includeInstructions = fs.Bool("include-instructions", false, "recognized only to refuse instruction import with IMPORT_INSTRUCTIONS_REFUSED (import)")
+	rf.maxFilesFlag = fs.Int("max-files", 0, "maximum files to scan in one import run, 1-200 (import)")
 	rf.strictFlag = fs.Bool("strict", false, "exit non-zero on critical onboarding failures (onboard check); promote unavailable gate checks (gate)")
 	rf.requireTestsFlag = fs.Bool("require-tests", false, "treat a skipped test run as a blocking gate failure (gate)")
 	rf.widthFlag = fs.Int("width", 0, "override the rendered width in columns (salam, prime; default: COLUMNS or 100)")
@@ -354,7 +401,8 @@ func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
 	rf.memoClaimFlag = fs.String("claim-text", "", "filter memos by exact claim text; useful for the historical 'list' trap (memo list)")
 	rf.stopPolicyFlag = fs.String("policy", "", "stop-gate policy: off, warn, or enforce (hook stop/session-end)")
 	rf.stopEnforceFlag = fs.Bool("enforce", false, "enforce the stop memory gate for this invocation (hook stop/session-end)")
-	rf.yesFlag = fs.Bool("yes", false, "confirm action without interactive confirmation prompt (onboard --convert-tasks, feedback --issue/submit, skill apply)")
+	rf.includeTranscriptsFlag = fs.Bool("include-transcripts", false, "also exclude stored messages from search and recall (forget)")
+	rf.yesFlag = fs.Bool("yes", false, "confirm action without interactive confirmation prompt (import, onboard --convert-tasks, feedback --issue/submit, skill apply, forget)")
 	fs.BoolVar(rf.yesFlag, "y", false, "alias for --yes")
 	rf.issueFlag = fs.Bool("issue", false, "submit feedback upstream to GitHub Issues (feedback)")
 	fs.BoolVar(rf.issueFlag, "github", false, "alias for --issue (feedback)")
@@ -427,6 +475,9 @@ func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
 	rf.autoRunFlag = fs.Bool("auto-run", false, "automatically run task verification commands during goal certification")
 	if sub == "crew" {
 		rf.taskFlag = fs.String("task", "", "candidate goal slug or comma-separated goal slugs (crew plan-lanes)")
+	} else if sub == "recall" {
+		rf.recallTaskFlag = fs.String("task", "", "active task description for context-aware recall (recall)")
+		rf.taskFlag = rf.recallTaskFlag
 	} else {
 		rf.taskFlag = rf.tasksFlag
 		fs.StringVar(rf.tasksFlag, "task", "", "alias for --tasks (goals create)")
@@ -446,6 +497,7 @@ func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
 	rf.stackFlag = fs.String("stack", "", "technology stack (learn add, agents sync)")
 	fs.StringVar(rf.stackFlag, "tech-stack", "", "alias for --stack (learn add, agents sync)")
 	rf.principlesFlag = fs.Bool("principles", false, "include Universal Principles Pack (Layered Constitution & 9-verb memory loop) (agents sync, agents review)")
+	rf.stateBlockFlag = fs.Bool("state-block", false, "write the continuity state block into AGENTS.md (agents sync)")
 	rf.saveFlag = fs.Bool("save", false, "save distilled lessons into store (lesson distill)")
 	rf.reasonFlag = fs.String("reason", "", "reopening reason or remediation explanation (goals reopen)")
 	fs.StringVar(rf.reasonFlag, "reopen-reason", "", "alias for --reason (goals reopen)")
@@ -497,6 +549,10 @@ func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
 	}
 	rf.profileFlag = fs.String("profile", profileDefault, profileUsage)
 	rf.mcpSchemaFlag = fs.Bool("print-schema", false, "print the canonical MCP tool schema and exit (mcp)")
+	rf.asOfFlag = fs.String("as-of", "", "point-in-time view using YYYY-MM-DD or RFC3339 (search, recall)")
+	rf.postCommitFlag = fs.Bool("post-commit", false, "install the managed post-commit hook that records commit receipts (gate install)")
+	rf.trustTargetFlag = fs.String("trust-target", "", "trust one full 40-character commit SHA for this gate run")
+	rf.showConfigFlag = fs.Bool("show-config", false, "print the trust identity, targets, and sensitive set, then exit (gate)")
 	rf.mcpTraceFlag = fs.Bool("trace-args", false, "append metadata-only MCP argument traces to the local trace file (mcp)")
 	rf.preCommitFlag = fs.Bool("pre-commit", false, "run fast pre-commit checks (<3s changed-package tests, formatting, secrets) (gate)")
 	fs.BoolVar(rf.preCommitFlag, "quick", false, "alias for --pre-commit (gate)")
@@ -506,7 +562,8 @@ func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
 	rf.maxTokensFlag = fs.String("max-tokens", "", "target context token budget for multi-pressure degradation (e.g. 8k, 16k, 20000) (prime)")
 	rf.pressureFlag = fs.String("pressure", "auto", "context pressure mode: auto, normal, watch, heavy, critical (prime)")
 	rf.includeMarkdownFlag = fs.Bool("include-markdown", false, "include full rendered markdown string in JSON context output (prime)")
-	fs.BoolVar(rf.includeMarkdownFlag, "markdown", false, "alias for --include-markdown (prime)")
+	rf.markdownFlag = &reportMarkdown{}
+	fs.Var(rf.markdownFlag, "markdown", "alias for --include-markdown (prime); write a markdown continuity report with an optional path (report)")
 	rf.cachePinnedFlag = fs.Bool("cache-pinned", false, "format priming output with cache-pinned prompt segregation (prime)")
 	rf.primeAllGoalsFlag = fs.Bool("all-goals", false, "include all completed roadmap goals instead of aggregate count and bounded recent goals (prime)")
 	rf.noMapFlag = fs.Bool("no-map", false, "disable automatic codebase symbol digest in prime output (prime)")
@@ -535,6 +592,7 @@ func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
 	rf.replaceFlag = fs.Bool("replace", false, "authorize replacing existing user-owned files, e.g. a custom CLAUDE.md (sila install)")
 	rf.policyPackFlag = fs.String("policy-pack", "", "opt-in policy pack to embed in compiled rules, e.g. maintainer (sila install)")
 	rf.omniFlag = fs.Bool("omni", false, "multi-source hybrid search across facts, transcripts, git, docs (search)")
+	rf.aclScopedFlag = fs.Bool("acl-scoped", false, "restrict cross-project results to the requester project plus global records (search --omni, recall)")
 	rf.semanticFlag = fs.Bool("semantic", false, "enable System One semantic assistance (search rerank, reconcile verification)")
 	fs.BoolVar(rf.semanticFlag, "rerank", false, "alias for --semantic")
 	rf.windowFlag = fs.Int("window", 3, "number of preceding and following turns to retrieve (search expand)")
@@ -554,7 +612,18 @@ func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
 	rf.exposeFlag = fs.Bool("expose", false, "authorize non-loopback --host binding (ui, web, demo). Mutations then require the printed launch token; reads are reachable by anyone who can reach the port, so only expose a store you are willing to serve over the network")
 	rf.noOpenFlag = fs.Bool("no-open", false, "do not automatically launch system browser (ui, web, demo)")
 	rf.demoFlag = fs.Bool("demo", false, "launch the ephemeral demo playground with a pre-populated sandbox store (ui, web)")
+	rf.webFlag = fs.Bool("web", false, "launch the HTTP Web Cockpit instead of the terminal walkthrough (demo)")
+	rf.keepFlag = fs.Bool("keep", false, "keep the demo sandbox on disk for live exploration (demo)")
+	rf.stepFlag = fs.String("step", "all", "comma-separated walkthrough stages: sync,salam,prime,recall,facts,gate,standup,all (demo)")
 	rf.outFile = fs.String("out", "", "export/intro destination file (default stdout)")
+	rf.memoryFileFlag = fs.String("file", "", "JSON memory envelope file for sila memory add/validate (- reads stdin)")
+	rf.archiveAuthorityFlag = fs.String("authority", "", "archive or restore authority: user_request, agent_verified, sensitive (memory archive/restore)")
+	rf.duplicateOfFlag = fs.String("duplicate-of", "", "duplicate target memory id (memory archive --reason=duplicate)")
+	rf.hardDeleteFlag = fs.Bool("hard-delete", false, "refused: memory archive never deletes content")
+	rf.revealSensitiveFlag = fs.Bool("reveal-sensitive", false, "reveal sensitive archive content on a TTY (memory archive list/history)")
+	rf.includeArchivedFlag = fs.Bool("include-archived", false, "include archived and superseded memories (recall, prime, search, memory list)")
+	rf.verifyFlag = fs.Bool("verify", false, "verify the lifecycle hash chain (memory history)")
+	fs.BoolVar(rf.verifyFlag, "verify-chain", false, "alias for --verify (memory history)")
 	rf.dbPath = fs.String("db", store.DefaultDBPath(), "knowledge store path")
 	rf.revealFlag = fs.Bool("reveal", false, "reveal secrets unmasked in output (config)")
 	rf.formatFlag = fs.String("format", "auto", "documentation export format: auto, notion, confluence, gitbook (doc)")
@@ -599,6 +668,12 @@ func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
 	// Symbol-pinned note flags
 	rf.symbolFlag = fs.String("symbol", "", "target symbol name or canonical ID (note, recall, edit-check, safe-delete)")
 	fs.StringVar(rf.symbolFlag, "sym", "", "alias for --symbol (note, recall)")
+
+	// Context-aware recall flags
+	rf.recallPathsFlag = fs.String("paths", "", "comma-separated repository-relative paths in play (recall)")
+	rf.recallSymbolsFlag = fs.String("symbols", "", "comma-separated symbol names in play (recall)")
+	rf.recallHeadFlag = fs.String("head", "", "git HEAD commit for context scoring (recall)")
+	rf.recallContextFile = fs.String("context-file", "", "JSON file containing a recall context object (recall)")
 	rf.kindFlag = fs.String("kind", "memo", "note kind: memo, lesson, invariant (note add)")
 	fs.StringVar(rf.kindFlag, "k", "memo", "shorthand for --kind (note add)")
 	rf.exportFlag = fs.Bool("export", false, "export symbol notes to .sila/notes.json (note sync)")
@@ -617,4 +692,37 @@ func newRootFlags(fs *flag.FlagSet, sub string) *rootFlags {
 	rf.confirmFlag = fs.String("confirm", "", "explicit target confirmation token for destructive operations")
 
 	return rf
+}
+
+// stringFlagValue returns the pointed-to string, or "" for a nil flag.
+func stringFlagValue(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+// visitedFlagState records which root flags were explicitly set.
+func (rf *rootFlags) visitedFlagState(fs *flag.FlagSet) (top, target, kind, harness, db, olderThan, limit bool, interval string) {
+	fs.Visit(func(f *flag.Flag) {
+		switch f.Name {
+		case "top":
+			top = true
+		case "limit":
+			limit = true
+		case "harness":
+			harness = true
+		case "interval":
+			interval = *rf.intervalFlag
+		case "target":
+			target = true
+		case "db":
+			db = true
+		case "kind", "k":
+			kind = true
+		case "older-than":
+			olderThan = true
+		}
+	})
+	return
 }

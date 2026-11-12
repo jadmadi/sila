@@ -41,7 +41,7 @@ type FactWithLineage struct {
 // AssertionID computes a deterministic ID for an assertion.
 func AssertionID(projectID, statementID, evidenceType, evidenceID string) string {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00%s\x00%s", projectID, statementID, evidenceType, evidenceID)))
-	return "ass_" + hex.EncodeToString(sum[:6])
+	return "ass_" + hex.EncodeToString(sum[:16])
 }
 
 // InsertAssertion upserts an assertion into the database.
@@ -490,6 +490,25 @@ func verifyAssertionTx(tx *sql.Tx, a *Assertion, selectedRoot string) error {
 				return nil
 			}
 			contentBytes = info.Size()
+			if a.EvidenceType == "file" {
+				digest, hashErr := fileSHA256(path)
+				if hashErr != nil {
+					a.VerificationError = "file_unavailable"
+					return nil
+				}
+				stateKey := "assertion_file_sha256:" + a.ID + ":" + rel
+				stamp := "sha256:" + digest
+				var prior string
+				stateErr := tx.QueryRow(`SELECT value FROM state WHERE key = ?`, stateKey).Scan(&prior)
+				if stateErr == sql.ErrNoRows {
+					_, _ = tx.Exec(`INSERT INTO state(key, value, updated_at) VALUES(?, ?, ?) ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at`, stateKey, stamp, time.Now().UTC().Format(time.RFC3339))
+				} else if stateErr != nil {
+					return stateErr
+				} else if prior != stamp {
+					a.VerificationError = "file_content_drift"
+					return nil
+				}
+			}
 		}
 	default:
 		a.VerificationError = "unsupported_evidence_type"

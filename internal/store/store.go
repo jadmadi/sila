@@ -7,9 +7,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"slices"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -1092,13 +1094,19 @@ func migrate(db *sql.DB) error {
 
 	// Refuse databases written by a newer sila: opening without applying the
 	// newer schema's migrations would misread or corrupt its data.
-	if currentVersion > len(migrations) {
-		return fmt.Errorf("knowledge store schema v%d is newer than this sila build supports (v%d); upgrade sila or restore a backup made with this version", currentVersion, len(migrations))
+	if currentVersion > CurrentSchemaVersion() {
+		return fmt.Errorf("knowledge store schema v%d is newer than this sila build supports (v%d); upgrade sila or restore a backup made with this version", currentVersion, CurrentSchemaVersion())
 	}
 
 	skipSmoke := os.Getenv("SILA_SKIP_SMOKE_AB") == "1"
 
-	for _, m := range migrations {
+	// Migration files register their steps from init() functions, and Go runs
+	// those in file-name order. Sort by version so a migration added in a file
+	// that sorts early can never jump ahead of an older step.
+	ordered := append([]migration(nil), migrations...)
+	sort.Slice(ordered, func(i, j int) bool { return ordered[i].version < ordered[j].version })
+
+	for _, m := range ordered {
 		if m.version <= currentVersion {
 			continue
 		}
@@ -1262,6 +1270,16 @@ func openDirect(path string) (*Store, error) {
 		}
 	}
 
+	// Tests can seed each fresh store from a pre-migrated template instead of
+	// replaying every migration. Production never sets this variable.
+	if tmpl := strings.TrimSpace(os.Getenv("SILA_TEST_DB_TEMPLATE")); tmpl != "" {
+		if _, statErr := os.Stat(path); os.IsNotExist(statErr) {
+			if err := copyDBFile(tmpl, path); err != nil {
+				return nil, fmt.Errorf("copy test db template: %w", err)
+			}
+		}
+	}
+
 	if f, err := os.OpenFile(path, os.O_CREATE|os.O_RDWR, 0o600); err != nil {
 		return nil, err
 	} else {
@@ -1275,7 +1293,11 @@ func openDirect(path string) (*Store, error) {
 	// busy_timeout makes concurrent writers (e.g. two syncs) queue rather than
 	// fail immediately with SQLITE_BUSY; journal_mode(WAL) for concurrent reads.
 	// busy_timeout is armed first so the WAL switch itself can wait on a lock.
-	dsn := fmt.Sprintf("file:%s?_pragma=busy_timeout(%d)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)", path, BusyTimeoutMS)
+	// _txlock=immediate makes every write transaction acquire the write lock
+	// before reading. Deferred transactions upgrade mid-flight and SQLite
+	// returns SQLITE_BUSY without invoking the busy handler, which is what
+	// parallel `sila memo` processes hit under the watch probe.
+	dsn := fmt.Sprintf("file:%s?_txlock=immediate&_pragma=busy_timeout(%d)&_pragma=journal_mode(WAL)&_pragma=foreign_keys(ON)", path, BusyTimeoutMS)
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
 		return nil, err
@@ -1431,9 +1453,9 @@ func OpenInspectionContext(ctx context.Context, path string) (*Store, bool, erro
 		if errImm == nil {
 			var currentVersion int
 			if errScan := dbImm.QueryRowContext(ctx, "PRAGMA user_version").Scan(&currentVersion); errScan == nil {
-				if currentVersion > len(migrations) {
+				if currentVersion > CurrentSchemaVersion() {
 					_ = dbImm.Close()
-					return nil, false, fmt.Errorf("knowledge store schema v%d is newer than this sila build supports (v%d); upgrade sila or restore a backup made with this version", currentVersion, len(migrations))
+					return nil, false, fmt.Errorf("knowledge store schema v%d is newer than this sila build supports (v%d); upgrade sila or restore a backup made with this version", currentVersion, CurrentSchemaVersion())
 				}
 				if currentVersion == 0 {
 					_ = dbImm.Close()
@@ -1454,9 +1476,9 @@ func OpenInspectionContext(ctx context.Context, path string) (*Store, bool, erro
 		_ = db.Close()
 		return nil, false, fmt.Errorf("read user_version: %w", err)
 	}
-	if currentVersion > len(migrations) {
+	if currentVersion > CurrentSchemaVersion() {
 		_ = db.Close()
-		return nil, false, fmt.Errorf("knowledge store schema v%d is newer than this sila build supports (v%d); upgrade sila or restore a backup made with this version", currentVersion, len(migrations))
+		return nil, false, fmt.Errorf("knowledge store schema v%d is newer than this sila build supports (v%d); upgrade sila or restore a backup made with this version", currentVersion, CurrentSchemaVersion())
 	}
 	if currentVersion == 0 {
 		_ = db.Close()
@@ -1529,20 +1551,20 @@ func OpenRO(path string) (*Store, error) {
 		db.Close()
 		return nil, fmt.Errorf("read user_version: %w", err)
 	}
-	if currentVersion > len(migrations) {
+	if currentVersion > CurrentSchemaVersion() {
 		db.Close()
-		return nil, fmt.Errorf("knowledge store schema v%d is newer than this sila build supports (v%d); upgrade sila or restore a backup made with this version", currentVersion, len(migrations))
+		return nil, fmt.Errorf("knowledge store schema v%d is newer than this sila build supports (v%d); upgrade sila or restore a backup made with this version", currentVersion, CurrentSchemaVersion())
 	}
-	if currentVersion < len(migrations) {
+	if currentVersion < CurrentSchemaVersion() {
 		db.Close()
 		// If the store is on a read-only filesystem or unwritable, do not attempt mutation.
 		if isReadOnlyStore(path) {
-			return nil, fmt.Errorf("knowledge store schema v%d is incompatible with this sila build (v%d); cannot migrate read-only store (run 'sila sync' with write permissions to migrate)", currentVersion, len(migrations))
+			return nil, fmt.Errorf("knowledge store schema v%d is incompatible with this sila build (v%d); cannot migrate read-only store (run 'sila sync' with write permissions to migrate)", currentVersion, CurrentSchemaVersion())
 		}
 		upgrader, err := Open(path)
 		if err != nil {
 			if IsReadOnlyOrPermissionError(err) {
-				return nil, fmt.Errorf("knowledge store schema v%d is incompatible with this sila build (v%d); cannot migrate read-only store: %w", currentVersion, len(migrations), err)
+				return nil, fmt.Errorf("knowledge store schema v%d is incompatible with this sila build (v%d); cannot migrate read-only store: %w", currentVersion, CurrentSchemaVersion(), err)
 			}
 			return nil, err
 		}
@@ -1729,6 +1751,9 @@ func (s *Store) WriteRunScoped(runID, tool, watermarkTool string, newWatermark s
 			}
 		}
 
+		if err := labelOutcomesTx(tx, messages); err != nil {
+			return err
+		}
 		if newWatermark != "" && newWatermark != "0" {
 			var oldWM string
 			_ = tx.QueryRow(`SELECT value FROM state WHERE key=?`, watermarkKey(runID, watermarkTool)).Scan(&oldWM)
@@ -1835,4 +1860,22 @@ func watermarkKey(runID, tool string) string {
 
 func contains(s []string, v string) bool {
 	return slices.Contains(s, v)
+}
+
+// copyDBFile copies a pre-migrated store for the test fast path.
+func copyDBFile(src, dst string) error {
+	in, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer in.Close()
+	out, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(out, in); err != nil {
+		_ = out.Close()
+		return err
+	}
+	return out.Close()
 }

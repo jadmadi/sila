@@ -12,41 +12,11 @@ import (
 )
 
 func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, globalNoColor bool) {
-	topSpecified := false
-	targetSpecified := false
-	goalsInterval := ""
-	dbExplicit := false
-	kindExplicit := false
-	harnessSpecified := false
-	olderThanSpecified := false
-	fs.Visit(func(f *flag.Flag) {
-		if f.Name == "top" {
-			topSpecified = true
-		}
-		if f.Name == "harness" {
-			harnessSpecified = true
-		}
-		if f.Name == "interval" {
-			goalsInterval = *rf.intervalFlag
-		}
-		if f.Name == "target" {
-			targetSpecified = true
-		}
-		if f.Name == "db" {
-			dbExplicit = true
-		}
-		if f.Name == "kind" || f.Name == "k" {
-			kindExplicit = true
-		}
-		if f.Name == "older-than" {
-			olderThanSpecified = true
-		}
-	})
-
+	asOfRequest = strings.TrimSpace(*rf.asOfFlag)
+	topSpecified, targetSpecified, kindExplicit, harnessSpecified, dbExplicit, olderThanSpecified, limitSpecified, goalsInterval := rf.visitedFlagState(fs)
 	if dbExplicit || os.Getenv("SILA_DB") != "" {
 		store.SetFallbackAllowed(false)
 	}
-
 	if err := validateOutputModes(*rf.jsonOut, *rf.jsonEnvelopeFlag, *rf.toonOut, *rf.porcelainFlag); err != nil {
 		fmt.Fprintf(os.Stderr, "sila: %v\n", err)
 		os.Exit(2)
@@ -62,14 +32,13 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 		advisory:  *rf.advisoryFlag,
 	}
 	relativePathsMode = *rf.relativePathsFlag
-
 	if *rf.noColor {
 		ui = render.New(os.Stdout, true)
 	}
-
 	sinceTime := parseSince(*rf.since)
 	effVerbose := *rf.verbose || *rf.verboseAlias
 	writeSessionOverride = *rf.sessionFlag
+	writeVisibility = *rf.visibilityFlag
 	writeSessionVerbose = effVerbose
 	factsDryRun = *rf.dryRunFlag
 	factsYes = *rf.yesFlag
@@ -145,14 +114,50 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 		if olderThanSpecified {
 			memoryOlderThan = *rf.olderThanFlag
 		}
-		runMemory(ui, *rf.dbPath, effProject, *rf.since, memoryOlderThan, *rf.yesFlag, *rf.jsonOut, *rf.toonOut, fs.Args())
+		memoryKind := ""
+		if kindExplicit {
+			memoryKind = *rf.kindFlag
+		}
+		memoryReason := ""
+		if rf.reasonFlag != nil {
+			memoryReason = *rf.reasonFlag
+		}
+		memoryNote := ""
+		if rf.noteFlag != nil {
+			memoryNote = *rf.noteFlag
+		}
+		runMemory(ui, *rf.dbPath, effProject, *rf.since, memoryOlderThan, *rf.memoryFileFlag, memoryKind, *rf.agent, *rf.limitFlag, *rf.yesFlag, *rf.jsonOut, *rf.toonOut, memoryLifecycleOptions{
+			reason:          memoryReason,
+			authority:       *rf.archiveAuthorityFlag,
+			note:            memoryNote,
+			duplicateOf:     *rf.duplicateOfFlag,
+			hardDelete:      *rf.hardDeleteFlag,
+			revealSensitive: *rf.revealSensitiveFlag,
+			includeArchived: *rf.includeArchivedFlag,
+			verify:          *rf.verifyFlag,
+		}, fs.Args())
+	case "import":
+		if code := runImport(ui, *rf.dbPath, importCLIOptions{
+			from:                *rf.fromFlag,
+			project:             effProject,
+			dryRun:              *rf.dryRunFlag,
+			yes:                 *rf.yesFlag,
+			again:               *rf.againFlag,
+			forceSimilar:        *rf.forceSimilarFlag,
+			includeInstructions: *rf.includeInstructions,
+			maxFiles:            *rf.maxFilesFlag,
+			jsonOut:             *rf.jsonOut,
+			toonOut:             *rf.toonOut,
+		}); code != 0 {
+			os.Exit(code)
+		}
 	case "export":
 		if len(fs.Args()) > 0 && fs.Args()[0] == "opinions" {
 			runOpinions(ui, *rf.dbPath, effProject, *rf.categoryFlag, *rf.outFile, *rf.jsonOut, *rf.toonOut, fs.Args())
 		} else if len(fs.Args()) > 0 && fs.Args()[0] == "vision" {
 			runVision(ui, *rf.dbPath, effProject, *rf.outFile, *rf.agent, *rf.jsonOut, *rf.toonOut, fs.Args())
 		} else {
-			runExport(ui, *rf.dbPath, effProject, *rf.target, *rf.outFile, effVerbose, *rf.reviewFlag, *rf.scopeFlag, *rf.jsonOut, fs.Args())
+			runExport(ui, *rf.dbPath, effProject, *rf.target, *rf.outFile, effVerbose, *rf.reviewFlag, *rf.scopeFlag, *rf.forceFlag, *rf.jsonOut, fs.Args())
 		}
 	case "completions":
 		runCompletions(fs.Arg(0))
@@ -160,10 +165,16 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 		runStatus(ui, *rf.dbPath, *rf.jsonOut, effVerbose, *rf.scan)
 	case "sources":
 		runSources(ui, *rf.dbPath, *rf.jsonOut, effVerbose, fs.Args())
+	case "connect":
+		runConnect(ui, *rf.dbPath, effProject, *rf.jsonOut, *rf.yesFlag, fs.Args())
+	case "cards":
+		runCards(ui, *rf.dbPath, effProject, *rf.jsonOut, fs.Args())
 	case "workspace":
 		if code := runWorkspace(ui, effProject, *rf.jsonOut, fs.Args()); code != 0 {
 			os.Exit(code)
 		}
+	case "commits":
+		runCommits(ui, *rf.dbPath, effProject, *rf.since, *rf.jsonOut, fs.Args())
 	case "session":
 		sessionOlderThan := ""
 		if olderThanSpecified {
@@ -176,16 +187,22 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 		runSession(ui, *rf.dbPath, effProject, *rf.agent, *rf.sessionFlag, sessionHarness, *rf.goalFlag, sessionOlderThan, *rf.since, *rf.forceFlag, *rf.yesFlag, *rf.jsonOut, fs.Args())
 	case "intro":
 		runIntro(ui, *rf.agent, *rf.outFile, *rf.dbPath, fs.Args())
+	case "soak":
+		runSoak(ui, *rf.dbPath, *rf.jsonOut, *rf.toonOut)
+	case "man":
+		runMan(ui, *rf.jsonOut, fs.Args())
+	case "daemon":
+		runDaemonCmd(ui, *rf.dbPath, *rf.jsonOut, fs.Args())
 	case "mcp":
 		if *rf.mcpSchemaFlag {
-			if code := runMCPSchema(*rf.toolFlag, *rf.jsonOut); code != 0 {
+			if code := runMCPSchema(*rf.toolFlag, *rf.profileFlag, *rf.jsonOut); code != 0 {
 				os.Exit(code)
 			}
 			return
 		}
 		runMCP(*rf.dbPath, *rf.upstreamsFlag, *rf.noUpstreamsFlag, *rf.profileFlag, *rf.mcpTraceFlag)
 	case "search":
-		runSearch(ui, *rf.dbPath, effProject, effTool, *rf.role, sinceTime, *rf.omniFlag, *rf.semanticFlag, *rf.twoPassFlag && !*rf.noTwoPassFlag, *rf.windowFlag, *rf.occurrenceFlag, *rf.refsExistOnly, *rf.staleOnly, *rf.factsOnly, *rf.jsonOut, *rf.toonOut, effVerbose, *rf.top, fs.Args())
+		runSearchFiltered(ui, *rf.dbPath, effProject, effTool, *rf.role, sinceTime, *rf.omniFlag, *rf.semanticFlag, *rf.twoPassFlag && !*rf.noTwoPassFlag, *rf.windowFlag, *rf.occurrenceFlag, *rf.refsExistOnly, *rf.staleOnly, *rf.factsOnly, *rf.jsonOut, *rf.toonOut, effVerbose, *rf.top, *rf.includeArchivedFlag, *rf.aclScopedFlag, fs.Args())
 	case "prime":
 		primeArgs := fs.Args()
 		if len(primeArgs) > 0 && strings.EqualFold(primeArgs[0], "canary") {
@@ -222,11 +239,12 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 			Full:               *rf.fullFlag,
 			MaxTokensStr:       *rf.maxTokensFlag,
 			PressureStr:        *rf.pressureFlag,
-			IncludeMarkdown:    *rf.includeMarkdownFlag,
+			IncludeMarkdown:    *rf.includeMarkdownFlag || rf.markdownFlag.Enabled,
 			CachePinned:        *rf.cachePinnedFlag,
 			AllGoals:           *rf.primeAllGoalsFlag,
 			DisableCodebaseMap: *rf.noMapFlag,
 			CodebaseMapChars:   *rf.mapCharsFlag,
+			IncludeArchived:    *rf.includeArchivedFlag,
 		})
 	case "preflight":
 		runPreflight(ui, *rf.dbPath, effProject, fs.Args(), *rf.jsonOut)
@@ -258,12 +276,13 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 		runHandoff(ui, *rf.dbPath, effProject, *rf.branch, *rf.agent, effOpenItems, *rf.decisions, *rf.files, *rf.jsonOut, effVerbose, fs.Args())
 	case "memo":
 		runMemo(ui, *rf.dbPath, effProject, *rf.agent, *rf.files, *rf.decisionFlag, memoOptions{
-			text:    *rf.memoTextFlag,
-			since:   *rf.since,
-			claim:   *rf.memoClaimFlag,
-			limit:   *rf.limitFlag,
-			jsonOut: *rf.jsonOut,
-			toonOut: *rf.toonOut,
+			text:       *rf.memoTextFlag,
+			since:      *rf.since,
+			claim:      *rf.memoClaimFlag,
+			limit:      *rf.limitFlag,
+			visibility: *rf.visibilityFlag,
+			jsonOut:    *rf.jsonOut,
+			toonOut:    *rf.toonOut,
 		}, fs.Args())
 	case "note", "notes":
 		noteArgs := fs.Args()
@@ -283,10 +302,7 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 	case "decision", "decisions":
 		runDecision(ui, *rf.dbPath, effProject, *rf.agent, *rf.goalFlag, *rf.jsonOut, fs.Args())
 	case "lesson":
-		effFix := ""
-		if rf.fixFlag != nil {
-			effFix = *rf.fixFlag
-		}
+		effFix := stringFlagValue(rf.fixFlag)
 		runLesson(ui, *rf.dbPath, effProject, *rf.agent, *rf.files, *rf.causeFlag, effFix, *rf.tagsFlag, *rf.since, *rf.forceFlag, *rf.saveFlag, *rf.jsonOut, *rf.toonOut, fs.Args())
 	case "case", "cases":
 		runCase(ui, *rf.dbPath, effProject, *rf.agent, *rf.files, *rf.approachFlag, *rf.invariantsFlag, *rf.tagsFlag, *rf.since, *rf.forceFlag, *rf.jsonOut, *rf.toonOut, fs.Args())
@@ -295,9 +311,21 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 		if *rf.symbolFlag != "" {
 			recallArgs = append(recallArgs, "--symbol="+*rf.symbolFlag)
 		}
-		runRecall(ui, *rf.dbPath, effProject, *rf.top, *rf.semanticFlag, *rf.jsonOut, *rf.toonOut, recallArgs)
+		runRecallWithContext(ui, *rf.dbPath, effProject, *rf.top, *rf.semanticFlag, *rf.jsonOut, *rf.toonOut, recallArgs, recallContextInput{
+			Task:            *rf.recallTaskFlag,
+			Paths:           *rf.recallPathsFlag,
+			Branch:          *rf.branch,
+			Head:            *rf.recallHeadFlag,
+			Symbols:         *rf.recallSymbolsFlag,
+			Budget:          *rf.budgetFlag,
+			ContextFile:     *rf.recallContextFile,
+			IncludeArchived: *rf.includeArchivedFlag,
+			ACLScoped:       *rf.aclScopedFlag,
+		})
 	case "doc":
 		runDoc(ui, *rf.dbPath, effProject, *rf.title, *rf.lang, *rf.repo, *rf.ext, *rf.eco, *rf.tag, *rf.crawl, *rf.depth, *rf.maxPages, *rf.top, *rf.autoIngest, *rf.portFlag, *rf.hostFlag, *rf.noOpenFlag, *rf.jsonOut, effVerbose, *rf.formatFlag, fs.Args())
+	case "graph":
+		runGraph(ui, *rf.dbPath, effProject, *rf.jsonOut, *rf.dryRunFlag, *rf.forceFlag, *rf.ifStaleFlag, *rf.top, *rf.includeAmbiguousFlag, *rf.codeOnlyFlag, *rf.maxHopsFlag, *rf.maxDepthFlag, *rf.files, *rf.budgetFlag, fs.Args())
 	case "config":
 		runConfig(ui, *rf.jsonOut, *rf.revealFlag, fs.Args())
 	case "vacuum":
@@ -374,7 +402,7 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 		}
 		doctorMemory = rf.memoryFlag != nil && *rf.memoryFlag
 		doctorAdoption = rf.adoptionFlag != nil && *rf.adoptionFlag
-		runDoctor(ui, *rf.dbPath, effProject, *rf.repairFlag, *rf.jsonOut, *rf.toonOut, doctorSkills, *rf.covenantFlag, *rf.edgeFlag, doctorDebt, *rf.mcpFlag)
+		runDoctor(ui, *rf.dbPath, effProject, *rf.repairFlag, *rf.dryRunFlag, *rf.jsonOut, *rf.toonOut, doctorSkills, *rf.covenantFlag, *rf.edgeFlag, doctorDebt, *rf.mcpFlag)
 	case "edit-check", "editcheck":
 		ecArgs := fs.Args()
 		if *rf.symbolFlag != "" {
@@ -390,7 +418,7 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 	case "test":
 		runTest(ui, *rf.jsonOut, *rf.toonOut, *rf.runFlag, fs.Args())
 	case "gate":
-		runGate(ui, *rf.jsonOut, *rf.toonOut, *rf.hookFlag, *rf.remoteFlag, *rf.scarTissueFlag, *rf.docCoverageFlag, *rf.reportCardFlag, *rf.coverageFlag, *rf.strictFlag, *rf.requireTestsFlag, *rf.preCommitFlag, *rf.fullFlag, *rf.skipArchFlag, *rf.profileFlag, *rf.forwardFlag, *rf.branch, fs.Args())
+		runGate(ui, *rf.jsonOut, *rf.toonOut, *rf.hookFlag, *rf.remoteFlag, *rf.scarTissueFlag, *rf.docCoverageFlag, *rf.reportCardFlag, *rf.coverageFlag, *rf.strictFlag, *rf.requireTestsFlag, *rf.preCommitFlag, *rf.fullFlag, *rf.skipArchFlag, *rf.compactFlag, *rf.verbose, *rf.postCommitFlag, *rf.trustTargetFlag, *rf.tagFlag, *rf.showConfigFlag, *rf.profileFlag, *rf.forwardFlag, *rf.branch, fs.Args())
 	case "reportcard", "report-card":
 		runGateReportCardStandalone(ui, *rf.jsonOut, *rf.toonOut)
 	case "coverage":
@@ -412,7 +440,10 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 		if rf.autoRunFlag != nil {
 			effAutoRun = *rf.autoRunFlag
 		}
-		runGoals(ui, *rf.dbPath, effProject, *rf.agent, *rf.noteFlag, *rf.statusFlag, *rf.reasonFlag, *rf.claimImmediateFlag, *rf.stageFlag, *rf.commitFlag, *rf.title, *rf.descFlag, *rf.dependsOnFlag, effTouch, *rf.seqFlag, *rf.independentFlag, *rf.globalFlag, *rf.pendingFlag, *rf.claimedFlag, *rf.readyFlag, *rf.independentFlag, *rf.blockedFlag, *rf.forceFlag, *rf.jsonOut, *rf.toonOut, effAllGoals, *rf.implementedFlag, *rf.noSyncFlag, *rf.shapeFlag, *rf.addDepFlag, *rf.removeDepFlag, *rf.dependentFlag, fs.Args(), goalsRunOptions{session: *rf.sessionFlag, stale: *rf.staleOnly, olderThan: *rf.olderThanFlag, claims: *rf.claimsFlag, dryRun: *rf.dryRunFlag, check: *rf.checkOnlyFlag, by: *rf.byFlag, evidence: *rf.evidenceFlag, tier: *rf.tierFlag, invariants: *rf.invariantsFlag, tasks: *rf.tasksFlag, workPackage: *rf.workPackageFlag, specReview: *rf.specReviewFlag, review: *rf.goalReviewFlag, noBuild: *rf.noBuildFlag, checkTasks: *rf.checkTasksFlag, allow: *rf.allowFlag, deny: *rf.denyFlag, duration: *rf.durationFlag, stats: *rf.statsFlag, strict: *rf.strictFlag, strictMemory: *rf.strictMemoryFlag, noMemory: *rf.noMemoryFlag, manifest: *rf.manifestFlag, line: *rf.lineFlag, full: *rf.fullFlag, live: *rf.watchFlag, interval: goalsInterval, personas: *rf.personasFlag, selectionFile: effSelection, autoRun: effAutoRun, ascii: *rf.asciiFlag || *rf.plainFlag})
+		if runMergeSlotIfRequested(ui, *rf.dbPath, effProject, *rf.jsonOut, fs.Args(), *rf.tokenFlag, *rf.forceFlag) {
+			return
+		}
+		runGoals(ui, *rf.dbPath, effProject, *rf.agent, *rf.noteFlag, *rf.statusFlag, *rf.reasonFlag, *rf.claimImmediateFlag, *rf.stageFlag, *rf.commitFlag, *rf.title, *rf.descFlag, *rf.dependsOnFlag, effTouch, *rf.seqFlag, *rf.independentFlag, *rf.globalFlag, *rf.pendingFlag, *rf.claimedFlag, *rf.readyFlag, *rf.independentFlag, *rf.blockedFlag, *rf.forceFlag, *rf.jsonOut, *rf.toonOut, effAllGoals, *rf.implementedFlag, *rf.noSyncFlag, *rf.shapeFlag, *rf.addDepFlag, *rf.removeDepFlag, *rf.dependentFlag, fs.Args(), goalsRunOptions{session: *rf.sessionFlag, stale: *rf.staleOnly, olderThan: *rf.olderThanFlag, claims: *rf.claimsFlag, dryRun: *rf.dryRunFlag, check: *rf.checkOnlyFlag, by: *rf.byFlag, evidence: *rf.evidenceFlag, tier: *rf.tierFlag, invariants: *rf.invariantsFlag, tasks: *rf.tasksFlag, workPackage: *rf.workPackageFlag, specReview: *rf.specReviewFlag, review: *rf.goalReviewFlag, noBuild: *rf.noBuildFlag, checkTasks: *rf.checkTasksFlag, allow: *rf.allowFlag, deny: *rf.denyFlag, duration: *rf.durationFlag, stats: *rf.statsFlag, strict: *rf.strictFlag, strictMemory: *rf.strictMemoryFlag, noMemory: *rf.noMemoryFlag, manifest: *rf.manifestFlag, line: *rf.lineFlag, full: *rf.fullFlag, live: *rf.watchFlag, interval: goalsInterval, personas: *rf.personasFlag, selectionFile: effSelection, autoRun: effAutoRun, ascii: *rf.asciiFlag || *rf.plainFlag, limit: *rf.limitFlag, limitSet: limitSpecified})
 	case "feedback":
 		effOpen := false
 		if rf.openFeedback != nil {
@@ -448,6 +479,24 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 		runVision(ui, *rf.dbPath, effProject, *rf.outFile, *rf.agent, *rf.jsonOut, *rf.toonOut, fs.Args())
 	case "adr":
 		runAdr(ui, *rf.dbPath, effProject, *rf.decidersFlag, *rf.files, *rf.outFile, *rf.jsonOut, fs.Args())
+	case "forget":
+		runForget(ui, *rf.dbPath, effProject, *rf.includeTranscriptsFlag, *rf.yesFlag, *rf.jsonOut)
+	case "pause":
+		runPause(ui, *rf.dbPath, effProject, *rf.reasonFlag, *rf.agent, *rf.globalFlag, *rf.jsonOut)
+	case "resume":
+		runResume(ui, *rf.dbPath, effProject, *rf.globalFlag, *rf.jsonOut)
+	case "report":
+		// Bare `sila report` is the continuity report; a positional report id
+		// or --goal keeps the existing audit-report browser behavior.
+		if len(fs.Args()) > 0 || *rf.goalFlag != "" {
+			repArgs := fs.Args()
+			if *rf.goalFlag != "" {
+				repArgs = append([]string{"--goal=" + *rf.goalFlag}, repArgs...)
+			}
+			runReports(ui, *rf.dbPath, *rf.jsonOut, *rf.toonOut, repArgs)
+		} else {
+			runReport(ui, *rf.dbPath, effProject, *rf.since, *rf.jsonOut, rf.markdownFlag, fs.Args())
+		}
 	case "digest":
 		runDigest(ui, *rf.dbPath, effProject, *rf.since, effTool, *rf.top, topSpecified, *rf.jsonOut, *rf.toonOut, *rf.humanOut, *rf.activityFlag, *rf.globalFlag, fs.Args())
 	case "standup":
@@ -526,7 +575,7 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 		if *rf.changedOnlyFlag {
 			agentArgs = append(agentArgs, "--changed-only")
 		}
-		runAgents(ui, *rf.dbPath, effProject, *rf.target, *rf.outFile, *rf.policyPackFlag, *rf.scopeFlag, *rf.dryRunFlag, *rf.replaceFlag, *rf.principlesFlag, *rf.stackFlag, *rf.jsonOut, agentArgs)
+		runAgents(ui, *rf.dbPath, effProject, *rf.target, *rf.outFile, *rf.policyPackFlag, *rf.scopeFlag, *rf.dryRunFlag, *rf.replaceFlag, *rf.principlesFlag, *rf.stateBlockFlag, *rf.stackFlag, *rf.jsonOut, agentArgs)
 	case "unslop":
 		isFix := false
 		if rf.unslopFixFlag != nil {
@@ -563,7 +612,7 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 		runSalam(ui, *rf.dbPath, effProject, *rf.yesFlag, *rf.jsonOut, salamArgs)
 	case "ui", "web":
 		if *rf.demoFlag {
-			runDemo(ui, *rf.portFlag, *rf.hostFlag, *rf.noOpenFlag, *rf.exposeFlag, *rf.jsonOut)
+			runDemo(ui, *rf.portFlag, *rf.hostFlag, *rf.noOpenFlag, *rf.exposeFlag, *rf.jsonOut, *rf.toonOut, true, false, "all")
 			return
 		}
 		runUI(ui, *rf.dbPath, effProject, *rf.portFlag, *rf.hostFlag, *rf.noOpenFlag, *rf.exposeFlag, *rf.jsonOut, fs.Args())
@@ -574,7 +623,7 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 	case "approve", "approval":
 		runApprove(ui, *rf.dbPath, effProject, *rf.rejectFlag, *rf.byFlag, *rf.reasonFlag, *rf.pendingFlag, *rf.jsonOut, *rf.toonOut, fs.Args())
 	case "demo":
-		runDemo(ui, *rf.portFlag, *rf.hostFlag, *rf.noOpenFlag, *rf.exposeFlag, *rf.jsonOut)
+		runDemo(ui, *rf.portFlag, *rf.hostFlag, *rf.noOpenFlag, *rf.exposeFlag, *rf.jsonOut, *rf.toonOut, *rf.webFlag, *rf.keepFlag, *rf.stepFlag)
 	case "eval":
 		evalTarget := ""
 		if targetSpecified {
@@ -617,7 +666,7 @@ func (rf *rootFlags) dispatch(sub string, ui render.UI, fs *flag.FlagSet, global
 			goals:         rf.goalsAuditFlag != nil && *rf.goalsAuditFlag,
 			goal:          *rf.goalFlag,
 		}, fs.Args())
-	case "reports", "report":
+	case "reports":
 		repArgs := fs.Args()
 		if *rf.goalFlag != "" {
 			repArgs = append([]string{"--goal=" + *rf.goalFlag}, repArgs...)

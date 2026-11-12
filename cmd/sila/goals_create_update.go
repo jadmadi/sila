@@ -33,7 +33,7 @@ func (gc *goalsContext) handleCreate(tDir, slug string) {
 	force := gc.force
 	jsonOut := gc.jsonOut
 	if slug == "" {
-		fmt.Fprintln(os.Stderr, "Usage: sila goals create <slug> [--title=\"...\"] [--desc=\"...\"] [--status=pending|implemented] [--commit=<sha>] [--depends-on=\"...\"] [--touch=\"...\"] [--independent] [--seq=N] [--tier=immediate|roadmap|nice-to-have|wont-fix] [--invariants=\"...\"] [--tasks=\"...\"] [--template-dir=path] [--strict]")
+		fmt.Fprintln(os.Stderr, "Usage: sila goals create <slug> --files=\"path,...\" [--title=\"...\"] [--desc=\"...\"] [--status=pending|implemented] [--commit=<sha>] [--depends-on=\"...\"] [--touch=\"...\"] [--independent] [--seq=N] [--tier=immediate|roadmap|nice-to-have|wont-fix] [--invariants=\"...\"] [--tasks=\"...\"] [--template-dir=path] [--strict]")
 		os.Exit(2)
 	}
 	createTier := tierOpt
@@ -68,6 +68,10 @@ func (gc *goalsContext) handleCreate(tDir, slug string) {
 		} else if after, ok := strings.CutPrefix(a, "--touch="); ok {
 			touch = after
 		} else if after, ok := strings.CutPrefix(a, "-touch="); ok {
+			touch = after
+		} else if after, ok := strings.CutPrefix(a, "--files="); ok {
+			touch = after
+		} else if after, ok := strings.CutPrefix(a, "-files="); ok {
 			touch = after
 		} else if after, ok := strings.CutPrefix(a, "--shape="); ok {
 			shape = after
@@ -270,6 +274,14 @@ func (gc *goalsContext) handleCreate(tDir, slug string) {
 			}
 		}
 	}
+	if err := goals.RequireFilesToTouch(slug, filesToTouch); err != nil {
+		if jsonOut {
+			emitJSON(map[string]any{"error": err.Error(), "slug": slug, "created": false})
+			return
+		}
+		fmt.Fprintf(os.Stderr, "%s sila goals create error: %v\n", ui.Red("✖"), err)
+		os.Exit(2)
+	}
 	g, err := goals.CreateGoal(goals.CreateGoalParams{
 		RootDir:      tDir,
 		Slug:         slug,
@@ -350,6 +362,7 @@ func (gc *goalsContext) handleCreate(tDir, slug string) {
 		claimAgent = "<name>"
 	}
 	fmt.Fprintf(os.Stdout, "  Execute:   Claim only when starting implementation: %s\n", ui.Cyan("sila goals claim "+g.Slug+" --agent="+claimAgent))
+	fmt.Fprintf(os.Stdout, "  Verify:    Bind a contract so `sila goals test` runs: %s\n", ui.Dim(fmt.Sprintf("sila goals contract set %s --command=\"go test ./...\"", g.Slug)))
 }
 
 func (gc *goalsContext) handleReopen(tDir string, rArgs []string) {

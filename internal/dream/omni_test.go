@@ -313,3 +313,98 @@ func TestOmniSearchTemporalProximityBoost(t *testing.T) {
 		t.Errorf("expected last week's item score (%d) to exceed older item score (%d)", res.Items[0].Score, res.Items[1].Score)
 	}
 }
+
+// TestOmniSearchACLScoped proves that an ACL-scoped read keeps same-project
+// records and cross-project global records, while foreign project-scoped facts,
+// transcripts, and commits never leak.
+func TestOmniSearchACLScoped(t *testing.T) {
+	st, err := store.Open(filepath.Join(t.TempDir(), "acl.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	if _, err := st.EnsureProject("/workspace/alpha"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.EnsureProject("/workspace/beta"); err != nil {
+		t.Fatal(err)
+	}
+
+	alphaMemo, err := st.InsertMemoWithProvenanceAndVisibility("alpha", "alpha sqlite private fee schedule", "agent", "", nil, "", store.VisibilityProject, store.Provenance{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	globalLesson, err := st.InsertMemoWithProvenanceAndVisibility("alpha", store.FormatLesson("sqlite lock contention", "shared writer", "busy timeout retry", "sqlite"), "agent", "", nil, "lesson", store.VisibilityGlobal, store.Provenance{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	betaMemo, err := st.InsertMemoWithProvenanceAndVisibility("beta", "beta sqlite deployment pipeline", "agent", "", nil, "", store.VisibilityProject, store.Provenance{})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, _, err := st.WriteRun("", "agent", "acl-session", []store.LoadMessage{
+		{ProjectID: "alpha", ContentHash: "acl-alpha-msg", TS: "2026-11-01T10:00:00Z", Role: "user", Content: "alpha sqlite transcript detail", Tool: "devin"},
+		{ProjectID: "alpha", ContentHash: "acl-alpha-commit", TS: "2026-11-01T10:01:00Z", Role: "commit", Content: "Git Commit abc1234: alpha sqlite commit", Tool: "git"},
+		{ProjectID: "beta", ContentHash: "acl-beta-msg", TS: "2026-11-01T10:02:00Z", Role: "user", Content: "beta sqlite transcript detail", Tool: "devin"},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	hasID := func(items []OmniResultItem, id string) bool {
+		for _, item := range items {
+			if item.ID == id {
+				return true
+			}
+		}
+		return false
+	}
+	hasContent := func(items []OmniResultItem, needle string) bool {
+		for _, item := range items {
+			if strings.Contains(item.Content, needle) {
+				return true
+			}
+		}
+		return false
+	}
+
+	scoped, err := OmniSearchFiltered(st, "sqlite", OmniOptions{ACLScoped: true, RequesterProject: "beta", Limit: 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasID(scoped.Items, betaMemo.ID) {
+		t.Errorf("same-project beta memo missing from ACL-scoped results: %+v", scoped.Items)
+	}
+	if !hasID(scoped.Items, globalLesson.ID) {
+		t.Errorf("global lesson missing from ACL-scoped results: %+v", scoped.Items)
+	}
+	if hasID(scoped.Items, alphaMemo.ID) {
+		t.Errorf("foreign project-scoped memo leaked into ACL-scoped results")
+	}
+	if hasContent(scoped.Items, "alpha sqlite transcript detail") {
+		t.Errorf("foreign transcript leaked into ACL-scoped results")
+	}
+	if hasContent(scoped.Items, "alpha sqlite commit") {
+		t.Errorf("foreign commit leaked into ACL-scoped results")
+	}
+	if !hasContent(scoped.Items, "beta sqlite transcript detail") {
+		t.Errorf("same-project transcript missing from ACL-scoped results")
+	}
+	for _, item := range scoped.Items {
+		if item.ID == globalLesson.ID && item.Visibility != store.VisibilityGlobal {
+			t.Errorf("global lesson visibility = %q, want %q", item.Visibility, store.VisibilityGlobal)
+		}
+	}
+
+	unscoped, err := OmniSearchFiltered(st, "sqlite", OmniOptions{Limit: 50})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !hasID(unscoped.Items, alphaMemo.ID) {
+		t.Errorf("unscoped search should still see the alpha memo")
+	}
+	if !hasContent(unscoped.Items, "alpha sqlite transcript detail") {
+		t.Errorf("unscoped search should still see the alpha transcript")
+	}
+}

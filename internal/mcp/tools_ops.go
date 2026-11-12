@@ -153,7 +153,7 @@ func opsToolDefinitions() []Tool {
 		},
 		{
 			Name:        "run_gate_pipeline",
-			Description: "Execute the sila quality gate validation in an isolated disposable Git worktree, testing the specified branch against tests, changelog, binary, and documentation invariants without touching the working directory, with optional forwarding to a remote target.",
+			Description: "Execute the sila quality gate validation in an isolated disposable Git worktree, testing the specified branch against tests, changelog, binary, and documentation invariants without touching the working directory, with optional forwarding to a remote target. Returns stage_lines, clean, duration_ms, and receipt_path; set verbose true to include the bounded full log.",
 			InputSchema: InputSchema{
 				Type: "object",
 				Properties: map[string]PropertySchema{
@@ -161,6 +161,7 @@ func opsToolDefinitions() []Tool {
 					"forward_target": {Type: "string", Description: "Optional remote repository target to forward push to upon successful validation (e.g. 'origin')"},
 					"auto_forward":   {Type: "boolean", Description: "If true, forward push to forward_target upon 100% green gate checks (default: false)"},
 					"project":        {Type: "string", Description: "Optional project ID or repository directory"},
+					"verbose":        {Type: "boolean", Description: "If true, include the bounded full gate log under output (default: false); receipt_path is always returned"},
 				},
 			},
 		},
@@ -609,6 +610,22 @@ func opsToolDefinitions() []Tool {
 					"project": {Type: "string", Description: "Optional project ID or repository directory"},
 				},
 				Required: []string{"domain", "title", "symptom", "fix"},
+			},
+		},
+		{
+			Name:        "manage_merge_slot",
+			Description: "Acquire, heartbeat, release, or inspect the project merge-slot lease; busy returns MERGE_SLOT_BUSY.",
+			InputSchema: InputSchema{
+				Type: "object",
+				Properties: map[string]PropertySchema{
+					"operation":     {Type: "string", Description: "acquire | heartbeat | release | status"},
+					"project":       {Type: "string", Description: "Optional project ID or repository directory"},
+					"holder":        {Type: "string", Description: "Holder name for acquire (default mcp)"},
+					"token":         {Type: "string", Description: "Token from acquire, required for heartbeat and release"},
+					"lease_seconds": {Type: "integer", Description: "Lease length in seconds, clamped to 60 through 14400"},
+					"force":         {Type: "boolean", Description: "Force release without a matching token"},
+				},
+				Required: []string{"operation"},
 			},
 		},
 		{

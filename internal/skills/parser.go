@@ -252,10 +252,54 @@ func cleanQuotes(s string) string {
 
 func cleanScalar(s string) string {
 	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if unquoted, ok := unquoteScalarWithComment(s); ok {
+		return unquoted
+	}
 	if idx := strings.Index(s, " #"); idx != -1 {
 		s = strings.TrimSpace(s[:idx])
 	}
 	return cleanQuotes(s)
+}
+
+// unquoteScalarWithComment unquotes a leading quoted scalar and ignores any
+// comment after the closing quote. It reports false when no closing quote is
+// found, so the caller can fall back to unquoted comment stripping.
+func unquoteScalarWithComment(s string) (string, bool) {
+	if len(s) < 2 {
+		return "", false
+	}
+	switch s[0] {
+	case '"':
+		var b strings.Builder
+		for i := 1; i < len(s); i++ {
+			if s[i] == '\\' && i+1 < len(s) {
+				b.WriteByte(s[i+1])
+				i++
+				continue
+			}
+			if s[i] == '"' {
+				return b.String(), true
+			}
+			b.WriteByte(s[i])
+		}
+	case '\'':
+		var b strings.Builder
+		for i := 1; i < len(s); i++ {
+			if s[i] == '\'' {
+				if i+1 < len(s) && s[i+1] == '\'' {
+					b.WriteByte('\'')
+					i++
+					continue
+				}
+				return b.String(), true
+			}
+			b.WriteByte(s[i])
+		}
+	}
+	return "", false
 }
 
 func parseFlowList(s string) []string {

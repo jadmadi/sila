@@ -1,0 +1,263 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jadmadi/sila/docs/schemas/sila-memory-v1.schema.json",
+  "title": "Sila Durable Memory Envelope v1",
+  "description": "Strict, additive envelope for durable engineering memory. Unknown fields are rejected at every level.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "project_id",
+    "kind",
+    "title",
+    "summary",
+    "assertions",
+    "evidence"
+  ],
+  "properties": {
+    "schema_version": { "const": "sila/memory/v1" },
+    "memory_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "project_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "kind": {
+      "type": "string",
+      "enum": [
+        "architecture_decision",
+        "invariant",
+        "convention",
+        "bug",
+        "root_cause",
+        "fix",
+        "failed_approach",
+        "preference",
+        "code_landmark",
+        "ownership_boundary",
+        "procedure"
+      ]
+    },
+    "title": { "type": "string", "minLength": 1, "maxLength": 200 },
+    "summary": { "type": "string", "minLength": 1, "maxLength": 2000 },
+    "assertions": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/assertion" }
+    },
+    "evidence": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/evidence" }
+    },
+    "relations": {
+      "type": "array",
+      "maxItems": 8,
+      "items": { "$ref": "#/$defs/relation" }
+    },
+    "scope": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "paths": {
+          "type": "array",
+          "maxItems": 32,
+          "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+        },
+        "symbols": {
+          "type": "array",
+          "maxItems": 16,
+          "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+        }
+      }
+    },
+    "valid_from": { "type": "string", "format": "date-time" },
+    "valid_until": {
+      "oneOf": [
+        { "type": "string", "format": "date-time" },
+        { "type": "null" }
+      ]
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "agent": { "type": "string", "maxLength": 128 },
+        "tool_name": { "type": "string", "maxLength": 128 },
+        "client_kind": { "type": "string", "maxLength": 128 },
+        "origin_entity": { "type": "string", "maxLength": 128 },
+        "session_ref": { "type": "string", "maxLength": 256 }
+      }
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 16,
+      "maxLength": 128,
+      "pattern": "^[\\x21-\\x7e]+$"
+    },
+    "created_at": { "type": "string", "format": "date-time" },
+    "updated_at": { "type": "string", "format": "date-time" }
+  },
+  "$defs": {
+    "subject": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["context_entity", "value"],
+      "properties": {
+        "context_entity": {
+          "type": "string",
+          "enum": ["project", "file", "symbol", "memory"]
+        },
+        "value": { "type": "string", "minLength": 1, "maxLength": 512 }
+      }
+    },
+    "literal": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "value"],
+      "properties": {
+        "type": { "enum": ["string", "boolean", "number"] },
+        "value": {}
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "type": { "const": "string" },
+            "value": { "type": "string", "maxLength": 512 }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "boolean" },
+            "value": { "type": "boolean" }
+          }
+        },
+        {
+          "properties": {
+            "type": { "const": "number" },
+            "value": { "type": "number" }
+          }
+        }
+      ]
+    },
+    "object": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["literal"],
+      "properties": {
+        "literal": { "$ref": "#/$defs/literal" },
+        "qualifier": { "type": "string", "pattern": "^[a-z][a-z0-9_]*$", "maxLength": 64 }
+      }
+    },
+    "assertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "assertion_type",
+        "predicate",
+        "statement",
+        "subject",
+        "object",
+        "confidence",
+        "importance",
+        "evidence_refs"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^A-[0-9]{3}$" },
+        "assertion_type": {
+          "type": "string",
+          "enum": ["descriptive", "normative"]
+        },
+        "predicate": {
+          "type": "string",
+          "enum": ["has_property", "causes", "supersedes", "requires", "forbids", "recommends"]
+        },
+        "statement": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "subject": { "$ref": "#/$defs/subject" },
+        "object": { "$ref": "#/$defs/object" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 0.95 },
+        "importance": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "evidence_refs": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^E-[0-9]{3}$" }
+        }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "assertion_type": { "const": "descriptive" } } },
+          "then": { "properties": { "predicate": { "enum": ["has_property", "causes", "supersedes"] } } }
+        },
+        {
+          "if": { "properties": { "assertion_type": { "const": "normative" } } },
+          "then": { "properties": { "predicate": { "enum": ["requires", "forbids", "recommends"] } } }
+        }
+      ]
+    },
+    "locator": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 512,
+          "not": {
+            "anyOf": [
+              { "pattern": "^/" },
+              { "pattern": "^[A-Za-z]:[\\\\/]" },
+              { "pattern": "^~" },
+              { "pattern": "(^|/)\\.\\.(/|$)" }
+            ]
+          }
+        },
+        "symbol": { "type": "string", "maxLength": 512 },
+        "commit": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "line_start": { "type": "integer", "minimum": 1 },
+        "line_end": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "locator", "summary"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^E-[0-9]{3}$" },
+        "kind": {
+          "type": "string",
+          "enum": ["file", "test", "commit", "agent_initiated", "user_attestation"]
+        },
+        "locator": { "$ref": "#/$defs/locator" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 500 },
+        "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+        "missing_at_write": { "type": "boolean" },
+        "missing_reason": { "type": "string", "minLength": 1, "maxLength": 500 }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "missing_at_write": { "const": true } }, "required": ["missing_at_write"] },
+          "then": { "required": ["missing_reason"] }
+        }
+      ]
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "target_memory_id"],
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["supersedes", "refines", "contradicts", "related_to"]
+        },
+        "target_memory_id": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "evidence_refs": {
+          "type": "array",
+          "maxItems": 8,
+          "uniqueItems": true,
+          "items": { "type": "string", "pattern": "^E-[0-9]{3}$" }
+        }
+      }
+    }
+  }
+}

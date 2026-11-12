@@ -14,9 +14,10 @@ import (
 	"github.com/jadmadi/sila/internal/assess"
 	"github.com/jadmadi/sila/internal/assist"
 	"github.com/jadmadi/sila/internal/clean"
-	"github.com/jadmadi/sila/internal/debt"
+	"github.com/jadmadi/sila/internal/daemon"
 	silagate "github.com/jadmadi/sila/internal/gate"
 	"github.com/jadmadi/sila/internal/heal"
+	"github.com/jadmadi/sila/internal/importmem"
 	"github.com/jadmadi/sila/internal/mcp"
 	"github.com/jadmadi/sila/internal/memory"
 	"github.com/jadmadi/sila/internal/render"
@@ -27,7 +28,7 @@ import (
 var doctorMemory bool
 var doctorAdoption bool
 
-func runDoctor(ui render.UI, dbPath, project string, repair, jsonOut, toonOut, skills, covenant, edge, debtFlag, mcpOnly bool) {
+func runDoctor(ui render.UI, dbPath, project string, repair, dryRun, jsonOut, toonOut, skills, covenant, edge, debtFlag, mcpOnly bool) {
 	if doctorAdoption {
 		st, _, err := openReadStore(dbPath)
 		if err != nil {
@@ -87,12 +88,17 @@ func runDoctor(ui render.UI, dbPath, project string, repair, jsonOut, toonOut, s
 		rep := &store.DoctorReport{Timestamp: time.Now().UTC()}
 		appendMCPFreshnessCheck(rep)
 		bridge := buildMCPBridgeDiagnostic(os.Getenv("HOME"))
+		daemonReport := daemon.RunMCPDoctor(daemon.MCPDoctorOptions{Repair: repair, DryRun: dryRun})
 		if jsonOut || toonOut {
 			emitJSON(map[string]any{
 				"freshness": rep.MCP,
 				"bridge":    bridge,
 				"checks":    rep.Checks,
+				"mcp":       daemonReport,
 			})
+			if !daemonReport.Healthy && !repair {
+				os.Exit(1)
+			}
 			return
 		}
 		fmt.Fprintf(os.Stdout, "%s\n", ui.Cyan(ui.Bold("sila · doctor (MCP)")))
@@ -103,6 +109,17 @@ func runDoctor(ui render.UI, dbPath, project string, repair, jsonOut, toonOut, s
 		fmt.Fprintf(os.Stdout, "  Schema digest:    %s\n", bridge.SchemaDigest)
 		fmt.Fprintf(os.Stdout, "  Expected envelope: %s\n", bridge.ExpectedEnvelope)
 		fmt.Fprintf(os.Stdout, "  Last proxy error:  %s\n", bridge.LastProxyError)
+		rows := make([][]string, 0, len(daemonReport.Checks))
+		for _, check := range daemonReport.Checks {
+			rows = append(rows, []string{check.Name, check.Status, check.Detail})
+		}
+		fmt.Fprint(os.Stdout, ui.Table([]string{"check", "status", "detail"}, rows, []string{"left", "left", "left"}))
+		for _, action := range daemonReport.Actions {
+			fmt.Fprintf(os.Stdout, "  action: %s\n", action)
+		}
+		if !daemonReport.Healthy && !repair {
+			os.Exit(1)
+		}
 		return
 	}
 	cwd, _ := os.Getwd()
@@ -169,7 +186,10 @@ func runDoctor(ui render.UI, dbPath, project string, repair, jsonOut, toonOut, s
 	appendCFCleanDoctorCheck(rep, cwd, repair)
 	appendRulesBudgetDoctorCheck(rep, cwd, repair)
 	appendDebtDoctorCheck(rep, cwd)
+	appendWorkspaceRubbishDoctorCheck(rep, st, cwd, repair, dryRun)
 	appendNegativeSignalsDoctorCheck(rep, st, project, cwd)
+	recallGateDoctorCheck(rep, targetDir)
+	appendImportManifestDoctorCheck(rep, cwd)
 
 	if jsonOut {
 		emitJSON(rep)
@@ -231,6 +251,37 @@ func runDoctor(ui render.UI, dbPath, project string, repair, jsonOut, toonOut, s
 }
 
 // runDoctorSkills executes the skill and MCP bloat audit and renders formatted tables and token estimates.
+func appendImportManifestDoctorCheck(rep *store.DoctorReport, cwd string) {
+	for _, c := range rep.Checks {
+		if c.Name == "Agent Memory Import Cache" {
+			return
+		}
+	}
+	if cwd == "" {
+		cwd, _ = os.Getwd()
+	}
+	status := importmem.ReadManifestStatus(cwd, time.Now().UTC())
+	switch {
+	case !status.Exists:
+		rep.AddCheck("Import", "Agent Memory Import Cache", store.StatusPass,
+			"No agent-memory import cache exists (optional).", "", "")
+	case status.Error != "":
+		rep.AddCheck("Import", "Agent Memory Import Cache", store.StatusWarn,
+			"The agent-memory import cache cannot be read.", status.Error,
+			"Remove .sila/state/import/manifest.json and re-run `sila import --yes`.")
+	case status.Stale:
+		rep.AddCheck("Import", "Agent Memory Import Cache", store.StatusWarn,
+			fmt.Sprintf("The agent-memory import cache is stale (%d entries).", status.Entries),
+			fmt.Sprintf("updated_at=%s", status.UpdatedAt),
+			"Re-run `sila import --yes` to refresh the cache.")
+	default:
+		rep.AddCheck("Import", "Agent Memory Import Cache", store.StatusPass,
+			fmt.Sprintf("Agent-memory import cache is current (%d entries).", status.Entries),
+			"", "")
+	}
+	rep.Finalize()
+}
+
 func runDoctorSkills(ui render.UI, st *store.Store, project string, jsonOut, toonOut bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
@@ -875,141 +926,4 @@ func appendNegativeSignalsDoctorCheck(rep *store.DoctorReport, st *store.Store, 
 			"Run verification or emit epistemic heartbeats for silenced invariants.")
 	}
 	rep.Finalize()
-}
-
-func appendDebtDoctorCheck(rep *store.DoctorReport, cwd string) {
-	for _, c := range rep.Checks {
-		if c.Name == "Tracked Technical Debt & Rot Sentry" {
-			return
-		}
-	}
-	if cwd == "" {
-		cwd, _ = os.Getwd()
-	}
-
-	report, err := debt.ScanRepoDebt(cwd, debt.DebtScanOptions{IncludeTests: false})
-	if err != nil {
-		rep.AddCheck("Audit", "Tracked Technical Debt & Rot Sentry", store.StatusWarn,
-			fmt.Sprintf("Failed to scan repository for debt comments: %v", err), "", "")
-		rep.Finalize()
-		return
-	}
-
-	if report.TotalItems == 0 {
-		rep.AddCheck("Audit", "Tracked Technical Debt & Rot Sentry", store.StatusPass,
-			"0 tracked debt comments (shortcut/ponytail) found; codebase is clean.", "", "")
-	} else if report.RotRiskCount > 0 {
-		var risks []string
-		for _, item := range report.Items {
-			if item.Status != debt.StatusHealthy {
-				risks = append(risks, fmt.Sprintf("%s:%d (%s): %s", item.File, item.Line, item.Marker, item.Details))
-			}
-		}
-		rep.AddCheck("Audit", "Tracked Technical Debt & Rot Sentry", store.StatusWarn,
-			fmt.Sprintf("%d tracked debt comment(s) found (%d rot risk(s) without upgrade triggers or ceilings)",
-				report.TotalItems, report.RotRiskCount),
-			strings.Join(risks, "\n"),
-			"Run `sila doctor --debt` to inspect tracked shortcuts and add explicit upgrade triggers.")
-	} else {
-		rep.AddCheck("Audit", "Tracked Technical Debt & Rot Sentry", store.StatusPass,
-			fmt.Sprintf("%d tracked debt comment(s) properly bounded with ceilings and upgrade triggers.", report.TotalItems),
-			"", "")
-	}
-	rep.Finalize()
-}
-
-func runDoctorDebt(ui render.UI, cwd string, jsonOut, toonOut bool) {
-	if cwd == "" {
-		cwd, _ = os.Getwd()
-	}
-
-	report, err := debt.ScanRepoDebt(cwd, debt.DebtScanOptions{IncludeTests: true})
-	if err != nil {
-		if jsonOut {
-			emitJSON(map[string]any{"error": err.Error()})
-		} else {
-			fmt.Fprintln(os.Stderr, ui.Red("sila doctor --debt: "+err.Error()))
-		}
-		os.Exit(1)
-	}
-
-	if jsonOut {
-		emitJSON(report)
-		return
-	}
-	if toonOut {
-		fmt.Fprint(os.Stdout, renderDoctorDebtTOON(report))
-		return
-	}
-
-	fmt.Fprintln(os.Stdout, ui.Cyan(ui.Bold("sila · doctor --debt (tracked debt scanner)")))
-	fmt.Fprintf(os.Stdout, "  Target:  %s\n", cwd)
-	fmt.Fprintf(os.Stdout, "  Summary: %s\n\n", report.Summary)
-
-	if len(report.Items) == 0 {
-		fmt.Fprintln(os.Stdout, ui.Green("✔ Zero tracked debt comments (shortcut/ponytail) found; codebase is clean."))
-		return
-	}
-
-	for _, it := range report.Items {
-		var icon, statusStr string
-		switch it.Status {
-		case debt.StatusHealthy:
-			icon = ui.Green("✔")
-			statusStr = ui.Green("HEALTHY")
-		default:
-			icon = ui.Yellow("▲")
-			statusStr = ui.Yellow("ROT RISK")
-		}
-
-		goalTag := ""
-		if it.LinkedGoal != "" {
-			goalTag = fmt.Sprintf(" [%s]", ui.Cyan("goal: "+it.LinkedGoal))
-		}
-
-		fmt.Fprintf(os.Stdout, "%s %s:%d [%s] %s%s\n", icon, it.File, it.Line, it.Marker, statusStr, goalTag)
-		if it.Ceiling != "" {
-			fmt.Fprintf(os.Stdout, "    %s %s\n", ui.Dim("ceiling:"), it.Ceiling)
-		}
-		if it.Trigger != "" {
-			fmt.Fprintf(os.Stdout, "    %s %s\n", ui.Dim("trigger:"), it.Trigger)
-		}
-		if it.Details != "" && it.Status != debt.StatusHealthy {
-			fmt.Fprintf(os.Stdout, "    %s %s\n", ui.Red("risk:"), it.Details)
-		}
-		fmt.Fprintln(os.Stdout)
-	}
-
-	if report.RotRiskCount > 0 {
-		fmt.Fprintln(os.Stdout, ui.Dim("Shortcuts without upgrade triggers risk permanent code rot."))
-		fmt.Fprintln(os.Stdout, ui.Dim("Format: `// shortcut: <ceiling>, <upgrade trigger>` or link with `[goal: <slug>]`."))
-	}
-}
-
-func renderDoctorDebtTOON(rep *debt.DebtReport) string {
-	var b strings.Builder
-	summaryFields := [][2]string{
-		{"total_items", fmt.Sprintf("%d", rep.TotalItems)},
-		{"healthy_count", fmt.Sprintf("%d", rep.HealthyCount)},
-		{"rot_risk_count", fmt.Sprintf("%d", rep.RotRiskCount)},
-	}
-	b.WriteString(render.FormatTOONObject("debt_summary", summaryFields))
-
-	if len(rep.Items) > 0 {
-		headers := []string{"file", "line", "marker", "status", "ceiling", "trigger", "linked_goal"}
-		var rows [][]string
-		for _, it := range rep.Items {
-			rows = append(rows, []string{
-				it.File,
-				fmt.Sprintf("%d", it.Line),
-				it.Marker,
-				string(it.Status),
-				it.Ceiling,
-				it.Trigger,
-				it.LinkedGoal,
-			})
-		}
-		b.WriteString(render.FormatTOONTable("debt_items", headers, rows))
-	}
-	return b.String()
 }

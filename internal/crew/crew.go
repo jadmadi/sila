@@ -12,6 +12,7 @@
 package crew
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -373,12 +374,11 @@ func (c *CrewManager) injectPersonaContext(wtPath string, personaIDs []string) {
 // spawnInTmux creates a tmux window and launches the harness command inside it.
 // Returns the PID of the spawned process.
 func (c *CrewManager) spawnInTmux(harness, goalSlug, worktreePath, session, window string) (int, error) {
-	// Ensure the tmux session exists.
-	cmd := exec.Command("tmux", "has-session", "-t", session)
-	if err := cmd.Run(); err != nil {
+	// Ensure the tmux session exists. Bound every call: a tmux server that
+	// cannot start (headless sandboxes, broken /dev/pts) must not hang sila.
+	if err := runTmux(2*time.Second, "has-session", "-t", session); err != nil {
 		// Session doesn't exist — create it detached.
-		cmd = exec.Command("tmux", "new-session", "-d", "-s", session, "-x", "220", "-y", "50")
-		if err := cmd.Run(); err != nil {
+		if err := runTmux(10*time.Second, "new-session", "-d", "-s", session, "-x", "220", "-y", "50"); err != nil {
 			return 0, fmt.Errorf("create tmux session: %w", err)
 		}
 	}
@@ -391,17 +391,15 @@ func (c *CrewManager) spawnInTmux(harness, goalSlug, worktreePath, session, wind
 	launchCmd := builder(harness, goalSlug, worktreePath)
 
 	// Create a new window in the session and run the command.
-	cmd = exec.Command("tmux", "new-window", "-t", session, "-n", window,
-		"-c", worktreePath, launchCmd)
-	if err := cmd.Run(); err != nil {
+	if err := runTmux(10*time.Second, "new-window", "-t", session, "-n", window,
+		"-c", worktreePath, launchCmd); err != nil {
 		return 0, fmt.Errorf("create tmux window: %w", err)
 	}
 
 	// Query the PID of the process running in the new window.
 	// tmux panes have a process PID accessible via display-message.
-	cmd = exec.Command("tmux", "display-message", "-p", "-t",
+	out, err := outputTmux(2*time.Second, "display-message", "-p", "-t",
 		session+":"+window, "#{pane_pid}")
-	out, err := cmd.Output()
 	if err != nil {
 		return 0, nil // tmux window created but PID unavailable — not fatal
 	}
@@ -439,8 +437,23 @@ func buildHarnessCommand(harness, goalSlug, worktreePath string) string {
 
 // tmuxAvailable checks if tmux is installed and on PATH.
 func tmuxAvailable() bool {
+	if os.Getenv("SILA_NO_TMUX") == "1" {
+		return false
+	}
 	_, err := exec.LookPath("tmux")
 	return err == nil
+}
+
+func runTmux(timeout time.Duration, args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return exec.CommandContext(ctx, "tmux", args...).Run()
+}
+
+func outputTmux(timeout time.Duration, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	return exec.CommandContext(ctx, "tmux", args...).Output()
 }
 
 // List returns all crewmates from persisted state files.

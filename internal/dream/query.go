@@ -79,7 +79,26 @@ func QueryStoreFacts(st *store.Store, terms []string, projectID, tool string, re
 }
 
 // QueryStoreFactsPaged queries claims with pagination (limit and offset) support.
+// Archived and superseded memories are excluded by default.
 func QueryStoreFactsPaged(st *store.Store, terms []string, projectID, tool string, refsExistOnly, staleOnly, factsOnly bool, limit, offset int) ([]store.Fact, error) {
+	return QueryStoreFactsPagedIncludingArchived(st, terms, projectID, tool, refsExistOnly, staleOnly, factsOnly, limit, offset, false)
+}
+
+// QueryStoreFactsPagedIncludingArchived is QueryStoreFactsPaged with an
+// explicit opt-in for archived and superseded memories.
+func QueryStoreFactsPagedIncludingArchived(st *store.Store, terms []string, projectID, tool string, refsExistOnly, staleOnly, factsOnly bool, limit, offset int, includeArchived bool) ([]store.Fact, error) {
+	facts, err := queryStoreFactsPaged(st, terms, projectID, tool, refsExistOnly, staleOnly, factsOnly, limit, offset)
+	if err != nil || includeArchived {
+		return facts, err
+	}
+	excluded, blockErr := st.NonCurrentMemoryFactIDs()
+	if blockErr != nil {
+		return facts, nil
+	}
+	return store.FilterNonCurrentFacts(facts, excluded), nil
+}
+
+func queryStoreFactsPaged(st *store.Store, terms []string, projectID, tool string, refsExistOnly, staleOnly, factsOnly bool, limit, offset int) ([]store.Fact, error) {
 	if staleOnly {
 		refsExistOnly = false
 	}

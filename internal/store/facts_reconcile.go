@@ -1,7 +1,10 @@
 package store
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -65,6 +68,38 @@ func (s *Store) reconcileFactDrift(projectID, projectDir string, dryRun bool) (R
 		}
 		isGrounded := ratio >= 0.5
 		allExist := existCount == len(f.RepoFiles)
+
+		// Compare the referenced files' content digests with the baseline
+		// stamped on the fact. Legacy facts are backfilled on this pass.
+		contentChanged := false
+		if !dryRun && isGrounded {
+			for _, rf := range f.RepoFiles {
+				full := rf
+				if projectDir != "" {
+					full = filepath.Join(projectDir, rf)
+				}
+				fi, statErr := os.Stat(full)
+				if statErr != nil || fi.IsDir() {
+					continue
+				}
+				digest, hashErr := fileSHA256(full)
+				if hashErr != nil {
+					continue
+				}
+				key := "fact_file_sha256:" + f.ID + ":" + rf
+				prior, stateErr := s.GetState(key)
+				if stateErr != nil {
+					continue
+				}
+				if prior == "" {
+					_ = s.SetState(key, "sha256:"+digest)
+					continue
+				}
+				if prior != "sha256:"+digest {
+					contentChanged = true
+				}
+			}
+		}
 
 		oldExist := f.FileRefsExist || f.Verified
 		oldFileExist := f.FileRefsExist
@@ -147,8 +182,30 @@ func (s *Store) reconcileFactDrift(projectID, projectDir string, dryRun bool) (R
 			}
 		}
 		if !dryRun {
+			if !isGrounded {
+				f.IsStaleFlag = true
+			}
 			if err := s.UpsertFact(f); err != nil {
 				return res, err
+			}
+			if !isGrounded {
+				if _, err := s.DB.Exec(`UPDATE facts SET is_stale = 1, stale_reason = 'referenced files missing' WHERE id = ?`, f.ID); err != nil {
+					return res, err
+				}
+			} else {
+				if _, err := s.DB.Exec(`UPDATE facts SET is_stale = 0, stale_reason = '' WHERE id = ? AND stale_reason = 'referenced files missing'`, f.ID); err != nil {
+					return res, err
+				}
+				var tier string
+				var score float64
+				if err := s.DB.QueryRow(`SELECT maturity_tier, maturity_score FROM facts WHERE id = ?`, f.ID).Scan(&tier, &score); err == nil {
+					if !contentChanged || f.Corroboration == "corroborated" {
+						score = clampMaturityScore(score + 5)
+						if _, err := s.DB.Exec(`UPDATE facts SET maturity_score = ?, maturity_tier = ? WHERE id = ?`, score, AdvanceMaturity(tier, score), f.ID); err != nil {
+							return res, err
+						}
+					}
+				}
 			}
 		}
 	}
@@ -209,4 +266,18 @@ func (s *Store) ReconcileDriftPreview(projectSel string) (ReconcileResult, error
 		total.AssertionsVerified += res.AssertionsVerified
 	}
 	return total, nil
+}
+
+// fileSHA256 returns the lowercase hex SHA-256 digest of a regular file's bytes.
+func fileSHA256(path string) (string, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }

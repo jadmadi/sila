@@ -107,6 +107,18 @@ func TestBwrapHostNamespaceIsolation(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// Nested sandboxes (the test itself running inside bubblewrap or a
+	// container without namespace privileges) cannot create another namespace.
+	// Probe the exact execution path and skip when the capability is absent.
+	probe, probeErr := ExecuteInNamespace(ctx, sandbox, []string{"true"}, nil, "")
+	if probeErr != nil || probe == nil || probe.ExitCode != 0 {
+		exitCode := -1
+		if probe != nil {
+			exitCode = probe.ExitCode
+		}
+		t.Skipf("bubblewrap cannot create namespaces in this environment (err=%v exit=%d)", probeErr, exitCode)
+	}
+
 	// Verify host paths outside sandbox such as /mnt cannot be accessed
 	res, err := ExecuteInNamespace(ctx, sandbox, []string{"ls", "/mnt"}, nil, "")
 	if err == nil && res.ExitCode == 0 {

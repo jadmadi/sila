@@ -2,6 +2,8 @@ package loaders
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -414,5 +416,69 @@ func TestHighRateIngestionBenchmark(t *testing.T) {
 	}
 	if count != totalEvents {
 		t.Fatalf("expected %d pending events, got %d", totalEvents, count)
+	}
+}
+
+func TestHookToolEnvelopeStreaming(t *testing.T) {
+	big := strings.Repeat("a", 32*1024)
+	payload, err := json.Marshal(map[string]any{
+		"hook_event_name": "PreToolUse",
+		"session_id":      "sess-stream",
+		"cwd":             "/workspace/project",
+		"tool_name":       "write_file",
+		"tool_input":      map[string]any{"content": big},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(payload) <= MaxHookPayloadBytes {
+		t.Fatalf("fixture must exceed 16 KiB, got %d bytes", len(payload))
+	}
+
+	if _, err := ParseHookEnvelope(payload); !errors.Is(err, ErrPayloadTooLarge) {
+		t.Fatalf("ParseHookEnvelope error = %v, want ErrPayloadTooLarge", err)
+	}
+	env, err := ParseHookEnvelopeWithLimit(payload, MaxToolHookPayloadBytes)
+	if err != nil {
+		t.Fatalf("ParseHookEnvelopeWithLimit: %v", err)
+	}
+	if env.SessionID != "sess-stream" || env.Payload["tool_input"] == nil {
+		t.Fatalf("parsed envelope lost routing or tool input: %#v", env)
+	}
+
+	truncated := TruncateToolHookEnvelope(payload, MaxHookPayloadBytes)
+	if len(truncated) > MaxHookPayloadBytes {
+		t.Fatalf("truncated envelope is %d bytes, want <= %d", len(truncated), MaxHookPayloadBytes)
+	}
+	var raw map[string]any
+	if err := json.Unmarshal(truncated, &raw); err != nil {
+		t.Fatalf("truncated envelope is not JSON: %v", err)
+	}
+	for _, key := range []string{"session_id", "cwd", "hook_event_name", "tool_name"} {
+		if _, ok := raw[key]; !ok {
+			t.Errorf("truncated envelope lost %q", key)
+		}
+	}
+
+	if !ContainsSecret("AKIA1234567890ABCDEF") {
+		t.Fatal("AWS key not detected")
+	}
+	if ContainsSecret("plain markdown content") {
+		t.Fatal("clean text flagged as a secret")
+	}
+
+	if !IsUnparsedToolInputWrapper(map[string]any{"raw": "{...", "len": float64(412)}) {
+		t.Fatal("{raw,len} wrapper not detected")
+	}
+	if !IsUnparsedToolInputWrapper(map[string]any{"__unparsedToolInput": "{...}"}) {
+		t.Fatal("__unparsedToolInput wrapper not detected")
+	}
+	if IsUnparsedToolInputWrapper(map[string]any{"command": "ls"}) {
+		t.Fatal("documented arguments flagged as a wrapper")
+	}
+
+	tooBig := bytes.Repeat([]byte(" "), MaxToolHookPayloadBytes+1)
+	if _, err := ParseHookEnvelopeWithLimit(tooBig, MaxToolHookPayloadBytes); !errors.Is(err, ErrPayloadTooLarge) {
+		t.Fatalf("oversized payload error = %v, want ErrPayloadTooLarge", err)
 	}
 }

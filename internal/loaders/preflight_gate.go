@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/jadmadi/sila/internal/config"
 	"os"
 	"path/filepath"
 	"strings"
@@ -191,6 +192,9 @@ func PreflightContextHash(project, sessionID string, policy PreflightPolicy, sta
 
 // WritePreflightMarker writes the marker atomically with mode 0600.
 func WritePreflightMarker(projectDir string, marker PreflightMarker) (string, error) {
+	if config.IsForbiddenLocalStateDir(projectDir) {
+		return "", nil
+	}
 	path := PreflightMarkerPath(projectDir, marker.SessionID)
 	if path == "" {
 		return "", fmt.Errorf("preflight marker: project directory is required")
@@ -422,7 +426,7 @@ func preflightCommand(toolInput string) string {
 }
 
 func warnOnce(projectDir, sessionID string) bool {
-	if projectDir == "" {
+	if projectDir == "" || config.IsForbiddenLocalStateDir(projectDir) {
 		return true
 	}
 	path := filepath.Join(projectDir, ".sila", "state", "preflight", sanitizePreflightSession(sessionID)+".warn")

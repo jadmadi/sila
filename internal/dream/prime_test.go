@@ -1,6 +1,7 @@
 package dream
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -907,4 +908,154 @@ func TestPrimeHandoffExistingDirAndStaleBehindHEAD(t *testing.T) {
 	if !brief.ActiveHandoff.Stale || !strings.Contains(brief.Markdown, "[STALE:") {
 		t.Fatalf("expected handoff behind HEAD to carry [STALE: ...] marker, got:\n%s", brief.Markdown)
 	}
+}
+
+func setupPrimeRecallPack(t *testing.T) (*store.Store, string, string) {
+	t.Helper()
+	dir := t.TempDir()
+	st, err := store.Open(filepath.Join(dir, "prime_pack.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { st.Close() })
+	proj, err := st.EnsureProject(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rel := "scripts/deploy.sh"
+	full := filepath.Join(dir, filepath.FromSlash(rel))
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(full, []byte("fixture"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.InsertLesson(proj.ID, store.FormatLesson("deploy ordering race", "shared state", "serialize deploy", ""), "agent", dir, []string{rel}); err != nil {
+		t.Fatal(err)
+	}
+	return st, proj.ID, dir
+}
+
+func TestPrimeIncludesRecallPack(t *testing.T) {
+	st, projectID, dir := setupPrimeRecallPack(t)
+	brief, err := BuildPrimeBriefWithOptions(st, PrimeOptions{
+		ProjectSel:         projectID,
+		ProjectDir:         dir,
+		MaxFacts:           5,
+		IncludeMarkdown:    true,
+		DisableCodebaseMap: true,
+		Context:            &RecallContext{Task: "deploy ordering", Paths: []string{"scripts/deploy.sh"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if brief.RecallPack == nil {
+		t.Fatal("prime brief has no recall pack")
+	}
+	if len(brief.RecallPack.Items) == 0 {
+		t.Fatalf("recall pack is empty: %+v", brief.RecallPack)
+	}
+	if !strings.Contains(brief.Markdown, "Context Recall Pack") {
+		t.Fatalf("briefing markdown is missing the pack section:\n%s", brief.Markdown)
+	}
+	if !strings.Contains(brief.Markdown, "untrusted, possibly stale data") {
+		t.Fatalf("briefing markdown is missing the untrusted line:\n%s", brief.Markdown)
+	}
+}
+
+func TestPrimePackBudgetDropOrder(t *testing.T) {
+	st, projectID, dir := setupPrimeRecallPack(t)
+	ctx := &RecallContext{Task: "deploy ordering", Paths: []string{"scripts/deploy.sh"}}
+
+	generous, err := BuildPrimeBriefWithOptions(st, PrimeOptions{
+		ProjectSel: projectID, ProjectDir: dir, MaxFacts: 5, MaxTokens: 8000,
+		IncludeMarkdown: true, DisableCodebaseMap: true, Context: ctx,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if generous.RecallPack == nil {
+		t.Fatal("generous budget dropped the pack")
+	}
+	packIdx := strings.Index(generous.Markdown, "Context Recall Pack")
+	groundIdx := strings.Index(generous.Markdown, "**Disk Grounding**")
+	if packIdx < 0 || groundIdx < 0 || packIdx > groundIdx {
+		t.Fatalf("pack is not placed before disk grounding:\n%s", generous.Markdown)
+	}
+
+	for _, budget := range []int{700, 800, 900, 1000, 1200, 1600} {
+		baseline, err := BuildPrimeBriefWithOptions(st, PrimeOptions{
+			ProjectSel: projectID, ProjectDir: dir, MaxFacts: 5, MaxTokens: budget,
+			IncludeMarkdown: true, DisableCodebaseMap: true,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		brief, err := BuildPrimeBriefWithOptions(st, PrimeOptions{
+			ProjectSel: projectID, ProjectDir: dir, MaxFacts: 5, MaxTokens: budget,
+			IncludeMarkdown: true, DisableCodebaseMap: true, Context: ctx,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if brief.BudgetMetrics == nil {
+			t.Fatalf("budget %d produced no metrics", budget)
+		}
+		if baseline.BudgetMetrics == nil || !baseline.BudgetMetrics.FitsBudget {
+			continue // pre-existing content already exceeds this budget
+		}
+		if !brief.BudgetMetrics.FitsBudget {
+			t.Fatalf("budget %d was exceeded by a pack: %+v", budget, brief.BudgetMetrics)
+		}
+		if brief.BudgetMetrics.SerializedTotalTokens > budget {
+			t.Fatalf("budget %d: serialized tokens = %d", budget, brief.BudgetMetrics.SerializedTotalTokens)
+		}
+	}
+}
+
+func TestPrimeExcludesArchived(t *testing.T) {
+	tmp := t.TempDir()
+	st, err := store.Open(filepath.Join(tmp, "prime-archive.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	proj, err := st.EnsureProject(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rec := archivedMemoryFixture(t, st, proj.ID, "Narwhal prime needle", "Narwhal prime needle fact")
+	prime, err := BuildPrimeBriefWithOptions(st, PrimeOptions{ProjectSel: proj.ID, ProjectDir: tmp, MaxFacts: 5, IncludeMarkdown: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !primeContainsFact(prime.TopFacts, rec.FactID) {
+		t.Fatalf("prime before archive did not include the fact: %+v", prime.TopFacts)
+	}
+	if _, err := st.ArchiveMemory(context.Background(), proj.ID, rec.ID, store.ArchiveAuthorityUserRequest, store.ArchiveReasonOutdated, "", "user", ""); err != nil {
+		t.Fatal(err)
+	}
+	prime, err = BuildPrimeBriefWithOptions(st, PrimeOptions{ProjectSel: proj.ID, ProjectDir: tmp, MaxFacts: 5, IncludeMarkdown: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if primeContainsFact(prime.TopFacts, rec.FactID) {
+		t.Fatalf("prime included archived fact: %+v", prime.TopFacts)
+	}
+	prime, err = BuildPrimeBriefWithOptions(st, PrimeOptions{ProjectSel: proj.ID, ProjectDir: tmp, MaxFacts: 5, IncludeMarkdown: true, IncludeArchived: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !primeContainsFact(prime.TopFacts, rec.FactID) {
+		t.Fatalf("include-archived prime did not include the fact: %+v", prime.TopFacts)
+	}
+}
+
+func primeContainsFact(facts []store.Fact, id string) bool {
+	for _, fact := range facts {
+		if fact.ID == id {
+			return true
+		}
+	}
+	return false
 }

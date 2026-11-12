@@ -45,6 +45,9 @@ func NeedsCFGitFilter(repoRoot string) bool {
 	}
 
 	// 2. Check local git config if in a git repository
+	if _, err := os.Stat(filepath.Join(repoRoot, ".git")); err != nil {
+		return false
+	}
 	cmdClean := exec.Command("git", "config", "filter.cfclean.clean")
 	cmdClean.Dir = repoRoot
 	outClean, errClean := cmdClean.Output()

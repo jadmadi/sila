@@ -167,8 +167,8 @@ func TestCheckMCPClientCache(t *testing.T) {
 		want      CheckStatus
 		wantInMsg string
 	}{
-		{name: "stale cache", files: 6, want: StatusWarn, wantInMsg: "has 6 tool(s); expected at least 36"},
-		{name: "complete cache", files: 36, want: StatusPass, wantInMsg: "is current (36 tool schemas cached)"},
+		{name: "stale cache", files: 6, want: StatusWarn, wantInMsg: fmt.Sprintf("has 6 tool(s); expected at least %d", DefaultContinuityToolCount)},
+		{name: "complete cache", files: DefaultContinuityToolCount, want: StatusPass, wantInMsg: fmt.Sprintf("is current (%d tool schemas cached)", DefaultContinuityToolCount)},
 		{name: "absent cache", files: 0, want: StatusPass, wantInMsg: "no local Antigravity schema cache directory"},
 	}
 	for _, tc := range cases {
@@ -289,5 +289,40 @@ func TestDoctorRepairCanonicalizesSubdirectoryProjectWithGoalEvents(t *testing.T
 	}
 	if eventCount != 1 {
 		t.Fatalf("expected subdir_events to be migrated to parent 'repo', count=%d", eventCount)
+	}
+}
+
+func TestIsRepoOrWorkspaceDirExcludesHomeConfigAndDownloadDirs(t *testing.T) {
+	fakeHome := t.TempDir()
+	t.Setenv("HOME", fakeHome)
+
+	nonRepoDirs := []string{
+		filepath.Join(fakeHome, ".agents"),
+		filepath.Join(fakeHome, ".gemini"),
+		filepath.Join(fakeHome, ".config", "opencode"),
+		filepath.Join(fakeHome, ".local", "share", "sila"),
+		filepath.Join(fakeHome, ".var", "app", "ai.opencode.opencode", "config", "opencode"),
+		filepath.Join(fakeHome, "Downloads", "Debs", "Antigravity-x64"),
+		filepath.Join(fakeHome, "tmp", "empty"),
+		filepath.Join(fakeHome, "temp-agy", "system-crash"),
+	}
+	for _, d := range nonRepoDirs {
+		if err := os.MkdirAll(filepath.Join(d, "goals"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(d, "AGENTS.md"), []byte("# rules\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if IsRepoOrWorkspaceDir(d) {
+			t.Fatalf("expected %s without .git to be excluded by IsRepoOrWorkspaceDir", d)
+		}
+	}
+
+	gitPlugin := filepath.Join(fakeHome, ".gemini", "config", "plugins", "agent-skills")
+	if err := os.MkdirAll(filepath.Join(gitPlugin, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if !IsRepoOrWorkspaceDir(gitPlugin) {
+		t.Fatalf("expected %s with .git to be accepted by IsRepoOrWorkspaceDir", gitPlugin)
 	}
 }

@@ -32,7 +32,7 @@ type CheckResult struct {
 // DefaultContinuityToolCount mirrors mcp.ContinuityToolCount. It lives here so
 // internal/store can report continuity-surface health without importing
 // internal/mcp, which already imports this package.
-const DefaultContinuityToolCount = 36
+const DefaultContinuityToolCount = 10
 
 // CheckMCPClientCache compares the client-cached Antigravity MCP schema
 // directory against the expected continuity surface. A stale cache hides tools
@@ -135,7 +135,7 @@ func (s *Store) Doctor(repair bool) (*DoctorReport, error) {
 	// 2. Schema Migration Version Check
 	var currentVer int
 	_ = s.DB.QueryRow(`PRAGMA user_version`).Scan(&currentVer)
-	targetVer := len(migrations)
+	targetVer := CurrentSchemaVersion()
 	if currentVer > targetVer {
 		rep.addCheck("Schema", "Schema Migrations", StatusFail,
 			fmt.Sprintf("Store schema is version %d, newer than this sila build supports (%d).", currentVer, targetVer),
@@ -228,6 +228,43 @@ func (s *Store) Doctor(repair bool) (*DoctorReport, error) {
 	checkFTS("messages", "messages_fts")
 	checkFTS("facts", "facts_fts")
 	checkFTS("docs", "docs_fts")
+
+	// 3b. Typed Memory Envelope Health
+	if mem, memErr := s.MemoryDiagnostics(); memErr == nil {
+		issues := mem.OrphanedAssertions + mem.OrphanedEvidence + mem.OrphanedRelations +
+			mem.BrokenRelationTargets + mem.CorruptEnvelopes + mem.FTSMissing +
+			mem.OrphanLifecycleEvents + mem.BrokenLifecycleChains + mem.StateIndexMismatches
+		if issues == 0 {
+			rep.addCheck("Index", "Typed Memory Envelopes", StatusPass,
+				fmt.Sprintf("Schema v%d: %d record(s), %d lifecycle event(s), normalized rows and memory_fts are consistent.",
+					mem.SchemaVersion, mem.Records, mem.LifecycleEvents), "", "")
+		} else {
+			rep.addCheck("Index", "Typed Memory Envelopes", StatusWarn,
+				fmt.Sprintf("Schema v%d: %d record(s), %d lifecycle event(s), %d orphaned row(s), %d broken relation target(s), %d corrupt envelope(s), %d missing FTS row(s), %d orphan lifecycle event(s), %d broken lifecycle chain(s), %d state/index mismatch(es).",
+					mem.SchemaVersion, mem.Records, mem.LifecycleEvents, mem.OrphanedAssertions+mem.OrphanedEvidence+mem.OrphanedRelations,
+					mem.BrokenRelationTargets, mem.CorruptEnvelopes, mem.FTSMissing,
+					mem.OrphanLifecycleEvents, mem.BrokenLifecycleChains, mem.StateIndexMismatches), "",
+				"Run `sila doctor --repair` to prune unreachable child rows and rebuild memory_fts; corrupt envelopes are reported, never deleted.")
+		}
+	} else {
+		rep.addCheck("Index", "Typed Memory Envelopes", StatusWarn, fmt.Sprintf("Typed memory diagnostics unavailable: %v", memErr), "", "")
+	}
+
+	// 3c. Memory Relevance Feedback Ledger Health
+	if fb, fbErr := s.MemoryFeedbackDiagnostics(time.Now().UTC()); fbErr == nil {
+		issues := fb.OrphanedItems + fb.OrphanedFeedback
+		message := fmt.Sprintf("%d retrieval(s), %d returned item(s), %d feedback row(s), %d superseded, %d expired retrieval(s), %d expired feedback row(s), %d orphaned item(s), %d orphaned feedback row(s).",
+			fb.Retrievals, fb.Items, fb.Feedback, fb.Superseded,
+			fb.ExpiredRetrievals, fb.ExpiredFeedback, fb.OrphanedItems, fb.OrphanedFeedback)
+		if issues == 0 {
+			rep.addCheck("Index", "Memory Relevance Feedback", StatusPass, message, "", "")
+		} else {
+			rep.addCheck("Index", "Memory Relevance Feedback", StatusWarn, message, "",
+				"Orphaned feedback rows are reported, never deleted. New retrievals prune expired rows in bounded batches.")
+		}
+	} else {
+		rep.addCheck("Index", "Memory Relevance Feedback", StatusWarn, fmt.Sprintf("Memory feedback diagnostics unavailable: %v", fbErr), "", "")
+	}
 
 	// 4. File Storage & Fragmentation Check
 	stats, err := s.Stats()
@@ -409,7 +446,10 @@ func (s *Store) Doctor(repair bool) (*DoctorReport, error) {
 				for pRows.Next() {
 					var ep emptyProj
 					if err := pRows.Scan(&ep.id, &ep.path); err == nil {
-						if _, statErr := os.Stat(ep.path); os.IsNotExist(statErr) && ep.path != filepath.Join(os.Getenv("HOME"), "sila", "no-project") {
+						_, statErr := os.Stat(ep.path)
+						isMissing := os.IsNotExist(statErr) && ep.path != filepath.Join(os.Getenv("HOME"), "sila", "no-project")
+						isTempOrNonRepo := statErr == nil && !IsTempDirPath(ep.path) && !IsRepoOrWorkspaceDir(ep.path)
+						if isMissing || isTempOrNonRepo {
 							toPrune = append(toPrune, ep)
 						}
 					}
@@ -444,6 +484,17 @@ func (s *Store) Doctor(repair bool) (*DoctorReport, error) {
 		}
 		if ftsRebuilt {
 			repaired = append(repaired, "Rebuilt FTS5 virtual full-text indexes (messages_fts, facts_fts, docs_fts)")
+		}
+
+		// Typed memory: prune unreachable child rows and rebuild memory_fts.
+		if mem, memErr := s.MemoryDiagnostics(); memErr == nil {
+			if mem.OrphanedAssertions+mem.OrphanedEvidence+mem.OrphanedRelations+mem.FTSMissing > 0 {
+				if memRepairs, rErr := s.RepairMemoryIndexes(); rErr != nil {
+					repaired = append(repaired, fmt.Sprintf("Typed memory repair error: %v", rErr))
+				} else {
+					repaired = append(repaired, memRepairs...)
+				}
+			}
 		}
 
 		// Repair fact ledger cryptographic hash chain if unhashed legacy blocks exist

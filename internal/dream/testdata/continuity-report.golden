@@ -1,0 +1,41 @@
+# Continuity report
+
+Window: 2026-11-06T00:00:00Z to 2026-11-07T00:00:00Z
+
+## Harnesses
+_Sessions and messages ingested per tool in the window._
+
+- claude: 2 sessions, 1 messages
+- codex: 1 sessions, 1 messages
+
+## Continuity
+_How many sessions were primed, and how many handoffs crossed tools._
+
+- Coverage: 100% (2 of 2 primed sessions)
+- agent-a to agent-b: h1
+
+## Knowledge
+_New decisions, lessons, closed goals, and handoffs written._
+
+- Memos: 1
+- Lessons: 1
+- Goals closed: 0
+- Handoffs written: 1
+
+## Health
+_Stale facts, disputed directives, expired memos, and broken chains._
+
+- Stale facts: 1
+- Disputed directives: 0
+- Expired memos: 0
+- Broken chains: 0
+
+## Open handoffs
+_At most three open handoffs, newest first._
+
+- agent-a (0 open): first handoff
+
+## Verdict
+_One sentence generated from the numbers above._
+
+Continuity worked in 2 of 2 sessions; 1 handoffs crossed tools.

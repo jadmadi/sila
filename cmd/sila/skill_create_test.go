@@ -2,11 +2,13 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/jadmadi/sila/internal/render"
+	"github.com/jadmadi/sila/internal/skillcreator"
 	"github.com/jadmadi/sila/internal/store"
 )
 
@@ -168,4 +170,89 @@ func TestSkillCreateCLI(t *testing.T) {
 	if !strings.Contains(outSkillsCompactJSON, `"compact": true`) || !strings.Contains(outSkillsCompactJSON, `"slug": "production-readiness-scorecard"`) {
 		t.Errorf("expected JSON compact output, got: %s", outSkillsCompactJSON)
 	}
+}
+
+// TestSkillCandidateStagingAndPromote proves candidate staging stays out of the
+// active tree, promote validates and moves a skill, and malformed frontmatter
+// is rejected without creating an active skill.
+func TestSkillCandidateStagingAndPromote(t *testing.T) {
+	if os.Getenv("SKILL_PROMOTE_BAD") == "1" {
+		ui := render.New(os.Stdout, true)
+		runSkillPromote(ui, false, false, os.Getenv("SKILL_PROMOTE_DIR"), "bad-skill")
+		return
+	}
+
+	projectDir := t.TempDir()
+	draft := skillcreator.SkillDraft{
+		Slug:        "candidate-skill",
+		Name:        "Candidate Skill",
+		Description: "Use when testing isolated candidate skill staging",
+		Overview:    "A staged skill that is not active until promoted.",
+		Triggers:    []string{"candidate staging test"},
+	}
+
+	res, err := scaffoldCandidateSkill(projectDir, draft, false)
+	if err != nil {
+		t.Fatalf("scaffold candidate: %v", err)
+	}
+	wantMD := filepath.Join(projectDir, ".sila", "candidates", "skills", "candidate-skill", "SKILL.md")
+	if res.SkillMDPath != wantMD {
+		t.Fatalf("SkillMDPath = %q, want %q", res.SkillMDPath, wantMD)
+	}
+	if _, err := os.Stat(wantMD); err != nil {
+		t.Fatalf("candidate SKILL.md missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(projectDir, ".agents", "skills", "candidate-skill")); !os.IsNotExist(err) {
+		t.Fatalf("candidate staging wrote into .agents/skills: err=%v", err)
+	}
+	if _, err := scaffoldCandidateSkill(projectDir, draft, false); err == nil {
+		t.Fatal("expected duplicate candidate staging to fail without --force")
+	}
+	if _, err := scaffoldCandidateSkill(projectDir, draft, true); err != nil {
+		t.Fatalf("expected --force to replace the candidate: %v", err)
+	}
+
+	dest, err := promoteCandidateSkill(projectDir, "candidate-skill")
+	if err != nil {
+		t.Fatalf("promote candidate: %v", err)
+	}
+	if _, err := os.Stat(dest); err != nil {
+		t.Fatalf("promoted SKILL.md missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(projectDir, ".sila", "candidates", "skills", "candidate-skill")); !os.IsNotExist(err) {
+		t.Fatalf("candidate directory still exists after promote: err=%v", err)
+	}
+
+	badDir := filepath.Join(projectDir, ".sila", "candidates", "skills", "bad-skill")
+	if err := os.MkdirAll(badDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	badMD := filepath.Join(badDir, "SKILL.md")
+	if err := os.WriteFile(badMD, []byte("---\nname: bad-skill\ndescription: Fix: unquoted colon\n---\n# Bad\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := promoteCandidateSkill(projectDir, "bad-skill"); err == nil {
+		t.Fatal("expected malformed frontmatter to be rejected")
+	}
+	if _, err := os.Stat(filepath.Join(projectDir, ".agents", "skills", "bad-skill")); !os.IsNotExist(err) {
+		t.Fatalf("malformed candidate became active: err=%v", err)
+	}
+
+	if err := os.WriteFile(badMD, []byte("---\nname: bad-skill\n---\n# Bad\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := promoteCandidateSkill(projectDir, "bad-skill"); err == nil {
+		t.Fatal("expected missing description to be rejected")
+	}
+
+	t.Run("nonzero_exit_on_malformed", func(t *testing.T) {
+		if err := os.WriteFile(badMD, []byte("---\nname: bad-skill\ndescription: Fix: unquoted colon\n---\n# Bad\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		cmd := exec.Command(os.Args[0], "-test.run=TestSkillCandidateStagingAndPromote")
+		cmd.Env = append(os.Environ(), "SKILL_PROMOTE_BAD=1", "SKILL_PROMOTE_DIR="+projectDir)
+		if err := cmd.Run(); err == nil {
+			t.Fatal("expected non-zero exit for malformed candidate promote")
+		}
+	})
 }

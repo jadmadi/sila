@@ -12,7 +12,7 @@ The distillation pipeline reads pending raw claims from `sila.db`, executes a st
 ```json
 {
   "claim_id": "fact_a1b2c3d4",
-  "project_id": "example-app",
+  "project_id": "example-app-App",
   "raw_message": "Done. Built and deployed almatjar-store-manager so the /dashboard/tree toggle is live.",
   "repo_files": ["apps/store-manager/routes.ts", "scripts/deploy.sh"],
   "tools": ["devin", "mimocode"],

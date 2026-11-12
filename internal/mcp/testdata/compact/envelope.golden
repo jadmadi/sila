@@ -1,0 +1,209 @@
+{
+  "hint": "expand with id=\u003cid\u003e",
+  "hits": [
+    {
+      "id": "hit-a",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 100,
+      "tokens": 32
+    },
+    {
+      "id": "hit-b",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 99,
+      "tokens": 32
+    },
+    {
+      "id": "hit-c",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 98,
+      "tokens": 32
+    },
+    {
+      "id": "hit-d",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 97,
+      "tokens": 32
+    },
+    {
+      "id": "hit-e",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 96,
+      "tokens": 32
+    },
+    {
+      "id": "hit-f",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 95,
+      "tokens": 32
+    },
+    {
+      "id": "hit-g",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 94,
+      "tokens": 32
+    },
+    {
+      "id": "hit-h",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 93,
+      "tokens": 32
+    },
+    {
+      "id": "hit-i",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 92,
+      "tokens": 32
+    },
+    {
+      "id": "hit-j",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 91,
+      "tokens": 32
+    },
+    {
+      "id": "hit-k",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 90,
+      "tokens": 32
+    },
+    {
+      "id": "hit-l",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 89,
+      "tokens": 32
+    },
+    {
+      "id": "hit-m",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 88,
+      "tokens": 32
+    },
+    {
+      "id": "hit-n",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 87,
+      "tokens": 32
+    },
+    {
+      "id": "hit-o",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 86,
+      "tokens": 32
+    },
+    {
+      "id": "hit-p",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 85,
+      "tokens": 32
+    },
+    {
+      "id": "hit-q",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 84,
+      "tokens": 32
+    },
+    {
+      "id": "hit-r",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 83,
+      "tokens": 32
+    },
+    {
+      "id": "hit-s",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 82,
+      "tokens": 32
+    },
+    {
+      "id": "hit-t",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 81,
+      "tokens": 32
+    },
+    {
+      "id": "hit-u",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 80,
+      "tokens": 32
+    },
+    {
+      "id": "hit-v",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 79,
+      "tokens": 32
+    },
+    {
+      "id": "hit-w",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 78,
+      "tokens": 32
+    },
+    {
+      "id": "hit-x",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 77,
+      "tokens": 32
+    },
+    {
+      "id": "hit-y",
+      "kind": "lesson",
+      "title": "symptom title for compact envelope",
+      "when": "2026-11-06T10:00:00Z",
+      "score": 76,
+      "tokens": 32
+    }
+  ],
+  "query": "fixture",
+  "tokens": 800,
+  "total": 30,
+  "truncated": true
+}

@@ -52,6 +52,7 @@ Reviewed on: {{.Date}}
 		args:      []string{"create", "auto-templated", "--title=Auto Templated Goal", "--desc=Auto template test"},
 		title:     "Auto Templated Goal",
 		desc:      "Auto template test",
+		touch:     "internal/template/auto.go",
 	}
 
 	gc.handleCreate(tmpDir, "auto-templated")
@@ -115,6 +116,7 @@ Team: Core Platform
 		},
 		title: "Flag Templated Goal",
 		desc:  "Testing explicit template flag",
+		touch: "internal/template/flag.go",
 	}
 
 	gc.handleCreate(tmpDir, "flag-templated")

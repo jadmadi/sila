@@ -222,6 +222,12 @@ func runInstall(ui render.UI, project, toolsFlag, policyPack string, noHooks, no
 			}
 		}
 		res.PreviewPlan = append(res.PreviewPlan, agents.PlannedWrite{Action: "write", Path: ".agents/skills/sila/SKILL.md", Detail: "provision the canonical Sila skill; also writes ~/.agents/skills/sila/SKILL.md and harness discovery symlinks"})
+		if !noMCP {
+			home, _ := os.UserHomeDir()
+			for _, mcp := range onboard.MCPProvisionPlan(cwd, home) {
+				res.PreviewPlan = append(res.PreviewPlan, agents.PlannedWrite{Action: "merge", Path: mcp.Path, Detail: "MCP server sila with env SILA_AGENT=" + mcp.Agent})
+			}
+		}
 		if jsonOut {
 			emitJSON(map[string]any{"dry_run": true, "repo_root": cwd, "project": project, "tools": tools, "plan": res.PreviewPlan, "notes": res.Notes, "errors": res.Errors})
 		} else {
@@ -601,11 +607,18 @@ func detectedUserHookHarnesses(homeDir string) []string {
 		{"command-code", ".commandcode"},
 		{"zcode", ".zcode/cli"},
 		{"opencode", ".config/opencode/plugins"},
+		{"opencode", ".config/opencode"},
+		{"opencode", ".var/app/ai.opencode.opencode"},
 	}
 	var out []string
+	seen := make(map[string]bool, len(candidates))
 	for _, c := range candidates {
+		if seen[c.harness] {
+			continue
+		}
 		fi, err := os.Stat(filepath.Join(homeDir, filepath.FromSlash(c.hostDir)))
 		if err == nil && fi.IsDir() {
+			seen[c.harness] = true
 			out = append(out, c.harness)
 		}
 	}

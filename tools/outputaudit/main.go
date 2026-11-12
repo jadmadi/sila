@@ -430,6 +430,11 @@ func SurfaceManifest(canonicalCommands []string) []SurfaceSpec {
 		{Group: "help", Label: "help__all", Command: "salam", Argv: []string{"help", "all"}, Mode: "help", ExpectedExit: 0, Golden: "help/all.txt"},
 		{Group: "help", Label: "help__goals", Command: "goals", Argv: []string{"goals", "--help"}, Mode: "help", ExpectedExit: 0, Golden: "help/goals.txt"},
 		{Group: "help", Label: "help__gate", Command: "gate", Argv: []string{"gate", "--help"}, Mode: "help", ExpectedExit: 0, Golden: "help/gate.txt"},
+		{Group: "help", Label: "help__connect", Command: "connect", Argv: []string{"connect", "--help"}, Mode: "help", ExpectedExit: 0, Golden: "help/connect.txt"},
+		{Group: "help", Label: "help__cards", Command: "cards", Argv: []string{"cards", "--help"}, Mode: "help", ExpectedExit: 0, Golden: "help/cards.txt"},
+		{Group: "help", Label: "help__daemon", Command: "daemon", Argv: []string{"daemon", "--help"}, Mode: "help", ExpectedExit: 0, Golden: "help/daemon.txt"},
+		{Group: "help", Label: "help__man", Command: "man", Argv: []string{"man", "--help"}, Mode: "help", ExpectedExit: 0, Golden: "help/man.txt"},
+		{Group: "help", Label: "help__soak", Command: "soak", Argv: []string{"soak", "--help"}, Mode: "help", ExpectedExit: 0, Golden: "help/soak.txt"},
 
 		// Error surfaces
 		{Group: "errors", Label: "errors__unknown-command", Command: "salam", Argv: []string{"definitely-not-a-command"}, Mode: "human", ExpectedExit: 2, Golden: "errors/unknown-command.txt"},

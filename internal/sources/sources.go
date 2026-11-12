@@ -156,7 +156,7 @@ func specs(home string) []Spec {
 				{join(home, ".cursor"), "config"},
 				{join(home, ".cursor", "projects"), "sessions"},
 			},
-			Setup: "sila does not index Cursor chats: agent transcripts at ~/.cursor/projects/<project>/agent-transcripts/<session>/*.jsonl carry no timestamps or session ids and drop tool results",
+			Setup: "sila does not index Cursor chats: agent transcripts at ~/.cursor/projects/<project>/agent-transcripts/<session>/*.jsonl carry no timestamps or session ids and drop tool results. For live tools, run `sila connect add cursor`; for hooks, run `sila hook install --harness=cursor --user`",
 		},
 		{
 			Name: "mimocode", Display: "MiMoCode", Ingestable: true,
@@ -166,9 +166,7 @@ func specs(home string) []Spec {
 		},
 		{
 			Name: "opencode", Display: "OpenCode", Ingestable: true,
-			Candidates: []Candidate{
-				{join(home, ".local", "share", "opencode", "opencode.db"), "data"},
-			},
+			Candidates: openCodeCandidates(home),
 		},
 		{
 			Name: "devin", Display: "Devin", Ingestable: true,
@@ -312,7 +310,7 @@ func countSessions(name string, candidates []Candidate) int64 {
 	case "mimocode":
 		return countSQLiteSessions(primary(candidates), `SELECT COUNT(*) FROM session`)
 	case "opencode":
-		return countOpenCodeSessions(primary(candidates))
+		return countOpenCodeCandidateSessions(candidates)
 	case "codex":
 		return countDistinctJSONLField(primary(candidates), "session_id")
 	case "claude-code":
@@ -510,4 +508,34 @@ func (m Matrix) SortedTools() []Tool {
 	out := append([]Tool(nil), m.Tools...)
 	sort.Slice(out, func(i, j int) bool { return out[i].Display < out[j].Display })
 	return out
+}
+
+// openCodeCandidates returns the XDG, native, and Flathub Flatpak OpenCode
+// stores. Missing paths are filtered by the counter.
+func openCodeCandidates(home string) []Candidate {
+	var out []Candidate
+	if xdg := strings.TrimSpace(os.Getenv("XDG_DATA_HOME")); xdg != "" {
+		out = append(out, Candidate{Path: filepath.Join(xdg, "opencode", "opencode.db"), Role: "data"})
+	}
+	out = append(out,
+		Candidate{Path: filepath.Join(home, ".local", "share", "opencode", "opencode.db"), Role: "data"},
+		Candidate{Path: filepath.Join(home, ".var", "app", "ai.opencode.opencode", "data", "opencode", "opencode.db"), Role: "data"},
+	)
+	return out
+}
+
+// countOpenCodeCandidateSessions sums distinct sessions across every existing
+// OpenCode store, deduplicating repeated paths.
+func countOpenCodeCandidateSessions(candidates []Candidate) int64 {
+	var total int64
+	seen := make(map[string]bool, len(candidates))
+	for _, candidate := range candidates {
+		clean := filepath.Clean(candidate.Path)
+		if seen[clean] {
+			continue
+		}
+		seen[clean] = true
+		total += countOpenCodeSessions(clean)
+	}
+	return total
 }

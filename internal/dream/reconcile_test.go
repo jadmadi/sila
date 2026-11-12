@@ -120,3 +120,50 @@ func TestReconcileSemanticDrift(t *testing.T) {
 		}
 	}
 }
+
+func TestDetectContradictingFacts(t *testing.T) {
+	approved := store.ReviewApproved
+	enable := store.Fact{
+		ID: "a", ProjectID: "p", ScopeKey: "scope-1",
+		Claim: "Enable read-only mode in worker", ReviewStatus: approved,
+	}
+	disable := store.Fact{
+		ID: "b", ProjectID: "p", ScopeKey: "scope-1",
+		Claim: "Disable read-only mode in worker", ReviewStatus: approved,
+	}
+	pairs := DetectContradictingFacts([]store.Fact{enable, disable})
+	if len(pairs) != 1 {
+		t.Fatalf("pairs = %d, want 1: %#v", len(pairs), pairs)
+	}
+	if pairs[0].FactA != "a" || pairs[0].FactB != "b" || pairs[0].ScopeKey != "scope-1" {
+		t.Fatalf("pair = %#v, want a/b in scope-1", pairs[0])
+	}
+
+	same := disable
+	same.ID = "c"
+	same.Claim = enable.Claim
+	if got := DetectContradictingFacts([]store.Fact{enable, same}); len(got) != 0 {
+		t.Fatalf("identical claim produced %d pairs", len(got))
+	}
+
+	otherScope := disable
+	otherScope.ID = "d"
+	otherScope.ScopeKey = "scope-2"
+	if got := DetectContradictingFacts([]store.Fact{enable, otherScope}); len(got) != 0 {
+		t.Fatalf("different scope produced %d pairs", len(got))
+	}
+
+	superseded := disable
+	superseded.ID = "e"
+	superseded.SupersedesID = "a"
+	if got := DetectContradictingFacts([]store.Fact{enable, superseded}); len(got) != 0 {
+		t.Fatalf("supersedes edge produced %d pairs", len(got))
+	}
+
+	stale := disable
+	stale.ID = "f"
+	stale.IsStaleFlag = true
+	if got := DetectContradictingFacts([]store.Fact{enable, stale}); len(got) != 0 {
+		t.Fatalf("stale fact produced %d pairs", len(got))
+	}
+}

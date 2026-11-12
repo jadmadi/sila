@@ -1,0 +1,9 @@
+# surface: help__soak
+# argv: sila soak --help
+# mode: help
+# exit: 0
+--- stdout ---
+sila soak  -  Release soak progress and the exact actions still needed
+
+Usage
+  sila soak [--json|--toon]

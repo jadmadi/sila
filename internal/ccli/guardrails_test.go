@@ -328,8 +328,8 @@ func TestSecretsAndForbiddenConfigPhrasesSharedMatcher(t *testing.T) {
 		"github_pat_11AA22BB",
 		"sk_live_9988776655",
 		"sk_test_9988776655",
-		"xoxb-111-222-333",
-		"xoxp-111-222-333",
+		"xoxb-inert",
+		"xoxp-inert",
 		"AKIAIOSFODNN7EXAMPLE",
 	}
 	for _, tok := range prefixes {

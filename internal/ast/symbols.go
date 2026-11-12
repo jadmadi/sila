@@ -23,15 +23,17 @@ const (
 
 // SymbolInfo captures metadata and source span for an AST symbol.
 type SymbolInfo struct {
-	CanonicalID string     `json:"canonical_id"`
-	PackagePath string     `json:"package_path"`
-	PackageName string     `json:"package_name"`
-	SymbolName  string     `json:"symbol_name"`
-	SymbolKind  SymbolKind `json:"symbol_kind"`
-	Receiver    string     `json:"receiver,omitempty"`
-	FilePath    string     `json:"file_path"`
-	StartLine   int        `json:"start_line"`
-	EndLine     int        `json:"end_line"`
+	CanonicalID        string     `json:"canonical_id"`
+	PackagePath        string     `json:"package_path"`
+	PackageName        string     `json:"package_name"`
+	SymbolName         string     `json:"symbol_name"`
+	SymbolKind         SymbolKind `json:"symbol_kind"`
+	Receiver           string     `json:"receiver,omitempty"`
+	InterfaceMethods   []string   `json:"interface_methods,omitempty"`
+	EmbeddedInterfaces []string   `json:"embedded_interfaces,omitempty"`
+	FilePath           string     `json:"file_path"`
+	StartLine          int        `json:"start_line"`
+	EndLine            int        `json:"end_line"`
 }
 
 // ResolveModulePath looks for go.mod at rootDir or its parents to find the module name.
@@ -116,7 +118,14 @@ func ExtractSymbolsFromSource(fset *token.FileSet, relPath string, src []byte, p
 	if err != nil {
 		return nil, fmt.Errorf("parse Go file %s: %w", relPath, err)
 	}
+	return ExtractSymbolsFromNode(fset, relPath, node, pkgPath), nil
+}
 
+// ExtractSymbolsFromNode extracts declarations from an already parsed Go file.
+func ExtractSymbolsFromNode(fset *token.FileSet, relPath string, node *ast.File, pkgPath string) []SymbolInfo {
+	if fset == nil {
+		fset = token.NewFileSet()
+	}
 	pkgName := node.Name.Name
 	var symbols []SymbolInfo
 
@@ -160,8 +169,19 @@ func ExtractSymbolsFromSource(fset *token.FileSet, relPath string, src []byte, p
 					StartLine:   fset.Position(ts.Pos()).Line,
 					EndLine:     fset.Position(ts.End()).Line,
 				}
-				if _, isInterface := ts.Type.(*ast.InterfaceType); isInterface {
+				if iface, isInterface := ts.Type.(*ast.InterfaceType); isInterface {
 					sym.SymbolKind = KindInterface
+					for _, field := range iface.Methods.List {
+						if len(field.Names) > 0 {
+							for _, name := range field.Names {
+								sym.InterfaceMethods = append(sym.InterfaceMethods, name.Name)
+							}
+							continue
+						}
+						if embedded := exprToString(field.Type); embedded != "" {
+							sym.EmbeddedInterfaces = append(sym.EmbeddedInterfaces, embedded)
+						}
+					}
 				} else {
 					sym.SymbolKind = KindType
 				}
@@ -171,7 +191,7 @@ func ExtractSymbolsFromSource(fset *token.FileSet, relPath string, src []byte, p
 		}
 	}
 
-	return symbols, nil
+	return symbols
 }
 
 // ExtractSymbolsFromFile parses a single Go file from disk and returns its symbols.

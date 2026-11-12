@@ -283,6 +283,9 @@ func CertifyGoalWithOptions(rootDir, slug, evidenceFile, agent, note string, opt
 			return nil, fmt.Errorf("write certification.json: %w", err)
 		}
 
+		// Bind the certification to the content it covered.
+		_, _ = RecordVerification(rootDir, slug, LevelL2, "verify")
+
 		// Release active claim only if verified closed in git history; otherwise retain claim.json and charter
 		releaseClaimLockIfClosed(rootDir, goalDir, slug)
 
@@ -502,6 +505,9 @@ func CertifyGoalWithOptions(rootDir, slug, evidenceFile, agent, note string, opt
 		return nil, fmt.Errorf("write certification.json: %w", err)
 	}
 
+	// Bind the evidence review to the content it covered.
+	_, _ = RecordVerification(rootDir, slug, LevelL1, "evidence")
+
 	// Release active claim only if verified closed in git history; otherwise retain claim.json and charter
 	releaseClaimLockIfClosed(rootDir, goalDir, slug)
 
@@ -567,6 +573,9 @@ func certifyFromMarkdownEvidence(rootDir, goalDir, slug, evPath string, data []b
 	if err := AtomicWriteFile(filepath.Join(goalDir, "certification.json"), certBytes, 0644); err != nil {
 		return nil, fmt.Errorf("write certification.json: %w", err)
 	}
+
+	// Bind the evidence review to the content it covered.
+	_, _ = RecordVerification(rootDir, slug, LevelL1, "evidence")
 
 	// Release active claim only if verified closed in git history; otherwise retain claim.json and charter.
 	releaseClaimLockIfClosed(rootDir, goalDir, slug)
@@ -703,6 +712,9 @@ func FormatReceiptDigest(receipt *AuditReceipt) []byte {
 		receipt.BlindfoldVerified,
 		ts,
 	)
+	if receipt.WaiverSummary != "" {
+		payload += ":" + receipt.WaiverSummary
+	}
 	return []byte(payload)
 }
 
@@ -867,6 +879,9 @@ func SaveAuditReceipt(rootDir, slug string, receipt *AuditReceipt, agent, sessio
 		)
 	}
 
+	// Bind the signed audit receipt to the content it covered.
+	_, _ = RecordVerification(rootDir, slug, LevelL3, "audit")
+
 	// Release active claim only if verified closed in git history; otherwise retain claim.json and charter
 	releaseClaimLockIfClosed(rootDir, goalDir, slug)
 	_ = ResolveReopen(rootDir, slug, receipt.CommitSHA)
@@ -945,6 +960,11 @@ func SaveDefectDossier(rootDir, slug string, dossier *DefectDossier, agent, sess
 	if dossier.StderrSnippet != "" {
 		sb.WriteString("## Stderr Snippet\n```\n")
 		sb.WriteString(dossier.StderrSnippet)
+		sb.WriteString("\n```\n\n")
+	}
+	if dossier.StdoutSnippet != "" {
+		sb.WriteString("## Stdout Snippet\n```\n")
+		sb.WriteString(dossier.StdoutSnippet)
 		sb.WriteString("\n```\n\n")
 	}
 

@@ -460,6 +460,9 @@ func TestSpawnCrewmateWithAssignedPersonas(t *testing.T) {
 }
 
 func TestCrewManager_SetCommandBuilder(t *testing.T) {
+	if !tmuxAvailable() {
+		t.Skip("tmux required for this spawn behavior")
+	}
 	mgr, _ := setupTestCrewManager(t)
 	var capturedCmd string
 	mgr.SetCommandBuilder(func(harness, goalSlug, worktreePath string) string {

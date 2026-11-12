@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/jadmadi/sila/internal/render"
+	"github.com/jadmadi/sila/internal/skills"
 )
 
 func TestParseTopic(t *testing.T) {
@@ -243,5 +244,45 @@ func TestListAndLoadProjectSkills(t *testing.T) {
 	_, err = LoadProjectSkill(tempDir, "../escape")
 	if err == nil {
 		t.Errorf("expected error for traversal skill name, got nil")
+	}
+}
+
+func TestScaffoldSkill_QuotesColonAndHashDescription(t *testing.T) {
+	draft := SkillDraft{
+		Slug: "quoted-skill", Name: "Quoted Skill",
+		Description: "Fix: parser # issue",
+	}
+	res, err := ScaffoldSkill(t.TempDir(), draft, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(res.SkillMDPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(data)
+	if !strings.Contains(text, `description: "Fix: parser # issue"`) {
+		t.Fatalf("description was not quoted: %s", text)
+	}
+	pf := skills.ParseSkillContent(draft.Slug, text)
+	if pf.Description != draft.Description {
+		t.Fatalf("round-trip description = %q, want %q", pf.Description, draft.Description)
+	}
+
+	quoted := SkillDraft{Slug: "already-quoted", Name: "Already", Description: `"Fix: parser"`}
+	res2, err := ScaffoldSkill(t.TempDir(), quoted, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	data2, err := os.ReadFile(res2.SkillMDPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	text2 := string(data2)
+	if strings.Contains(text2, `description: ""`) {
+		t.Fatalf("already-quoted description was double-quoted: %s", text2)
+	}
+	if !strings.Contains(text2, `description: "Fix: parser"`) {
+		t.Fatalf("already-quoted description changed: %s", text2)
 	}
 }

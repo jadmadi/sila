@@ -731,3 +731,38 @@ func TestHandoffSupersedeIsBranchScoped(t *testing.T) {
 		t.Fatalf("the replaced feature/one handoff should be superseded: %+v", superseded)
 	}
 }
+
+func TestOpenSeedsFromTemplate(t *testing.T) {
+	dir := t.TempDir()
+	template := filepath.Join(dir, "template.db")
+	tmpl, err := Open(template)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tmpl.DB.Exec("PRAGMA wal_checkpoint(TRUNCATE)"); err != nil {
+		tmpl.Close()
+		t.Fatal(err)
+	}
+	if err := tmpl.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	t.Setenv("SILA_TEST_DB_TEMPLATE", template)
+	target := filepath.Join(dir, "seeded.db")
+	st, err := Open(target)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	var version int
+	if err := st.DB.QueryRow("PRAGMA user_version").Scan(&version); err != nil {
+		t.Fatal(err)
+	}
+	if version != CurrentSchemaVersion() {
+		t.Fatalf("user_version = %d, want %d", version, CurrentSchemaVersion())
+	}
+	if _, err := st.InsertMemo("template", "seeded store is writable", "test", "", nil); err != nil {
+		t.Fatalf("write on seeded store: %v", err)
+	}
+}

@@ -11,7 +11,11 @@ import (
 	"github.com/jadmadi/sila/internal/store"
 )
 
-func runExport(ui render.UI, dbPath, project, target, outFile string, verbose bool, review bool, scope string, jsonOut bool, args []string) {
+func runExport(ui render.UI, dbPath, project, target, outFile string, verbose bool, review bool, scope string, force bool, jsonOut bool, args []string) {
+	if len(args) > 0 && args[0] == "continuity" {
+		runExportContinuity(ui, dbPath, project, outFile, force, jsonOut)
+		return
+	}
 	if len(args) > 0 && args[0] == "rules" {
 		if review {
 			cwd, _ := os.Getwd()

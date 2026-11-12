@@ -17,7 +17,7 @@ func TestFeedbackStorage(t *testing.T) {
 
 	// 1. Insert feedback items
 	fb1 := &Feedback{
-		ProjectID: "example.com",
+		ProjectID: "example.org",
 		Agent:     "claude-code",
 		Category:  "idea",
 		Content:   "Add an interactive preview for goals before execution",
@@ -27,7 +27,7 @@ func TestFeedbackStorage(t *testing.T) {
 	}
 
 	fb2 := &Feedback{
-		ProjectID: "example-app",
+		ProjectID: "example-app-App",
 		Agent:     "devin",
 		Category:  "issue",
 		Content:   "Timeout occurred while crawling remote docs with 50 pages",
@@ -56,7 +56,7 @@ func TestFeedbackStorage(t *testing.T) {
 	}
 
 	// 3. Filter by project
-	marofItems, err := st.ListFeedback("example.com", "", 10)
+	marofItems, err := st.ListFeedback("example.org", "", 10)
 	if err != nil {
 		t.Fatalf("ListFeedback marof: %v", err)
 	}
@@ -146,5 +146,47 @@ func TestFeedbackStorage(t *testing.T) {
 	}
 	if updated.ResolutionNote != "GitHub Issue: https://github.com/jadmadi/sila/issues/42" {
 		t.Fatalf("unexpected note: %s", updated.ResolutionNote)
+	}
+}
+
+// TestProductFeedbackUnchanged pins that relevance feedback does not touch the
+// existing product-feedback table, its categories, or its resolution flow.
+func TestProductFeedbackUnchanged(t *testing.T) {
+	st := openMemoryStore(t)
+	product := &Feedback{
+		ProjectID: "proj",
+		Agent:     "agent-a",
+		Category:  "issue",
+		Content:   "product feedback still works",
+	}
+	if err := st.RecordFeedback(product); err != nil {
+		t.Fatalf("RecordFeedback: %v", err)
+	}
+	stored, err := st.GetFeedback(product.ID)
+	if err != nil {
+		t.Fatalf("GetFeedback: %v", err)
+	}
+	if stored.Content != product.Content || stored.Category != "issue" || stored.Status != "open" {
+		t.Fatalf("product feedback changed: %+v", stored)
+	}
+	if err := st.ResolveFeedback(product.ID, "agent-a", "", "done"); err != nil {
+		t.Fatalf("ResolveFeedback: %v", err)
+	}
+	resolved, err := st.GetFeedback(product.ID)
+	if err != nil || resolved.Status != "closed" || resolved.ResolutionNote != "done" {
+		t.Fatalf("resolved product feedback: %+v err=%v", resolved, err)
+	}
+
+	rec := seedFeedbackMemory(t, st, "proj", "Product feedback isolation memory")
+	recordFeedback(t, st, MemoryFeedbackInput{
+		ProjectID: "proj", MemoryID: rec.ID, Signal: MemoryFeedbackHelped,
+		Agent: "agent-a", Unbound: true,
+	}, feedbackClock())
+	var productRows int
+	if err := st.DB.QueryRow(`SELECT COUNT(*) FROM feedback`).Scan(&productRows); err != nil {
+		t.Fatal(err)
+	}
+	if productRows != 1 {
+		t.Fatalf("relevance feedback wrote %d product feedback rows, want 1", productRows)
 	}
 }

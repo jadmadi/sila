@@ -28,7 +28,7 @@ func TestGoalsStructuredParamsCLI(t *testing.T) {
 	ui := render.New(os.Stdout, true)
 
 	// Create goal with --invariants and --tasks via CLI args
-	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "CLI Structured Goal", "Description", "", "", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false,
+	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "CLI Structured Goal", "Description", "", "internal/structured/goal.go", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false,
 		[]string{
 			"create",
 			"cli-structured-goal",

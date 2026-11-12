@@ -3,12 +3,14 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
 
 	"github.com/jadmadi/sila/internal/audit"
 	"github.com/jadmadi/sila/internal/goals"
+	"github.com/jadmadi/sila/internal/store"
 )
 
 func (s *Server) handleGoalsTool(req JSONRPCRequest, name string, rawArgs json.RawMessage) bool {
@@ -729,7 +731,90 @@ func (s *Server) handleGoalsTool(req JSONRPCRequest, name string, rawArgs json.R
 		s.sendToolResult(req.ID, report, fmt.Sprintf("✔ Goal validation complete: %d error(s), %d warning(s)", report.ErrorsCount, report.WarningsCount))
 		return true
 
+	case "manage_merge_slot":
+		return s.handleMergeSlotTool(req, rawArgs)
 	default:
 		return false
 	}
+}
+
+// handleMergeSlotTool serves the manage_merge_slot tool.
+func (s *Server) handleMergeSlotTool(req JSONRPCRequest, rawArgs json.RawMessage) bool {
+	var args struct {
+		Operation    string `json:"operation"`
+		Project      string `json:"project"`
+		Holder       string `json:"holder"`
+		Token        string `json:"token"`
+		LeaseSeconds int    `json:"lease_seconds"`
+		Force        bool   `json:"force"`
+	}
+	if len(rawArgs) > 0 {
+		if err := json.Unmarshal(rawArgs, &args); err != nil {
+			s.sendError(req.ID, -32602, "Invalid params", err.Error())
+			return true
+		}
+	}
+	op := strings.ToLower(strings.TrimSpace(args.Operation))
+	if op == "" {
+		s.sendError(req.ID, -32602, "Invalid params", "operation is required")
+		return true
+	}
+	projectID := args.Project
+	if targetDir, err := goals.ResolveProjectDir(s.store, args.Project); err == nil && targetDir != "" {
+		projectID = store.ProjectID(targetDir)
+	}
+	if projectID == "" {
+		projectID = "global"
+	}
+	holder := strings.TrimSpace(args.Holder)
+	if holder == "" {
+		holder = "mcp"
+	}
+	lease := time.Duration(args.LeaseSeconds) * time.Second
+	ctx := context.Background()
+	now := time.Now().UTC()
+	switch op {
+	case "acquire":
+		slot, err := s.store.AcquireMergeSlot(ctx, projectID, holder, lease, now)
+		if err != nil {
+			var busy *store.MergeSlotBusyError
+			if errors.As(err, &busy) {
+				payload, _ := json.Marshal(map[string]any{"holder": busy.Holder, "expiry": busy.Expiry.Format(time.RFC3339)})
+				s.sendError(req.ID, -32001, "MERGE_SLOT_BUSY", string(payload))
+				return true
+			}
+			s.sendError(req.ID, -32603, "Internal error", err.Error())
+			return true
+		}
+		s.sendToolResult(req.ID, slot, fmt.Sprintf("merge slot acquired by %s until %s", slot.Holder, slot.Expiry.Format(time.RFC3339)))
+	case "heartbeat":
+		slot, err := s.store.HeartbeatMergeSlot(ctx, projectID, args.Token, lease, now)
+		if err != nil {
+			s.sendError(req.ID, -32001, "MERGE_SLOT_TOKEN_MISMATCH", err.Error())
+			return true
+		}
+		slot.Token = ""
+		s.sendToolResult(req.ID, slot, fmt.Sprintf("merge slot extended until %s", slot.Expiry.Format(time.RFC3339)))
+	case "release":
+		if err := s.store.ReleaseMergeSlot(ctx, projectID, args.Token, args.Force); err != nil {
+			s.sendError(req.ID, -32001, "MERGE_SLOT_TOKEN_MISMATCH", err.Error())
+			return true
+		}
+		s.sendToolResult(req.ID, map[string]any{"released": true, "project_id": projectID}, "merge slot released")
+	case "status":
+		slot, err := s.store.MergeSlot(ctx, projectID)
+		if err != nil {
+			s.sendError(req.ID, -32603, "Internal error", err.Error())
+			return true
+		}
+		if slot == nil {
+			s.sendToolResult(req.ID, map[string]any{"project_id": projectID, "free": true}, "merge slot free")
+			return true
+		}
+		slot.Token = ""
+		s.sendToolResult(req.ID, slot, fmt.Sprintf("merge slot held by %s until %s", slot.Holder, slot.Expiry.Format(time.RFC3339)))
+	default:
+		s.sendError(req.ID, -32602, "Invalid params", "unknown operation: "+op)
+	}
+	return true
 }

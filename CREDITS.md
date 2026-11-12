@@ -7,16 +7,16 @@
 ## 1. Agent Ergonomics & Architecture Standards
 
 ### **Kun Chen ([@kunchenguid](https://x.com/kunchenguid))**
-* **AXI (Agent eXperience Interface)**: [github.com/kunchenguid/axi](https://github.com/kunchenguid/axi) · [axi.md](https://axi.md)
+* **AXI (Agent eXperience Interface)**: [github.com/kunchenguid/axi](https://github.com/kunchenguid/axi) · [axi.md](https://axi.md)  
   * **License**: MIT
   * **Impact**: Ten foundational design principles for building agent-ergonomic CLIs that treat token budget, deterministic state, and turn count as first-class constraints. Sila adopts AXI principles across its CLI surface: content-first execution, minimal default schemas, definitive empty states, structured in-stream errors, and contextual next-step disclosure.
-* **Backpass (Gradient Descent on AGENTS.md)**: [github.com/kunchenguid/backpass](https://github.com/kunchenguid/backpass)
+* **Backpass (Gradient Descent on AGENTS.md)**: [github.com/kunchenguid/backpass](https://github.com/kunchenguid/backpass)  
   * **License**: MIT
   * **Impact**: Pioneering framework conceptualizing instruction optimization as gradient descent: `AGENTS.md` as model weights, multi-agent session transcripts as empirical loss signal, and backpropagation on prompt text. Demonstrates strict token budgeting (~1,000–1,500 token ceiling), empirical error logging with verbatim quote floors, and skills as overflow valves to combat context dilution.
-* **First Mate (Crew Orchestrator & Zero-Token Supervision)**: [github.com/kunchenguid/firstmate](https://github.com/kunchenguid/firstmate)
+* **First Mate (Crew Orchestrator & Zero-Token Supervision)**: [github.com/kunchenguid/firstmate](https://github.com/kunchenguid/firstmate)  
   * **License**: MIT
   * **Impact**: Pioneering multi-agent orchestration architecture running autonomous tmux worker sessions paired with isolated disposable Git worktrees and zero-token deterministic state supervision. Directly inspired `sila crew` and MCP tools `spawn_crewmate` and `supervise_crew`.
-* **Worktree & Sandbox Patterns (Treehouse & No-Mistakes)**: [github.com/kunchenguid/treehouse](https://github.com/kunchenguid/treehouse) · [github.com/kunchenguid/no-mistakes](https://github.com/kunchenguid/no-mistakes)
+* **Worktree & Sandbox Patterns (Treehouse & No-Mistakes)**: [github.com/kunchenguid/treehouse](https://github.com/kunchenguid/treehouse) · [github.com/kunchenguid/no-mistakes](https://github.com/kunchenguid/no-mistakes)  
   * **License**: MIT
   * **Impact**: Go Git worktree pooling and pre-push verification pipeline in isolated worktrees. Sila natively adapts this architecture in `sila worktree`, `sila gate install [--hook|--remote]`, `sila gate pipeline`, and MCP tool `run_gate_pipeline`.
 ---
@@ -31,7 +31,7 @@
 ### **[Model Context Protocol (MCP)](https://modelcontextprotocol.io/)**
 * **Specification & Reference**: [modelcontextprotocol.io](https://modelcontextprotocol.io/) · [Anthropic](https://anthropic.com)
 * **License**: MIT
-* **Impact**: Open protocol standard for seamless agent-to-environment tool execution, powering Sila's 76-tool stdio server for Claude, Cursor, Antigravity, Devin, and any MCP-compliant client.
+* **Impact**: Open protocol standard for seamless agent-to-environment tool execution, powering Sila's 58-tool stdio server for Claude, Cursor, Antigravity, Devin, and any MCP-compliant client.
 
 ---
 
@@ -72,8 +72,8 @@
 
 Sila is an independent, pure-Go implementation. All compiled Go dependencies (direct and transitive) and referenced open-source specifications are licensed strictly under permissive terms (**MIT** or **BSD-3-Clause**):
 * **Zero Non-Commercial Contamination**: No PolyForm, Commons Clause, or non-commercial restrictions exist anywhere in Sila's dependency tree or codebase.
-* **Permissive Relicensing Compatibility**: All dependencies allow commercial use, modification, and redistribution without imposing reciprocal copyleft or proprietary restrictions.
-* **Log Ingestion Isolation**: Compatibility with third-party coding agent session logs (Claude Code, Codex, OpenCode, MiMoCode, Devin, Command Code, Codewhale, Antigravity, ZCode, Muse, Zed, and Git) is achieved entirely through custom, read-only log parsers written in pure Go. Cursor, Grok CLI, and Droid are detected but not indexed. Sila does not bundle, link, or redistribute any third-party agent binaries or proprietary code.
+* **100% AGPL v3 & Commercial Dual-Licensing Compatibility**: All dependencies allow unconstrained commercial use, modification, and redistribution without imposing reciprocal copyleft or proprietary restrictions.
+* **Log Ingestion Isolation**: Compatibility with third-party coding agent session logs (Claude Code, Antigravity, Devin, OpenCode, Codex, MiMo, Command Code, CodeWhale, ZCode, Muse) is achieved entirely through custom, read-only log parsers written in pure Go. Sila does not bundle, link, or redistribute any third-party agent binaries or proprietary code.
 
 ---
 
