@@ -302,7 +302,7 @@ func IsRepoOrWorkspaceDir(dir string) bool {
 	if err != nil || !fi.IsDir() {
 		return false
 	}
-	for _, marker := range []string{".git", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "goals", ".sila"} {
+	for _, marker := range []string{".git", "AGENTS.md", "CLAUDE.md", "GEMINI.md", "goals"} {
 		if _, err := os.Stat(filepath.Join(clean, marker)); err == nil {
 			return true
 		}

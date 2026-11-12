@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jadmadi/sila/internal/config"
 	"github.com/jadmadi/sila/internal/proclive"
 )
 
@@ -236,6 +237,9 @@ func GlobalCurrentPath(projectID string) string {
 // WriteCurrent atomically writes the project current pointer with 0600/0700
 // permissions.
 func WriteCurrent(cwd string, id Identity) error {
+	if config.IsForbiddenLocalStateDir(cwd) {
+		return nil
+	}
 	path := ProjectCurrentPath(cwd)
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0700); err != nil {

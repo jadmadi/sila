@@ -298,3 +298,25 @@ func TestNeedsAndEnsureGitIgnoreWorkspaceStore(t *testing.T) {
 		}
 	})
 }
+
+func TestIsForbiddenLocalStateDir(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	for _, dir := range []string{"", ".", "/", "/tmp", "/var/tmp", home, filepath.Join(home, "Downloads"), filepath.Join(home, ".config", "sila"), filepath.Join(home, "tmp", "proj")} {
+		if !IsForbiddenLocalStateDir(dir) {
+			t.Errorf("expected forbidden: %q", dir)
+		}
+	}
+	for _, dir := range []string{filepath.Join("/tmp", "proj"), "/data/proj", filepath.Join(home, "repo")} {
+		if IsForbiddenLocalStateDir(dir) {
+			t.Errorf("expected allowed: %q", dir)
+		}
+	}
+	repo := filepath.Join(home, "tmp", "repo")
+	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if IsForbiddenLocalStateDir(repo) {
+		t.Errorf("a git repository under a forbidden prefix must be allowed")
+	}
+}

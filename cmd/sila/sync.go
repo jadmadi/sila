@@ -23,6 +23,17 @@ import (
 	"github.com/jadmadi/sila/internal/store"
 )
 
+func workspaceStoreScope(st *store.Store, project string, globalRequested bool) (string, bool) {
+	wsRoot, ok := store.WorkspaceRootFromStorePath(st.Path)
+	if !ok {
+		return project, false
+	}
+	if globalRequested && project == "" {
+		fmt.Fprintln(os.Stderr, "[sila] workspace store scopes sync to its repository; ignoring --global")
+	}
+	return wsRoot, true
+}
+
 func runIngest(ui render.UI, dbPath, project string, jsonOut, verbose, full bool, since time.Time, tools []string) {
 	st, err := store.Open(dbPath)
 	if err != nil {
@@ -30,6 +41,7 @@ func runIngest(ui render.UI, dbPath, project string, jsonOut, verbose, full bool
 		os.Exit(1)
 	}
 	defer st.Close()
+	project, _ = workspaceStoreScope(st, project, false)
 
 	results, err := ingest.Run(st, ingest.Options{
 		Tools:      tools,
@@ -161,6 +173,7 @@ func runSync(ui render.UI, dbPath, project string, watchMode, forceSync, dryRun,
 				os.Exit(1)
 			}
 			defer st.Close()
+			project, _ = workspaceStoreScope(st, project, isGlobal)
 
 			if !isGlobal && project == "" {
 				if p, ok, err := st.ProjectForDir(""); err == nil && ok {
@@ -185,6 +198,7 @@ func runSync(ui render.UI, dbPath, project string, watchMode, forceSync, dryRun,
 				return err
 			}
 			defer st.Close()
+			project, _ = workspaceStoreScope(st, project, isGlobal)
 
 			if !isGlobal && project == "" {
 				if p, ok, err := st.ProjectForDir(""); err == nil && ok {
@@ -582,6 +596,8 @@ func runSingleSync(ui render.UI, st *store.Store, project string, dryRun, full, 
 }
 
 func runSingleSyncCore(ui render.UI, st *store.Store, project string, dryRun, full, jsonOut, verbose bool, since time.Time) error {
+	wasGlobal := project == ""
+	project, scoped := workspaceStoreScope(st, project, wasGlobal)
 	isGlobal := project == ""
 	prog := newSyncProgress(ui, isStdoutTTY(), verbose, jsonOut, isGlobal, project)
 
@@ -592,11 +608,12 @@ func runSingleSyncCore(ui render.UI, st *store.Store, project string, dryRun, fu
 		wsDB := config.WorkspaceDBPath(cwd)
 		if wsDB != "" && wsDB != st.Path {
 			if _, err := os.Stat(wsDB); err == nil {
-				if stats, err := st.DrainWorkspaceStore(wsDB); err == nil && stats.Total() > 0 {
-					if !jsonOut {
-						fmt.Fprintf(os.Stdout, "  %s Drained %d local session records from .sila/sila.db into primary store.\n",
-							ui.Green("✔"), stats.Total())
-					}
+				stats, _, drainErr := st.DrainAndRemoveWorkspaceStore(wsDB)
+				if drainErr != nil {
+					fmt.Fprintf(os.Stderr, "sila: drain workspace store %s: %v\n", wsDB, drainErr)
+				} else if stats.Total() > 0 && !jsonOut {
+					fmt.Fprintf(os.Stdout, "  %s Drained and removed %d local session records from .sila/sila.db.\n",
+						ui.Green("✔"), stats.Total())
 				}
 			}
 		}
@@ -606,11 +623,12 @@ func runSingleSyncCore(ui render.UI, st *store.Store, project string, dryRun, fu
 					pWS := config.WorkspaceDBPath(p.Path)
 					if pWS != "" && pWS != st.Path && pWS != wsDB {
 						if _, err := os.Stat(pWS); err == nil {
-							if stats, err := st.DrainWorkspaceStore(pWS); err == nil && stats.Total() > 0 {
-								if !jsonOut {
-									fmt.Fprintf(os.Stdout, "  %s Drained %d local records from %s into primary store.\n",
-										ui.Green("✔"), stats.Total(), pWS)
-								}
+							stats, _, drainErr := st.DrainAndRemoveWorkspaceStore(pWS)
+							if drainErr != nil {
+								fmt.Fprintf(os.Stderr, "sila: drain workspace store %s: %v\n", pWS, drainErr)
+							} else if stats.Total() > 0 && !jsonOut {
+								fmt.Fprintf(os.Stdout, "  %s Drained and removed %d local records from %s.\n",
+									ui.Green("✔"), stats.Total(), pWS)
 							}
 						}
 					}
@@ -738,8 +756,21 @@ func runSingleSyncCore(ui render.UI, st *store.Store, project string, dryRun, fu
 		vacPct = vRes.ReclaimedPct
 		vacDur = vRes.Duration
 	}
-	release.SyncSoakDailyIfDue("", st.Path)
-	ensureDaemonRunning(st.Path)
+	if !scoped {
+		release.SyncSoakDailyIfDue("", st.Path)
+		ensureDaemonRunning(st.Path)
+	}
+
+	if !dryRun && !store.IsWorkspaceStore(st.Path) {
+		cwd, _ := os.Getwd()
+		home, _ := os.UserHomeDir()
+		if sweep, err := st.SweepWorkspaceRubbish(store.RubbishSweepOptions{CWD: cwd, HomeDir: home, TempDir: os.TempDir()}); err == nil {
+			if (sweep.RemovedWorkspaceDBs > 0 || sweep.OrphanSidecarsRemoved > 0 || sweep.NonRepoStateDirsRemoved > 0 || sweep.CanaryDirsRemoved > 0) && !jsonOut {
+				fmt.Fprintf(os.Stdout, "  %s Swept %d workspace stores and %d rubbish entries (%d bytes reclaimed).\n",
+					ui.Green("✔"), sweep.RemovedWorkspaceDBs, sweep.OrphanSidecarsRemoved+sweep.NonRepoStateDirsRemoved+sweep.CanaryDirsRemoved, sweep.ReclaimedBytes)
+			}
+		}
+	}
 
 	prog.Finish()
 

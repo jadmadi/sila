@@ -166,6 +166,9 @@ func (s *RecallGateState) normalize() {
 // SaveRecallGateState writes the state atomically with mode 0600. It also
 // opportunistically removes expired sibling state files, bounded per write.
 func SaveRecallGateState(projectDir, sessionID string, state *RecallGateState) error {
+	if config.IsForbiddenLocalStateDir(projectDir) {
+		return nil
+	}
 	if state == nil {
 		return recallGateErr("EMPTY", errors.New("state is required"))
 	}
