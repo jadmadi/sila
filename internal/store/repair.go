@@ -1019,7 +1019,7 @@ type ProjectRename struct {
 
 // RenameProject changes a registration's id in place, without moving data to
 // another project. It is the correction for a stored id that no longer
-// describes the directory — the live case: /workspace/sila/github registered as
+// describes the directory — the live case: /workspace/github registered as
 // "example-client.com" because a stale workspace file in the directory named an
 // unrelated project, so every fact written from that path landed in the wrong
 // bucket. Merging is not an option there because the records belong to neither

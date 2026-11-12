@@ -10,7 +10,15 @@ import (
 )
 
 // CurrentSchemaVersion is the schema produced by a newly opened store.
-func CurrentSchemaVersion() int { return len(migrations) }
+func CurrentSchemaVersion() int {
+	latest := 0
+	for _, m := range migrations {
+		if m.version > latest {
+			latest = m.version
+		}
+	}
+	return latest
+}
 
 // MinimumSupportedSchemaVersion is the oldest on-disk schema that migration
 // tests guarantee can be upgraded by a current Sila release.
@@ -559,4 +567,31 @@ func sqlNullString(s string) any {
 		return nil
 	}
 	return s
+}
+
+func init() {
+	migrations = append(migrations, migration{
+		version: 53,
+		name:    "facts_visibility_scope",
+		up: func(tx *sql.Tx) error {
+			return ensureFactVisibilityColumn(tx)
+		},
+	})
+}
+
+// ensureFactVisibilityColumn adds the facts.visibility scope column when it is
+// missing. The pragma guard keeps the migration idempotent for databases that
+// were migrated out of order.
+func ensureFactVisibilityColumn(tx *sql.Tx) error {
+	var count int
+	if err := tx.QueryRow(`SELECT count(*) FROM pragma_table_info('facts') WHERE name='visibility'`).Scan(&count); err != nil {
+		return err
+	}
+	if count > 0 {
+		return nil
+	}
+	if _, err := tx.Exec(`ALTER TABLE facts ADD COLUMN visibility TEXT NOT NULL DEFAULT 'project'`); err != nil {
+		return fmt.Errorf("migration 53 add visibility: %w", err)
+	}
+	return nil
 }

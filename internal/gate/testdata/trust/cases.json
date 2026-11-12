@@ -1,0 +1,28 @@
+{
+  "cases": [
+    {
+      "name": "trusted_self_author",
+      "self_email": "self@example.com",
+      "commits": [
+        {"sha": "1111111111111111111111111111111111111111", "author": "Self", "email": "self@example.com", "paths": ["AGENTS.md"]}
+      ],
+      "refused": false
+    },
+    {
+      "name": "untrusted_sensitive",
+      "self_email": "self@example.com",
+      "commits": [
+        {"sha": "2222222222222222222222222222222222222222", "author": "Other", "email": "other@example.com", "paths": ["AGENTS.md", "scripts/release.sh"]}
+      ],
+      "refused": true
+    },
+    {
+      "name": "untrusted_merge_touching_workflow",
+      "self_email": "self@example.com",
+      "commits": [
+        {"sha": "3333333333333333333333333333333333333333", "author": "Other", "email": "other@example.com", "paths": [".github/workflows/ci.yml", "src/app.go"]}
+      ],
+      "refused": true
+    }
+  ]
+}

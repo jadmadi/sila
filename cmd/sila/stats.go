@@ -2,8 +2,10 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -48,10 +50,18 @@ func runStats(ui render.UI, dbPath, project string, jsonOut, toonOut, plain bool
 	}
 
 	if jsonOut {
-		jsonStr, err := snap.ToJSON()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "sila stats: serialize json: %v\n", err)
+		jsonStr, jsonErr := snap.ToJSON()
+		if jsonErr != nil {
+			fmt.Fprintf(os.Stderr, "sila stats: serialize json: %v\n", jsonErr)
 			os.Exit(1)
+		}
+		var payload map[string]any
+		if json.Unmarshal([]byte(jsonStr), &payload) == nil {
+			if counts, countErr := st.OutcomeCounts(project); countErr == nil {
+				payload["outcomes"] = counts
+			}
+			emitJSON(payload)
+			return
 		}
 		fmt.Println(jsonStr)
 		return
@@ -69,6 +79,14 @@ func runStats(ui render.UI, dbPath, project string, jsonOut, toonOut, plain bool
 	}
 	output := cockpit.RenderSnapshot(snap, w, colorEnabled)
 	fmt.Print(output)
+	if counts, countErr := st.OutcomeCounts(project); countErr == nil {
+		fmt.Fprintln(os.Stdout, ui.Cyan(ui.Bold("Outcomes by tool")))
+		rows := make([][]string, 0, len(counts))
+		for _, count := range counts {
+			rows = append(rows, []string{count.Tool, strconv.Itoa(count.Success), strconv.Itoa(count.Corrected), strconv.Itoa(count.Neutral), strconv.Itoa(count.Total)})
+		}
+		fmt.Fprint(os.Stdout, ui.Table([]string{"tool", "success", "corrected", "neutral", "total"}, rows, []string{"left", "right", "right", "right", "right"}))
+	}
 	since := time.Now().UTC().Add(-7 * 24 * time.Hour)
 	if events, err := st.ListMemoryEvents(store.MemoryEventFilter{ProjectID: project, Since: since, Limit: 100000}); err == nil {
 		report := memory.BuildReport(events, memory.CollectGoalStats(cwd, since), project, since, time.Now().UTC())

@@ -10,12 +10,12 @@ import (
 
 // TestBuildPlanRegistersRepository covers the registration half of repository
 // resolution: a repository sila heals gets its own row, so an unregistered
-// repository under a registered container (the live /workspace/sila/github case where
+// repository under a registered container (the live /workspace/github case where
 // the container was registered as example-client.com from a stale workspace file)
 // has an identity of its own instead of being absorbed or left unnamed.
 func TestBuildPlanRegistersRepository(t *testing.T) {
 	umbrella := filepath.Join(t.TempDir(), "github")
-	repo := filepath.Join(umbrella, "projects", "waqftech", "MutmainKalp.com")
+	repo := filepath.Join(umbrella, "projects", "waqftech", "example-project.com")
 	if err := os.MkdirAll(filepath.Join(repo, ".git"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -45,14 +45,14 @@ func TestBuildPlanRegistersRepository(t *testing.T) {
 	if plan.Project == umbrellaProj.ID {
 		t.Fatalf("heal scoped the nested repository to the container project %q", plan.Project)
 	}
-	if plan.Project != "MutmainKalp.com" {
-		t.Fatalf("plan project = %q, want MutmainKalp.com", plan.Project)
+	if plan.Project != "example-project.com" {
+		t.Fatalf("plan project = %q, want example-project.com", plan.Project)
 	}
 	registered, ok, err := st.ProjectForDir(repo)
 	if err != nil || !ok {
 		t.Fatalf("heal did not register the repository: ok=%v err=%v", ok, err)
 	}
-	if registered.ID != "MutmainKalp.com" {
-		t.Fatalf("registered id = %q, want MutmainKalp.com", registered.ID)
+	if registered.ID != "example-project.com" {
+		t.Fatalf("registered id = %q, want example-project.com", registered.ID)
 	}
 }

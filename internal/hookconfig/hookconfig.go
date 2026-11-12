@@ -5,6 +5,9 @@
 package hookconfig
 
 import (
+	"sort"
+
+	"github.com/jadmadi/sila/internal/harness/contract"
 	"github.com/jadmadi/sila/internal/harness/registry"
 )
 
@@ -93,6 +96,19 @@ func StatusFor(harness, projectDir string) Status {
 // StatusForUser reports one harness's user-scope hook installation under homeDir.
 func StatusForUser(harness, homeDir string) Status {
 	return fromRegistryStatus(registry.StatusForUser(harness, homeDir))
+}
+
+// RecallGateReady reports which installed harnesses can carry a pre-tool
+// decision. Sorted for deterministic diagnostics.
+func RecallGateReady(statuses map[string]Status) (bool, []string) {
+	var ready []string
+	for id, status := range statuses {
+		if status.Installed && status.Capabilities[string(contract.CapToolBefore)] {
+			ready = append(ready, id)
+		}
+	}
+	sort.Strings(ready)
+	return len(ready) > 0, ready
 }
 
 // Install merges Sila hooks into the harness settings file.

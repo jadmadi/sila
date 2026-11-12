@@ -2,6 +2,7 @@ package mcp
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	jsonv2 "encoding/json/v2"
@@ -66,6 +67,7 @@ const (
 
 const (
 	ProfileContinuity = "continuity"
+	ProfileGraph      = "graph"
 	ProfileFull       = "full"
 )
 
@@ -88,6 +90,7 @@ type Server struct {
 	in                   io.Reader
 	out                  io.Writer
 	mu                   sync.Mutex
+	frameMu              sync.Mutex
 	currentSentryWarning string
 	upstreamMgr          *UpstreamManager
 	pluginProvider       *PluginToolProvider
@@ -96,6 +99,8 @@ type Server struct {
 	lastToolError        bool
 	sessionID            string
 	sessionSource        string
+	agent                string
+	clientName           string
 }
 
 // SetProfile sets the tool exposure profile (ProfileContinuity or ProfileFull).
@@ -134,6 +139,28 @@ func (s *Server) PluginToolProvider() *PluginToolProvider {
 }
 
 // Run processes incoming JSON-RPC requests until EOF.
+func (s *Server) ProcessFrame(line []byte) []byte {
+	var req JSONRPCRequest
+	if err := jsonv2.Unmarshal(line, &req); err != nil {
+		var buf bytes.Buffer
+		s.frameMu.Lock()
+		old := s.out
+		s.out = &buf
+		s.sendError(nil, -32700, "Parse error", err.Error())
+		s.out = old
+		s.frameMu.Unlock()
+		return buf.Bytes()
+	}
+	s.frameMu.Lock()
+	defer s.frameMu.Unlock()
+	var buf bytes.Buffer
+	old := s.out
+	s.out = &buf
+	s.handleRequest(req)
+	s.out = old
+	return buf.Bytes()
+}
+
 func (s *Server) Run() error {
 	scanner := bufio.NewScanner(s.in)
 	// Support large payloads up to 10MB
@@ -163,6 +190,18 @@ func (s *Server) handleRequest(req JSONRPCRequest) {
 
 	switch req.Method {
 	case "initialize":
+		var initParams struct {
+			ClientInfo struct {
+				Name string `json:"name"`
+			} `json:"clientInfo"`
+		}
+		_ = json.Unmarshal(req.Params, &initParams)
+		s.clientName = initParams.ClientInfo.Name
+		s.agent = ResolveAgent(os.Getenv("SILA_AGENT"), configuredAgentIdentity(), s.clientName)
+		agentLabel := s.agent
+		if agentLabel == "" {
+			agentLabel = "anonymous"
+		}
 		profile := s.Profile()
 		if profile == "" {
 			profile = ProfileFull
@@ -170,8 +209,9 @@ func (s *Server) handleRequest(req JSONRPCRequest) {
 		s.sendResult(req.ID, map[string]any{
 			"protocolVersion": "2024-11-05",
 			"capabilities": map[string]any{
-				"tools":   map[string]any{},
-				"prompts": map[string]any{},
+				"tools":     map[string]any{},
+				"prompts":   map[string]any{},
+				"resources": map[string]any{"listChanged": false},
 				"experimental": map[string]any{
 					"sila": map[string]any{
 						"contract_version":      1,
@@ -182,6 +222,7 @@ func (s *Server) handleRequest(req JSONRPCRequest) {
 						"commit":                version.Commit,
 						"session_id":            s.sessionID,
 						"session_source":        s.sessionSource,
+						"agent":                 agentLabel,
 					},
 				},
 			},
@@ -193,6 +234,10 @@ func (s *Server) handleRequest(req JSONRPCRequest) {
 		})
 	case "ping":
 		s.sendResult(req.ID, map[string]any{})
+	case "resources/list":
+		s.handleResourcesList(req)
+	case "resources/read":
+		s.handleResourcesRead(req)
 	case "tools/list":
 		tools := ToolDefinitions()
 		if s.pluginProvider == nil {
@@ -270,7 +315,7 @@ func (s *Server) handlePromptsGet(req JSONRPCRequest) {
 			if prime.Runbook != nil {
 				var rb strings.Builder
 				for _, e := range prime.Runbook.Entries {
-					rb.WriteString(fmt.Sprintf("• **%s**: `%s`\n", e.Phase, e.Command))
+					fmt.Fprintf(&rb, "• **%s**: `%s`\n", e.Phase, e.Command)
 				}
 				runbookStr = rb.String()
 			}
@@ -318,7 +363,7 @@ func (s *Server) handlePromptsGet(req JSONRPCRequest) {
 			if prime.Runbook != nil {
 				var rb strings.Builder
 				for _, e := range prime.Runbook.Entries {
-					rb.WriteString(fmt.Sprintf("• **%s**: `%s`\n", e.Phase, e.Command))
+					fmt.Fprintf(&rb, "• **%s**: `%s`\n", e.Phase, e.Command)
 				}
 				runbookStr = rb.String()
 			}
@@ -459,6 +504,16 @@ func (s *Server) handleToolCall(req JSONRPCRequest) {
 		return
 	}
 
+	if isAgentWriteTool(params.Name) && s.effectiveAgent() == "" && os.Getenv("SILA_ALLOW_ANONYMOUS") != "1" {
+		s.sendError(req.ID, -32602, "agent identity required: set SILA_AGENT", "")
+		return
+	}
+
+	if isCaptureWriteTool(params.Name) && s.capturePausedFor(params.Arguments) {
+		s.sendError(req.ID, -32000, "CAPTURE_PAUSED", "capture is paused for this project; run sila resume")
+		return
+	}
+
 	if assist.IsHighBlastRadiusTool(params.Name) {
 		var projArg struct {
 			Project string `json:"project"`
@@ -487,6 +542,9 @@ func (s *Server) handleToolCall(req JSONRPCRequest) {
 		return
 	}
 	if s.handleProjectTool(req, params.Name, params.Arguments) {
+		return
+	}
+	if s.handleGraphTool(req, params.Name, params.Arguments) {
 		return
 	}
 	if s.handleKnowledgeTool(req, params.Name, params.Arguments) {

@@ -89,6 +89,9 @@ func Merge(base, override *Config) {
 	if base == nil || override == nil {
 		return
 	}
+	if override.StateBlock.WelcomeBackHours != nil {
+		base.StateBlock.WelcomeBackHours = override.StateBlock.WelcomeBackHours
+	}
 	if override.GoogleAPIKey != "" {
 		base.GoogleAPIKey = override.GoogleAPIKey
 	}
@@ -174,6 +177,9 @@ func Merge(base, override *Config) {
 		for k, v := range override.MCPUpstreams {
 			base.MCPUpstreams[k] = v
 		}
+	}
+	if override.RecallGate != "" {
+		base.RecallGate = override.RecallGate
 	}
 }
 

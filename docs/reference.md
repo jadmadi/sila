@@ -2,7 +2,7 @@
 
 Detailed feature guide, design rationale, and the complete CLI command reference.
 New users should start with [README.md](../README.md); agents working on this
-repository should read [AGENTS.md](../AGENTS.md) and [docs/architecture.md](architecture.md).
+repository should read [AGENTS.md](../AGENTS.md) and [HANDOFF.md](../HANDOFF.md).
 
 Contents:
 
@@ -109,6 +109,100 @@ by a memory write in the window and lists any unmatched window files.
 holder when `--agent` is omitted, and `sila feedback` auto-resolves registered
 repository `cwd`s while emitting `null` for `project_id`/`project` outside
 registered repositories.
+
+## Continuity State Block
+
+`sila prime`, `prime_context`, and `sila hook session-start` open with a compact
+state block when a session card exists:
+
+```
+### Continuity state
+- Last session (dsh, 2h ago): shipped session cards
+- Since you left (2d): 3 decisions, 1 lesson, 1 handoff
+- Next: wire the state block
+- Decisions: ...
+- Pitfalls: ...
+- Goals: 2 in flight (cards); 14 ready
+```
+
+The block is capped at 1,200 bytes. It drops goals, pitfalls, decisions, the
+welcome-back line, next action, then the last-session line when over budget.
+Cards older than 14 days carry `(stale)`. A block needs a last session, so a
+fresh project and a store without cards render nothing and prime output stays
+byte-identical.
+
+The welcome-back line appears when the gap exceeds
+`state_block.welcome_back_hours` in `config.json` (default 6, `0` disables,
+range 0 to 720). Counts come from facts and handoffs created after the last
+card, capped at 200 rows and marked with `+`.
+
+`sila agents sync --state-block` writes the same block into `AGENTS.md` between
+`sila:state` markers with `scope=state` metadata. The mirror preserves all user
+content and the core managed block, and a hash-gated repeat sync leaves the file
+unchanged. Remove the block by syncing when no state exists.
+
+## Harness Memory Mirror
+
+The post-tool hook mirrors memory files that a harness writes during a live
+session. It reads only these roots:
+
+| Harness | Home | Repository |
+|---------|------|------------|
+| Claude | `~/.claude/projects/*/memory/**` | `.claude/memory/**` |
+| Codex | `~/.codex/memories/**`, `~/.codex/memory/**` | `.codex/memories/**`, `.codex/memory/**` |
+| Grok | `~/.grok/topics/**`, `~/.grok/memory/**` | `.grok/topics/**`, `.grok/memory/**` |
+
+Only `.md` files under 1 MiB are read. Symlinks are resolved and a target that
+escapes the root is refused. Paths under `.sila/` are skipped, and a command
+that starts with `sila ` is never mirrored.
+
+`memory.mirror` accepts `on` or `off` (default `on`); `SILA_MEMORY_MIRROR`
+overrides it. The same path is mirrored at most once every two seconds. A
+repeat with identical content counts a duplicate and writes nothing. Failures
+print one line and never change the hook exit code.
+
+## Session Cards (`sila cards`)
+
+The stop hook writes one typed card per session after the auto handoff. A card
+carries intent, outcome, decisions, files, open questions, the next action, and
+source metadata, with redaction and a 1,536-byte cap. Re-running the same session
+replaces the same row.
+
+`sila prime` and `prime_context` append the newest three cards as a bounded
+section; the section disappears when no card exists.
+
+| Command | Behavior |
+|---------|----------|
+| `sila cards list [--limit=N]` | Newest cards, default 10, maximum 50 |
+| `sila cards show <card-id>` | Full card by id |
+| `sila cards show <session-id>` | Card by session, derived id |
+| `--json` | Machine-readable output |
+
+Cards are written after the handoff and never block session shutdown: a write
+failure prints `sila hook: session card: ...` and the hook still exits 0.
+`SILA_CARD_MODE=off` disables capture.
+
+## Harness Connection (`sila connect`)
+
+`sila connect` wires the sila MCP server into a second harness, proves the
+handshake, previews the handoff, and removes the entry again.
+
+| Command | Behavior |
+|---------|----------|
+| `sila connect list` | Harnesses with `connected`, `installed`, or `unavailable` |
+| `sila connect add <harness>` | Merge the MCP entry, then verify immediately |
+| `sila connect verify <harness>` | Check `SILA_AGENT`, then run a real handshake |
+| `sila connect demo` | Print the prime payload the next harness receives |
+| `sila connect remove <harness> --yes` | Remove only sila's entry |
+
+Supported config formats: Cursor and Antigravity JSON, Zed settings, Command Code
+JSON, OpenCode JSON, and Codex TOML. Writes preserve foreign servers and keys,
+and every write keeps a `.sila.bak` copy.
+
+Verification starts `sila mcp` with the harness env and asserts the server name,
+the continuity profile, the tool count, and a matching `SILA_AGENT` within five
+seconds. Exit codes: 0 pass, 1 verification failure, 2 usage, 3 demo without a
+handoff.
 
 ## Prime Canary
 
@@ -327,12 +421,12 @@ exit code 2. The command never writes to the store or changes a project registra
 
 ## MCP Profiles
 
-`sila mcp` defaults to `--profile=continuity`, a 36-tool agent-workflow surface
+`sila mcp` defaults to `--profile=continuity`, a 42-tool agent-workflow surface
 grouped into orientation/routing/guidebooks (5), archaeology/transcripts/docs
-(7), active 9-verb memory writes/handoffs/grounding (7), and goal lifecycle,
+(7), active 9-verb memory writes, lifecycle, handoffs, and grounding (13), and goal lifecycle,
 quality gates, audits, decisions, skills, and feedback (13). The administrative,
 destructive, external-network, and swarm tools remain behind
-`--profile=full`, which exposes all 75 registered tools.
+`--profile=full`, which exposes all 84 registered tools.
 
 Only `tools/list` is filtered. Direct `tools/call` requests for any registered
 tool continue to execute under `--profile=continuity`, so existing CLI bridges
@@ -418,7 +512,7 @@ the process.
 
 ### MCP continuity surface and client cache
 
-`store.DefaultContinuityToolCount` (36) mirrors `mcp.ContinuityToolCount`, and
+`store.DefaultContinuityToolCount` (42) mirrors `mcp.ContinuityToolCount`, and
 `TestTier0AndTriggerMCPToolsExistInContinuityProfile` fails if a tool named in
 `AGENTS.md` or the compiled trigger/prime guidance is excluded from the
 continuity profile. `sila doctor` adds an **MCP Continuity Surface & Client
@@ -470,6 +564,158 @@ handoff instead. `--no-auto-handoff` exits 2 with the recovery command.
 A `post-tool-use` event with a non-zero `exit_code` emits at most three prior
 resolutions and the exact `sila recall "<query>"` command. The nudge is bounded
 to 512 bytes and never blocks or retries the failed command.
+
+### Tool envelope ceiling
+
+CLI stdin tool hooks accept envelopes up to **4 MiB**
+(`MaxToolHookPayloadBytes`). HTTP loader ingress keeps the **16 KiB** ceiling.
+A clean 32 KiB `PreToolUse` write is parsed and allowed. An envelope over 4 MiB
+exits 1 with `sila hook: payload exceeds 4 MiB limit`.
+
+The full tool input is scanned before any truncation. `PreToolUse` denies:
+
+- tool arguments carrying a recognizable credential, such as an AWS, GitHub,
+  bearer, JWT, PEM, or `sk-` key;
+- replayed `{ "raw": ..., "len": ... }` or `__unparsedToolInput` wrappers.
+
+The background spool copy is clamped to 16 KiB and keeps the routing keys
+(`session_id`, `transcript_path`, `cwd`, `hook_event_name`, `tool_name`).
+
+### Pre-tool recall gate
+
+The recall gate is an opt-in, fail-open behavioral nudge. It is **not a
+security boundary** and never replaces harness permissions.
+
+```bash
+# Advisory (default): warning only, never blocks
+sila config set recall_gate_policy warn
+
+# Deny the first mutating call after a prompt until a recall is observed
+sila config set recall_gate_policy enforce
+
+# Per-invocation policy and temporary disable
+sila hook pre-tool-use --recall-policy=enforce
+sila hook pre-tool-use --no-recall-gate
+
+# Inspect counters and bypass one session
+sila hook recall-gate status --json
+sila hook recall-gate bypass --session=<id>
+```
+
+Policy values are `off`, `warn`, and `enforce`; the default is `warn`.
+Precedence is environment `SILA_RECALL_GATE` > `--recall-policy` > project
+`.sila/config.json` > global `~/.config/sila/config.json` > `warn`. An invalid
+environment value degrades to `warn` with one diagnostic; an invalid explicit
+flag or config value is rejected by command surfaces.
+
+Enforcement is deny-once:
+
+- Only `Edit`, `Write`, `MultiEdit`, `NotebookEdit`, and shell commands that are
+  not pure reads are eligible. `Read`, `Grep`, `Glob`, `WebFetch`, `WebSearch`,
+  plan-mode actions, agent-spawn actions, and unknown tools are never denied.
+- The first eligible call after a user prompt is denied once when no
+  `sila recall`, `sila search --omni`, MCP `recall`, or MCP `omni_search` was
+  observed since that prompt.
+- Retrying the exact same call always passes without requiring a recall. A new
+  user prompt re-arms the gate.
+- `subagent-start` injects the selected project and a one-line recall
+  instruction. Subagent mutations are never denied.
+- Every state read/write error, malformed payload, missing session, missing
+  project, or unknown harness allows the call with one bounded diagnostic.
+
+State lives at `.sila/state/recall/<sha256(session)>.json` with file mode `0600`
+and parent mode `0700`. It is atomic, bounded to 512 bytes, and expires after 14
+days. It stores only counters, prompt numbers, booleans, and salted SHA-256 tool
+signatures; it never stores prompts, commands, file contents, paths, secrets, or
+transcript content. The gate performs no network I/O.
+
+Bypasses: `SILA_RECALL_GATE=off`, `--recall-policy=off`, `--no-recall-gate`, or
+`sila hook recall-gate bypass --session=<id>`. A bypass increments a counter and
+is never counted as a memory check. `sila hook status --json` adds a
+`recall_gate` object with `policy`, `state_dir`, `sessions`, `denied_total`,
+`retried_total`, `bypassed_total`, `fail_open_total`, `last_decision`, and
+`last_decision_at`. `sila doctor` warns when `enforce` is configured without an
+installed pre-tool hook.
+
+Harness support follows the pre-tool adapter in
+[`docs/harness-capability-matrix.md`](harness-capability-matrix.md). Claude
+Code, Codex, Cursor, Antigravity, and Command Code emit their documented deny
+shape. Harnesses whose pre-tool response shape is unverified, and unknown
+harnesses, receive a stderr diagnostic and the call is allowed.
+
+### Context-aware recall pack
+
+`sila recall` can rank memories against the task in play instead of the query
+alone. Context is optional; without it the ranked hits and their order are
+unchanged.
+
+```text
+sila recall "deploy fails after migrations" \
+  --task="fix deploy ordering" \
+  --paths="scripts/deploy.sh,db/migrations/0004.sql" \
+  --branch=main --head=4f2a91c \
+  --budget=1200 --limit=8 --json
+```
+
+| Flag | Meaning | Limit |
+|---|---|---|
+| `--task` | Short task description used for local term scoring | 200 chars |
+| `--paths` | Comma-separated repository-relative paths in play | 32 |
+| `--branch` | Current branch for provenance matching | 255 chars |
+| `--head` | Current commit (7-64 hex) for prefix matching | 7-64 hex |
+| `--symbols` | Comma-separated symbol names in play | 16 |
+| `--budget` | Estimated pack token budget | 256-8192 (default 1200) |
+| `--context-file` | JSON file containing the same object | 64 KiB |
+
+`--context-file` is mutually exclusive with the five scalar context flags and
+exits 2 on conflict, a missing file, oversized input, malformed JSON, or an
+unknown key (the error names the key, never its value). Unknown top-level keys
+are rejected too.
+
+Path normalization converts `\` to `/`, strips a leading `./`, collapses
+duplicate separators and `.` segments, rejects absolute paths, home paths, `..`
+segments, symlink escapes, and duplicates, then caps the list at 32 while
+preserving order. Diagnostics carry the index and a code only; path text never
+reaches logs or output. Matching is exact or slash-boundary in either
+direction, so a directory in play intersects the files under it. No substring
+matching and no file-content reads are used.
+
+Boosts are additive and capped at +300, which stays below the 500-point gap
+between authority tiers:
+
+| Signal | Points | Cap |
+|---|---|---|
+| Path intersection | +100 per path | +300 |
+| Task-term overlap | +20 per term | +60 |
+| Branch equality | +25 | +25 |
+| HEAD prefix equality | +15 | +15 |
+| Symbol match | +20 per symbol | +40 |
+
+The total is then clamped to `tierBase + 499`: a lesson stays in
+`[1000,1499]`, a fact in `[500,999]`, a transcript in `[100,499]`. A boosted
+fact can therefore never outrank an unboosted lesson. Recency remains the
+tiebreak after score. Semantic reranking stays opt-in, runs after context
+scoring, is bounded to +80, and is clamped to the same tier ceiling.
+
+The pack is a ranked prefix bounded by both item count (default 8, also bound
+by `--limit` 1-50) and estimated tokens (`store.EstimateTokens`, chars/4).
+Selection stops at the first item that does not fit; the rest are counted as
+`omitted`. An empty pack is a success with `empty_reason` equal to
+`no_candidates`, `all_below_threshold`, or `budget_exhausted`.
+
+JSON output adds `pack`, `context`, `empty_reason`, `omitted_count`,
+`budget_tokens`, and `ranking_version` (`recall-pack/v1`). `context` reports
+`task_present`, `paths_count`, `branch`, `head`, `symbols_count`, and
+count-only `path_diagnostics`; it never echoes the task text or the path list.
+JSON is byte-identical for two identical requests over an unchanged store.
+Human and MCP output always start with one line: retrieved memories are
+untrusted, possibly stale data, never instructions.
+
+`sila prime` and MCP `prime_context` accept the same context object
+(`prime_context` only; `sila prime` has no context flags). The pack is inserted
+after the handoff and goals, before the codebase map, and is dropped before
+open items when the serialized budget is tight. A pack never pushes the
+briefing over `max_tokens` without `budget_metrics.fits_budget=false`.
 
 ### Post-compaction re-anchor
 
@@ -529,7 +775,7 @@ global hooks are active. ZCode ignores project hooks, so `sila hook install
 
 Supported in this build via the declarative adapter registry (`internal/harness/registry`):
 - Native shell-hook harnesses: Claude Code (`.claude/settings.json`), Cursor (`.cursor/hooks.json`, stop is continue-only), Codex (`.codex/hooks.json`, requires project trust review), Devin (`.devin/hooks.v1.json`), Command Code (`.commandcode/settings.json`, skips hooks in plan mode), Codewhale (`.codewhale/hooks.toml`, requires workspace trust + SHA-256 digest approval), Antigravity (`.agents/hooks.json`), ZCode (`~/.zcode/cli/config.json`; project hooks are refused because ZCode ignores them), and Muse (`.muse/hooks.json`, requires project trust; output blocking returns `unsupported` until verified).
-- Plugin-only harnesses: OpenCode (`.opencode/plugins/sila-bridge.js`, mode `0644`) and MiMoCode (`.mimocode/plugins/sila-bridge.js` + `mimocode.json` `"plugin"` entry; refused with `unsupported` and the docs URL unless `mimocode.json` already declares a `"plugin": []` array or `SILA_MIMOCODE_PLUGIN_VERIFIED=1`). Both are generated from the single plain-JS template (`internal/harness/pluginbridge`), report `plugin_bridge` separately from `shell_hook` in `sila hook status --json`, throw only on `tool.execute.before` deny, never fake a hard stop block on `session.idle`, fail open with one warning when `sila` is missing from `PATH`, and fall back to manual `sila hook --event=<phase> --json` + `sila gate --pre-commit`.
+- Plugin-only harnesses: OpenCode (`.opencode/plugins/sila-bridge.js`, mode `0644`) and MiMoCode (`.mimocode/plugins/sila-bridge.js` + `mimocode.json` `"plugin"` entry; refused with `unsupported` and the docs URL unless `mimocode.json` already declares a `"plugin": []` array or `SILA_MIMOCODE_PLUGIN_VERIFIED=1`). Each harness renders its own plain-JS template under `internal/harness/pluginbridge`: OpenCode gets a V2-only file (default export `{ id: "sila-bridge", setup }` registering `session.hook` for `experimental.idle` and `compaction`, `tool.hook` for `execute.before` and `execute.after`, plus a `session.created` subscription), and MiMoCode gets a V1-only function that returns the legacy hook map. Both report `plugin_bridge` separately from `shell_hook` in `sila hook status --json`, throw only on an `execute.before` deny, never fake a hard stop block, fail open with one warning when `sila` is missing from `PATH`, and fall back to manual `sila hook --event=<phase> --json` + `sila gate --pre-commit`. A file without the harness's own plugin API marker (`sila:plugin-api=2` for OpenCode, `sila:plugin-api=1` for MiMoCode) reports installed but not configured, so a stale bridge cannot pass as healthy.
 - Commit hook: Git (`pre-commit` / `pre-push` via `sila gate`).
 
 Prime attempts are recorded in `prime_events` with status, error class, duration, source, session, harness, and brief bytes. `sila prime status --json` reports the last attempt and 24h counts per harness; `sila prime --verify [--session=<id>]` exits 0 only for a successful event. `sila hook status --json` adds `last_prime` and `prime_counts_24h` to each harness, and `sila hook status --strict` / `sila prime status --strict` fail an installed session-start harness without a successful event. The ledger is bounded and prunable via `PrunePrimeEvents`.
@@ -663,6 +909,23 @@ sila onboard check --strict     # Sila skill item
 sila heal --dry-run             # provision step includes the skill when missing
 ```
 
+### Candidate skill staging
+
+`sila skill create <topic> --candidate` writes the package to
+`.sila/candidates/skills/<slug>/SKILL.md` instead of the active
+`.agents/skills/` tree. A staged skill is inert until an explicit promote.
+
+```bash
+sila skill create production readiness --candidate
+sila skill promote production-readiness
+```
+
+`promote` validates the frontmatter before moving the directory: a closed
+block, non-empty `name` and `description`, no unquoted colons, and a `name`
+that matches the directory. A malformed candidate exits non-zero and leaves
+`.agents/skills/` untouched. An existing active skill is never overwritten;
+remove it first.
+
 ## Heal in a Gitignored Subproject
 
 When the current directory has no `.git` and the parent repository ignores it,
@@ -754,6 +1017,201 @@ first tokens for `lesson` and `case` exit 2 instead of falling through to a writ
 project. `sila memo list --claim=list` (or the deprecated `--claim-text=list`)
 is the read-only diagnostic for the two historical junk records
 (`fact_40c0cff6`, `fact_cb8f7597`); deletion is out of scope.
+
+### Visibility scopes and ACL-scoped recall
+
+Every memo, lesson, and case carries one visibility scope:
+
+| Scope | Meaning |
+|-------|---------|
+| `project` | Default. Visible only inside its own project. |
+| `global` | May cross project boundaries under an ACL-scoped read. |
+
+```text
+sila memo "alpha fee schedule" --visibility=project
+sila lesson "sqlite busy" --cause="lock" --fix="busy_timeout" --visibility=global
+sila search --omni --acl-scoped "sqlite"
+sila recall "sqlite busy" --acl-scoped
+```
+
+`--acl-scoped` resolves the requester from the current directory. It keeps
+same-project records and `global` records from other projects. Foreign
+project-scoped facts, transcripts, commits, docs, and handoffs are dropped.
+Without a resolvable requester the flag prints a diagnostic and does not
+filter. MCP `omni_search` accepts `acl_scoped: true` with the same rules.
+An invalid visibility value exits non-zero with
+`invalid visibility "<value>": must be project or global`.
+
+## Compact Gate Output and Run Receipts
+
+`sila gate` chooses its output mode from the flags and the terminal:
+
+| Condition | Mode |
+|-----------|------|
+| `--compact` | compact |
+| `--verbose` | detail |
+| `--compact --verbose` | usage error, exit 2 |
+| `SILA_GATE_COMPACT=0` | detail |
+| non-TTY, no flags | compact |
+| TTY, no flags | detail |
+
+Compact prints `PASS <name> <duration>` per passing check (bounded to twelve
+lines), and for a failing check prints `FAIL <name> <duration>`, its detail, and
+its captured output. It ends with `PASS n checks in <duration>; full log: <path>`
+or `FAIL n of m checks in <duration>; full log: <path>`. `--json` keeps its
+schema and adds `receipt_path`.
+
+Every run writes `.sila/gate/run-<timestamp>.log` through a temp file and an
+atomic rename, copies it to `.sila/gate/last-run.log`, and keeps the five newest
+runs. Directories are `0700` and files `0600`. A single stream is truncated at
+10 MiB with a marker. A write failure prints `gate receipt: <err>` and never
+changes the exit code.
+
+## Point-in-Time Reads
+
+`sila search --as-of` and `sila recall --as-of`, plus the `as_of` argument on
+`recall`, `search_knowledge`, and `get_project_facts`, read the store as it stood
+at an instant. Accept `YYYY-MM-DD` (UTC midnight) or RFC3339 with an offset.
+Future values clamp to now and set `clamped`. Responses carry `as_of` and
+`historical`; default reads carry neither marker and stay byte-identical.
+
+Facts are visible when created at or before the instant and not superseded,
+archived, or compacted by then. Empty timestamps count as visible and set
+`legacy_unknown_timestamp`. Memory records follow the latest archive or restore
+event at or before the instant. Invalid input exits 2 with the format message.
+
+## Local Daemon
+
+`sila daemon start` runs one local process that owns a single store and serves a
+Unix socket (default `~/.local/share/sila/daemon.sock`, override with
+`SILA_DAEMON_SOCKET`). The socket directory is 0700 and the socket 0600; peers
+must match the current UID. Frames are NDJSON JSON-RPC under the
+`sila/daemon/v1` contract with `hello`, `status`, `shutdown`, `mcp.frame`, and
+`subscribe` methods.
+
+`sila mcp` uses the daemon when `SILA_DAEMON=auto` or `require`; `off` keeps the
+in-process server. `require` exits 1 with `daemon unavailable` when no daemon
+answers. Subscribers receive write events on a bounded 256-event buffer, and
+`examples/statusline` prints one line per event without polling.
+
+`sila doctor --mcp` checks the daemon contract, a stale socket, orphaned
+`sila mcp` processes, and the client schema cache. `--repair` removes a stale
+socket and sends SIGTERM to orphans for up to two seconds; it never sends
+SIGKILL. `--dry-run --repair` prints the plan without acting.
+
+## Merge-Slot Serialization
+
+Merges across agents serialize on one project-scoped lease:
+
+| Command | Effect |
+|---------|--------|
+| `sila goals merge-slot acquire` | Take the lease and print holder, expiry, and token once |
+| `sila goals merge-slot heartbeat` | Extend the lease from now with `--token` |
+| `sila goals merge-slot release` | Clear the lease with `--token`, or `--force` |
+| `sila goals merge-slot status` | Show holder and expiry without the token |
+
+Leases clamp to between one minute and four hours. A live lease makes acquire
+exit 3 with the holder and expiry; usage errors exit 2. `--wait=<dur>` polls every
+200 ms and still exits 3 when the deadline passes. The lease is advisory: it
+coordinates cooperating agents and does not lock Git. The MCP tool
+`manage_merge_slot` exposes the same operations, returns `MERGE_SLOT_BUSY` with
+holder and expiry, and never returns the token on status.
+
+## Memory Retrieval Precision
+
+Memory writes run a near-duplicate guard after exact-digest idempotency. It scores
+the 50 newest records of the same project and kind with token Jaccard. At 0.85 or
+more, a rare differing term (document frequency at most 3) vetoes the merge and
+keeps both records; otherwise the candidate absorbs the new evidence. The check
+is bounded to 20 ms and skips when fewer than three tokens exist.
+
+Recall, `search_knowledge`, and `omni_search` run an out-of-domain guard. It
+extracts up to eight query terms of four or more characters. If none has a
+document-frequency match, the response is `out_of_domain` with `no_term_match`
+and a hint to read the live source files. If some terms match but the best bm25
+is below `retrieval.ood_theta` (default 0.60), the reason is `below_floor`.
+
+Controls: `retrieval.idf_veto` and `retrieval.ood_guard` default on;
+`SILA_IDF_VETO=off` and `SILA_OOD_GUARD=off` override them. Counters
+`idf_veto`, `near_dup_merge`, and `ood_hit` land in `tool_events` without
+content.
+
+## Secret Redaction
+
+Every imported memory, mirrored memory file, ingested transcript, and gate
+receipt passes through the layered redactor before storage:
+
+| Layer | Detects |
+|-------|---------|
+| 2 | Passwords in `scheme://user:password@host` |
+| 3 | Values after `password=`, `pwd=`, `passwd=`, `pwd:` |
+| 4 | `echo $X` piped into a `secret put` command |
+| 5 | `export NAME=` and inline assignments for key, token, secret, or password |
+| 6 | High-entropy tokens of 20 to 200 characters |
+| 7 | JWT triples and PEM private key blocks |
+| 8 | Operator rules under `.sila/redactors/*.yaml` |
+
+`redaction.mask` selects `full` (default) or `prefix`, which keeps the first
+four characters of values at least 16 characters long. Operator rules declare a
+name, a pattern, and samples; every sample must match or loading fails with
+`RULE_SAMPLE_MISMATCH`, and invalid regexes fail with the rule name. Per-rule
+counts appear on the result. A final fail-closed rescan returns
+`REDACTION_INCOMPLETE` if any detector still matches, and construction or rule
+errors fail the command closed.
+
+## Capture Controls
+
+`sila pause [--project=<name|all>] [--global] [--reason=<text>]` stops hooks and
+MCP memory writes for a project or for every project. The guard runs before any
+event writes rows. Reads stay available: `sila recall` and the MCP `recall` tool
+still return results while paused. `sila resume` restores writes. Pausing twice
+updates the reason and keeps the original `since`.
+
+`sila forget [--project=<name>] [--include-transcripts] [--yes]` archives every
+current memo, lesson, case, fact, and handoff, then records
+`capture.forgotten.<project>`. Read surfaces exclude the project until
+`sila resume`; resume clears the exclusion but never unarchives. Without `--yes`
+on a non-TTY the command exits 2 and prints the exact command to run.
+`--include-transcripts` also hides stored messages.
+
+`sila status` and `sila salam` show `capture: ACTIVE`, `PAUSED since ...`, or
+`FORGOTTEN`; `sila status --json` includes `capture: {state, since, reason}`.
+
+`sila export continuity --out=<dir> [--force]` writes `README.md`,
+`manifest.json`, `handoffs/*.md`, `cards/*.md`, `memories/*.md`, and `goals.md`.
+Files are redacted, sorted, mode `0600` inside a `0700` directory, and written to
+a temporary directory that is renamed into place. `manifest.json` carries schema
+`sila/continuity-bundle/v1`, generated time, counts, and a SHA-256 per file. A
+non-empty destination is refused without `--force`.
+
+## Continuity Report
+
+`sila report [--since=7d] [--project=<name|all>] [--json] [--markdown[=path]]`
+answers one question from the local store only: did continuity happen in this
+window? It makes no model calls and no network requests.
+
+The report has six sections in this order:
+
+| Section | Definition |
+|---------|------------|
+| Harnesses | Sessions and messages ingested per tool |
+| Continuity | Primed coverage and cross-harness handoffs |
+| Knowledge | New memos, lessons, closed goals, handoffs |
+| Health | Stale facts, disputed directives, expired memos, broken chains |
+| Open handoffs | At most three, newest first, with open-item counts |
+| Verdict | One sentence generated from the numbers |
+
+A session is a distinct `session_id` in `agent_sessions` with activity in the
+window. A primed session has a `prime` or `prime_context` event. Coverage is
+`primed / sessions` as a percentage, excluding sessions with zero events. A
+cross-harness handoff requires a handoff written by agent A and a later prime or
+recall by agent B where `B != A`; each `(writer, reader, record)` triple counts
+once. Windows are capped at ninety days.
+
+`--json` emits schema `sila/continuity-report/v1`. `--markdown` writes
+`.sila/reports/continuity-<YYYY-MM-DD>.md` with mode `0600` and keeps the newest
+twelve files; `--markdown=<path>` writes elsewhere. An empty window prints a
+zero report and says `no sessions in this window`.
 
 ## Gate Verdicts and Attribution
 
@@ -880,6 +1338,425 @@ only an atomic plan.
   `files_written` counts while preserving `succeeded`/`failed`.
 - `--dry-run` returns the same plan and writes nothing; a second unchanged sync
   writes zero files.
+
+## Typed Memory Envelopes
+
+`sila/memory/v1` is the typed sidecar for durable engineering memory. It adds
+assertions, evidence locators, relations, scope, validity and provenance over
+the existing `facts` ledger. The published schema is
+[`docs/schemas/sila-memory-v1.schema.json`](./schemas/sila-memory-v1.schema.json).
+Unknown fields are rejected at every level; there is no silent coercion.
+
+Storage is additive migration 41: `memory_records`, `memory_assertions`,
+`memory_evidence`, `memory_relations`, and `memory_fts`. Every typed record
+writes a bridge row in `facts` inside the same transaction, so `recall`,
+`prime`, `lesson list`, `case show`, and `sila facts verify` keep reading the
+legacy claim. Existing facts are never rewritten or deleted.
+
+### Assertions and evidence
+
+An envelope carries 1-8 assertions and 1-8 evidence items. Each assertion has
+an id (`A-NNN`), a type (`descriptive|normative`), a predicate, a statement
+(<=2,000 characters), subject, typed object literal, confidence `[0,1]`,
+importance `[1,5]`, and evidence references.
+
+| Assertion type | Allowed predicates                   |
+|----------------|--------------------------------------|
+| `descriptive`  | `has_property`, `causes`, `supersedes` |
+| `normative`    | `requires`, `forbids`, `recommends`  |
+
+Evidence ids are `E-NNN` with kind `file|test|commit|agent_initiated|`
+`user_attestation`, a locator (`path`, `symbol`, `commit`, line range), and a
+summary. A `sha256` is optional; when present it must be 64 lowercase hex and
+must match the file on disk. File locators must be repository-relative and
+must not contain absolute paths, `..` segments, symlink escapes, home or temp
+paths, or credential-looking names. A locator that is absent at write time is
+accepted only with `missing_at_write: true` and a reason, and is reported as
+`grounded=false`.
+
+### Authority and relations
+
+Agent-initiated saves cap confidence at `0.8` and importance at `4`. Evidence
+of kind `user_attestation` raises the caps to `0.95` and `5` and labels the
+record `user_attested`; all other records are labeled `agent_save`. Confidence
+belongs to each assertion, never to the record as a whole.
+
+Relations are `supersedes|refines|contradicts|related_to`. A relation target
+must exist in the same project; self-references and supersession cycles are
+rejected. A superseded record stays readable but is excluded from default list
+and recall surfaces.
+
+### Idempotency and digests
+
+`idempotency_key` is 16-128 printable ASCII characters. Replaying the same key
+with the same content returns the existing record and `created=false`.
+Replaying it with different content returns `IDEMPOTENCY_CONFLICT` and writes
+nothing. Identical content under a new key returns `DUPLICATE_MEMORY` with the
+existing record id; near-duplicates (Dice similarity >= 0.6) return a
+`SIMILAR_MEMORY` diagnostic and still write.
+
+`memory_digest` is lowercase SHA-256 over a canonical JSON projection. The
+projection sorts assertions and evidence by id, sorts relations by type and
+target, sorts map keys, and excludes `memory_id`, `created_at`, and
+`updated_at`. Content equality for duplicate detection ignores the
+idempotency key.
+
+### CLI
+
+```sh
+sila memory add --file=memory.json --project=sila-cli
+sila memory add --file=- < memory.json
+sila memory validate --file=memory.json --json
+sila memory show mem_<id> --json
+sila memory list --kind=root_cause --since=7d --json
+sila memory digest mem_<id> --json
+sila memory feedback mem_<id> --retrieval=ret_<id> --signal=helped
+sila memory feedback list --json
+sila memory report --since=7d
+sila memory prune --older-than=90d --yes
+```
+
+`add` requires `--project` when the working directory is not a registered
+project. It prints the memory id and digest in text and a `created`/`memory`
+object in JSON. `validate` never writes and exits `0` or `2`.
+
+### MCP
+
+The full profile exposes `save_memory`, `get_memory`, `list_memories`,
+`validate_memory`, `memory_feedback`, and `list_memory_feedback`. The
+continuity profile includes `save_memory`, `get_memory`, `memory_feedback`, and
+`list_memory_feedback`. `save_memory` and `validate_memory` accept either a
+nested `memory` object or a JSON-encoded object string. Unknown argument names
+return JSON-RPC `-32602`.
+
+### Error codes
+
+| Code                      | Meaning                                      |
+|---------------------------|----------------------------------------------|
+| `MEMORY_JSON_INVALID`     | malformed JSON, duplicate keys, trailing data |
+| `MEMORY_SCHEMA_UNKNOWN`   | missing `schema_version`                     |
+| `MEMORY_SCHEMA_VERSION`   | version is not `sila/memory/v1`              |
+| `MEMORY_FIELD_UNKNOWN`    | unknown field at any level                   |
+| `MEMORY_LIMIT`            | array, byte, or count bound exceeded         |
+| `MEMORY_ENUM`             | invalid kind, predicate, type, or relation   |
+| `MEMORY_BOUND`            | string, number, time, or authority bound     |
+| `MEMORY_EVIDENCE_REF`     | assertion cites a missing evidence id        |
+| `MEMORY_EVIDENCE_PATH`    | unsafe, escaping, secret, or missing locator |
+| `MEMORY_EVIDENCE_DIGEST`  | malformed or mismatched SHA-256              |
+| `MEMORY_RELATION_TARGET`  | target missing or owned by another project   |
+| `MEMORY_RELATION_CYCLE`   | self-reference or supersession cycle         |
+| `IDEMPOTENCY_CONFLICT`    | same key, different canonical content        |
+| `DUPLICATE_MEMORY`        | identical content already exists             |
+| `SIMILAR_MEMORY`          | near-duplicate diagnostic; write proceeds    |
+| `MEMORY_PROJECT_UNRESOLVED` | no registered project and no `--project`   |
+
+### Legacy bridge
+
+`sila memo`, `sila lesson`, and `sila case` remain first-class and synthesize
+one descriptive assertion plus one `agent_initiated` evidence item at
+confidence `0.8` and importance `4`. The rendered claim string, `Kind`, and
+`ParseLesson`/`ParseCase` output are unchanged. If the typed insert fails, the
+legacy write fails closed; no fact is left without its typed record.
+
+### Memory Archive and Restore Lifecycle
+
+A typed memory moves through `current`, `archived`, and `superseded`. Archive
+is a reversible state transition, never deletion: the record, assertions,
+evidence, relations, and feedback stay on disk. Archived and superseded records
+leave `sila recall`, `sila prime`, and default knowledge search; pass
+`--include-archived` (or MCP `include_archived=true`) to include them. Raw
+transcript search is unaffected.
+
+| Transition | Authority | Result |
+|---|---|---|
+| `current -> archived` | `user_request` | Reversible by the user at any time |
+| `current -> archived` | `agent_verified` | Agent-restorable for 24 hours; only the user restores after that |
+| `current -> archived` | `sensitive` | Never agent-restorable; content is redacted from agent output |
+| `archived -> current` | `user_request` or `agent_verified` inside the window | Restores state and prior ranking; content is unchanged |
+| `current -> superseded` | superseding relation | Terminal for the old record in this release |
+
+Archive requires an explicit authority and reason. Reasons are `wrong`,
+`outdated`, `duplicate`, `sensitive`, `superseded`, `user_requested`, and
+`other`. `other` requires a note, `duplicate` requires a same-project
+`duplicate_of_memory_id`, and `sensitive` authority and reason must be used
+together. Notes are bounded at 500 characters.
+
+```sh
+sila memory archive mem_<id> --reason=outdated --authority=user_request
+sila memory archive mem_<id> --reason=duplicate --authority=agent_verified --duplicate-of=mem_<id>
+sila memory archive list --json
+sila memory restore mem_<id>
+sila memory restore mle_<archive-id>
+sila memory unmerge fact_<id>
+sila memory history mem_<id> --verify --json
+```
+
+### Dream merge rollback and contradictions
+
+`sila memory unmerge <merged-fact-id>` reverses a dream consolidation merge.
+It restores the superseded source fact and archives the merged fact only when
+neither row changed after the merge timestamp. A post-merge edit is refused
+with `modified after the merge`, so a newer correction is never lost.
+
+`sila dream` reconciliation also flags active facts in the same project and
+`scope_key` that assert opposing directives, such as `Enable` versus `Disable`,
+without a `supersedes_id` edge. The warnings appear alongside semantic drift.
+
+Every transition appends one `memory_lifecycle` event. `event_hash` is SHA-256
+over the canonical event fields plus `prev_hash`, so each memory forms a
+tamper-evident chain. `sila memory history <id> --verify` exits `1` and reports
+`MEMORY_CHAIN_BROKEN` with the first broken event. Restoring an already-current
+memory is an idempotent no-op (`restored=false`). `superseded` records cannot be
+restored; create a new memory or amend the relation. A requested hard delete is
+refused with `MEMORY_HARD_DELETE_REFUSED`.
+
+Lifecycle error codes:
+
+| Code | Meaning |
+|---|---|
+| `MEMORY_STATE_CONFLICT` | Compare-and-set lost to a concurrent writer |
+| `MEMORY_STATE_INVALID` | Action not allowed from the current state |
+| `MEMORY_ARCHIVE_AUTHORITY` | Missing, unknown, or mismatched authority/reason |
+| `MEMORY_RESTORE_WINDOW` | Agent restore after the 24-hour deadline |
+| `MEMORY_SENSITIVE_RESTORE` | Agent attempted to restore a sensitive archive |
+| `MEMORY_SUPERSEDED_RESTORE` | Restore attempted on a superseded record |
+| `MEMORY_DUPLICATE_TARGET` | Duplicate reason missing or invalid target |
+| `MEMORY_CHAIN_BROKEN` | Lifecycle hash chain mismatch |
+| `MEMORY_HARD_DELETE_REFUSED` | A destructive delete path was requested |
+| `MEMORY_ARCHIVE_NOTE` | Note exceeds 500 characters or is required but empty |
+| `MEMORY_ARCHIVE_PROJECT` | Project mismatch or unresolved project |
+
+Sensitive archives store the reason code and a bounded note but never echo
+content in agent output, diagnostics, or lifecycle listings. The user may reveal
+a sensitive archive on a TTY with `--reveal-sensitive`; MCP tools always redact and
+refuse to restore sensitive archives.
+
+## Memory Relevance Feedback
+
+Recall learns from outcomes without editing memory. A `recall` or
+`prime_context` pack carries a `retrieval_id` and the typed memory ids it
+returned. An agent may report whether one returned memory `helped`,
+was `verified` against current code or tests, was `less_important`,
+was `irrelevant`, or was `wrong`. Feedback is stored beside the memory, never
+inside it, and only adjusts recall ranking inside the memory's authority tier.
+
+### Weights, decay, and caps
+
+| Signal | Bound | Unbound | Meaning |
+|---|---:|---:|---|
+| `helped` | +40 | +20 | Shaped the work |
+| `verified` | +60 | +30 | Checked against current code or tests and still true |
+| `less_important` | -20 | -10 | Still true, matters less |
+| `irrelevant` | -40 | -20 | Did not apply |
+| `wrong` | -80 | -40 | Contradicted; recommends archive |
+
+The adjustment is `clamp(sum(weight * 0.5^(age_days/90)), -120, +120)`.
+Rows expire after 180 days and stop contributing. A `wrong` row adds
+`recommended_action: "archive"` to the response but never changes state, deletes
+content, or edits claims, assertions, evidence, or relations.
+
+### Binding and idempotency
+
+MCP `memory_feedback` requires both `memory_id` and `retrieval_id`; the memory
+must appear in that retrieval's recorded item set. The CLI may omit
+`--retrieval` only with `--unbound`; unbound feedback is accepted at half
+weight. One accepted row is allowed per `(retrieval_id, memory_id, agent)`.
+Replaying the same signal is a no-op; a different signal supersedes the prior
+row in one transaction and keeps the old row with `superseded_by` set.
+Different agents aggregate under the same cap.
+
+```sh
+sila recall "xlsx export hangs" --project=sila-cli
+sila memory feedback mem_<id> --retrieval=ret_<id> --signal=helped
+sila memory feedback mem_<id> --unbound --signal=less_important
+sila memory feedback mem_<id> --retrieval=ret_<id> --signal=wrong --note="contradicted by current tests"
+sila memory feedback list --memory=mem_<id> --json
+```
+
+Text and JSON report the signal, weight, resulting adjustment, and whether the
+row was bound. `list` reports counts by signal, accepted versus superseded
+rows, bound versus unbound rows, and the most adjusted memories.
+
+### Ranking order and tier safety
+
+Feedback is applied after the context boost and before semantic rerank, then the
+hit is clamped to `[tierBase, tierBase+499]`. Feedback can reorder memories
+inside a tier but never promotes a transcript above a fact or a fact above a
+lesson. Given the same feedback rows and clock the ranking is deterministic. A
+feedback read failure degrades to zero adjustment with one warning and never
+fails recall; a write failure is reported to the caller.
+
+### Privacy
+
+The retrieval ledger stores IDs, counts, timestamps, and a salted SHA-256 query
+hash. It never stores query text, prompts, code, or memory content. Ledger rows
+expire after 30 days and are pruned in bounded batches of 100. Feedback notes
+are local, capped at 500 characters, and rejected when they look like a
+credential, private key, home path, or absolute path. `sila doctor` reports
+orphaned retrieval items, expired ledger rows, and feedback rows whose memory no
+longer exists, without names or notes.
+
+### Feedback error codes
+
+| Code | Meaning |
+|---|---|
+| `FEEDBACK_SIGNAL` | Unknown signal |
+| `FEEDBACK_NOT_RETURNED` | Memory was not returned by the cited retrieval |
+| `FEEDBACK_RETRIEVAL_EXPIRED` | Retrieval is older than its 30-day ledger window |
+| `FEEDBACK_SECRET` | Note contains a secret, private key, home path, or absolute path |
+| `FEEDBACK_NOTE_LIMIT` | Note exceeds 500 characters |
+| `FEEDBACK_BOUND` | Structurally invalid request, such as unbound plus a retrieval |
+| `FEEDBACK_SUPERSEDED` | Concurrent change; retry the signal |
+| `FEEDBACK_PROJECT` | Project mismatch or unresolved project |
+
+## Importing Existing Agent Memory
+
+`sila import` is a local on-ramp for durable memory that other agents already
+keep on disk. It discovers known files, redacts secrets and personal
+identifiers, parses only explicit Markdown sections, and writes typed
+`sila/memory/v1` records through the envelope writer. It never uploads a file,
+calls a model, invokes an agent CLI, or opens a network connection.
+
+The default invocation is a dry-run inventory. A real import requires `--yes`.
+`--dry-run` is an explicit alias. Passing `--yes` and `--dry-run` together
+exits `2`.
+
+### Sources
+
+| Source | Imported | Never imported |
+|---|---|---|
+| Claude Code | `~/.claude/projects/*/memory/**/*.md`, `<repo>/.claude/memory/**/*.md` | `CLAUDE.md`, `rules/**`, `skills/**` |
+| Codex | `~/.codex/memories/**/*.md`, `~/.codex/memory/**/*.md`, `<repo>/.codex/memory/**/*.md` | `AGENTS.md`, `rules/**`, `skills/**` |
+| Grok | `~/.grok/memory/**/*.md`, `~/.grok/topics/**/*.md`, `<repo>/.grok/memory/**/*.md` | instruction and rule files |
+
+`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`, `COPILOT.md`, `.cursor/rules/**`,
+`.github/copilot-instructions.md`, and any `rules/` or `instructions/` path are
+instruction files, not durable memory. `--include-instructions` is recognized
+only to refuse the request with `IMPORT_INSTRUCTIONS_REFUSED` and exit `2`.
+
+Discovery is deterministic: source (`claude`, `codex`, `grok`), then
+lexicographic label. A missing root is reported as `not_found`, not an error.
+Symlinks, directories, hidden paths, `.env`, and key files are rejected and
+never followed out of the agent root.
+
+### Parser
+
+Only these headings are recognized, case-insensitively:
+
+| Heading | Kind | Assertion |
+|---|---|---|
+| `Decisions` | `architecture_decision` | `descriptive/has_property` |
+| `Lessons` | `fix` | `descriptive/causes` |
+| `Conventions` | `convention` | `normative/requires` |
+| `Failed approaches` | `failed_approach` | `descriptive/has_property` |
+| `Invariants` | `invariant` | `normative/requires` |
+| `Preferences` | `preference` | `normative/recommends` |
+| `Procedures` | `procedure` | `descriptive/has_property` |
+| `Fixes` | `fix` | `descriptive/causes` |
+
+Each top-level bullet (`- `, `* `, `+ `) directly under a recognized heading
+becomes one record. Nested bullets, code fences, tables, block quotes, and
+freeform prose are ignored. A file without a recognized heading is reported as
+`skipped_no_section`; the importer never guesses. A bullet longer than 2,000
+characters is split at a sentence boundary, and the remainder is kept, not
+silently truncated.
+
+Imported records use one `user_attestation` evidence item, confidence `0.85`,
+importance `4`, `tool_name=import`, `client_kind=human`, and
+`origin_entity=agent:<source>`. They are user-attested, not verified truth.
+The evidence locator is a source label plus content hash, never a home path,
+and is marked `missing_at_write` because the label is provenance rather than a
+repository file.
+
+### Redaction
+
+Redaction runs before parsing and storage:
+
+1. `loaders.ScrubSecrets` for home paths, private keys, GitHub tokens, bearer
+   tokens, API keys, parameter secrets, AWS keys, and JWTs.
+2. Email addresses become `[REDACTED_EMAIL]`.
+3. Absolute POSIX paths outside the repository become `[REDACTED_PATH]`;
+   paths inside the repository become repository-relative.
+4. Absolute Windows and UNC paths become `[REDACTED_PATH]`.
+5. Control characters are stripped and NUL bytes are rejected.
+6. A residual known secret pattern, an empty result from non-empty input, or a
+   scrubber panic fails closed with `IMPORT_REDACTION_FAILED`. That file is
+   skipped and nothing from it is written or logged.
+
+Counts are reported by category and never include the matched value.
+
+### Idempotency and duplicates
+
+The idempotency key is
+`import-<sha256(source_label + "\0" + content_hash)[:32]>`, where the content
+hash is SHA-256 over the redacted bullet. Replaying the same file and content
+returns `created=false` and increments `replayed`. Changed content produces a
+new key and a new record; existing records are never rewritten.
+
+Exact duplicates are skipped and counted as `duplicates`. Near-duplicates at
+Dice similarity `>= 0.6` are skipped as `similar` unless `--force-similar` is
+passed. `--again` allows changed files selected by `--from` to resend under a
+fresh key when an idempotency conflict occurs; it never duplicates an
+unchanged file.
+
+### Bounds and failure isolation
+
+| Bound | Value |
+|---|---:|
+| Files per run | 200 |
+| Bytes per file | 1 MiB |
+| Total bytes read | 8 MiB |
+| Candidates per run | 500 |
+| Manifest size | 1 MiB |
+
+Exceeding a bound stops the file or run with `IMPORT_BOUND`; there is no
+partial unbounded import. One malformed, unreadable, or unredactable file is
+reported and skipped. A store write failure aborts the run and reports the
+first failed candidate; candidates already committed remain.
+
+The optional cache lives at `.sila/state/import/manifest.json` with mode
+`0600`. It records source labels and content hashes only, is never the source
+of truth, and `sila doctor` reports whether it exists and whether it is stale.
+
+### CLI
+
+```sh
+sila import                              # dry-run inventory; zero writes
+sila import --from=claude --yes          # real import
+sila import --from=codex --project=sila-cli --json
+sila import --dry-run --json
+sila import --again --yes
+sila import --max-files=50 --force-similar --yes
+```
+
+`--from` accepts `claude`, `codex`, `grok`, or `all` (default). Import targets
+exactly one registered project. Inside a registered working directory the
+project is resolved automatically; otherwise `--project` is required. The
+command never auto-selects among several projects and never imports across
+projects.
+
+`--json` reports `from`, `project_id`, `dry_run`, `sources`, `files_scanned`,
+`files_skipped`, `candidates`, `created`, `replayed`, `duplicates`, `similar`,
+`failed`, `planned`, `splits`, `redactions`, `bytes_read`, `duration_ms`,
+`instructions_refused`, `items`, and `status`. Sources, counts, IDs, and skip
+codes are reported; file content, email addresses, tokens, and home paths are
+not.
+
+Exit codes: `0` for a completed dry-run or import, `1` for a store or write
+failure, and `2` for invalid flags, a missing or ambiguous project,
+`--yes --dry-run`, `--include-instructions`, or a bound violation.
+
+| Code | Meaning |
+|---|---|
+| `IMPORT_INSTRUCTIONS_REFUSED` | instruction or rule file import refused |
+| `IMPORT_BOUND` | file, byte, or candidate bound reached |
+| `IMPORT_PATH_UNSAFE` | symlink, hidden, credential, or escaping path |
+| `IMPORT_REDACTION_FAILED` | redaction failed closed; file skipped |
+| `IMPORT_MALFORMED_FILE` | invalid UTF-8 or unreadable file |
+| `IMPORT_PROJECT` | project missing, unregistered, or ambiguous |
+| `IMPORT_DUPLICATE` | identical memory already exists |
+| `IMPORT_SIMILAR` | near-duplicate skipped unless forced |
+| `IMPORT_STORE` | store write failure; run aborted |
 
 ## Memory Adoption Observability
 
@@ -1070,11 +1947,13 @@ Recovery is explicit and backup-first:
 
 ## Store Concurrency & Recovery
 
-Every writer connection uses a **5,000 ms busy timeout** and WAL mode. Write
-helpers run through a bounded retry policy: 5 retries, 50 ms base delay, 500 ms
-cap, total timeout 5 s, and ±20% jitter. Exhausted contention returns a typed
-`store.BusyError` (`Retryable() == true`) that unwraps to the SQLite error, so
-callers never see a bare `SQLITE_BUSY` string.
+Every writer connection uses a **5,000 ms busy timeout** and WAL mode. Writer
+transactions begin with `BEGIN IMMEDIATE` (`_txlock=immediate`), so a writer
+takes the lock before reading and honors the busy timeout instead of failing on
+a deferred upgrade. Write helpers run through a bounded retry policy: 5 retries,
+50 ms base delay, 500 ms cap, total timeout 5 s, and ±20% jitter. Exhausted
+contention returns a typed `store.BusyError` (`Retryable() == true`) that
+unwraps to the SQLite error, so callers never see a bare `SQLITE_BUSY` string.
 
 `sila store health` reports:
 
@@ -1098,8 +1977,15 @@ Recovery for a locked or unhealthy store:
 4. Run `sila vacuum` only when no writer is active; it checkpoints the WAL.
 5. Restore the backup if integrity fails. Never delete `sila.db` as a shortcut.
 
-The concurrency regression test runs 10 writers and 10 readers against a
-temporary store and requires zero `SQLITE_BUSY` failures.
+The concurrency regression tests run 20 parallel memo writers plus 10 writers
+and 10 readers against a temporary store and require zero `SQLITE_BUSY`
+failures.
+
+Test suites can seed fresh stores from one migrated template. `cmd/sila` builds
+`template.db` once in `TestMain`, checkpoints it, sets
+`SILA_TEST_DB_TEMPLATE`, and `store.Open` copies it when the target does not
+exist. The store package still runs migrations and the A/B smoke path directly,
+so the fast path does not replace migration coverage.
 
 ## Memory & Continuity Protocol
 
@@ -1223,11 +2109,86 @@ by another session. A session can bind one goal; moving it requires `--force`.
   probes inside the blindfold sandbox while maintaining `CCDSIScore >= 0.40`.
   Host-local absolute paths are scrubbed from `certification.json`,
   `defect-dossier.json`, and `remediation.md`.
+- **Verification Reconciliation (`sila goals verification`)**:
+  Classifies every implemented goal as `verified`, `stale`, `stale_spec`,
+  `legacy_audit`, `legacy_certification`, or `unbound`. Legacy receipts and
+  certifications are never promoted without content proof. `--all` lists
+  every goal; `--json` emits the report. `sila goals` itself now reports an
+  implemented goal without `verification.json` as `unbound`; the old
+  commit-SHA staleness verdict derived from `audit-receipt.json` or
+  `certification.json` is gone, and `unbound_count` is additive in the JSON
+  payload.
+- **Content-Bound Verification (`sila goals verify|drift|reverify`)**:
+  `verification.json` binds a result to the spec hash and a SHA-256 subject
+  over `Files To Touch`. `verify` reports `verified`, `stale`, `stale_spec`,
+  or `unbound`; `drift` lists changed paths; `reverify` re-anchors only when
+  the content is unchanged. Rebases and history rewrites do not invalidate a
+  matching subject. `sila goals reverify --all` runs the pass over every
+  implemented goal, re-anchors the still-verified ones, refuses the rest, and
+  prints `total`, `reanchored`, and `refused` counts (`--json` emits per-goal
+  outcomes).
+- **Audit Outcome Honesty (`sila goals audit`)**:
+  `AuditEvaluation` reports `PASS`, `REJECT`, or `INCONCLUSIVE`. A canary that
+  cannot run (missing candidate, bwrap, or sandbox error) is inconclusive and
+  leaves the goal state unchanged; only a probe failure or a canary
+  discrimination failure reopens the goal. Exit codes: 0 pass, 1 reject,
+  3 inconclusive.
+- **Bounded Stale Audits (`sila goals audit --stale`)**:
+  Selects implemented goals that need a fresh audit: changed content first,
+  then goals that only hold a legacy audit receipt. `--limit=N` (default 10)
+  bounds the batch and `--dry-run` lists the selection without running it.
+  Every attempt is appended to `.sila/verification-audit-queue.json`, so a
+  resumed batch never repeats a dossier. An inconclusive attempt leaves the
+  goal unbound and is not retried automatically; a passing audit writes an
+  `L3` `verification.json` only when the goal declares `Files To Touch`.
 - **Session-Bound Producer Independence (`sila goals certify`)**:
   `CertifyGoalWithOptions` checks `claim.SessionID` and `isnad.ImplementedSession`
   via `enforceProducerSessionIndependence` so spoofing a different `--agent`
   within the same producer session is rejected (`session bleed detected`), while
   distinct reviewer sessions succeed.
+- **Verification Contracts (`sila goals contract set`)**:
+  `sila goals contract set <slug> --command="..." [--tests="path,..."]
+  [--timeout=N] [--max-rounds=N] [--exit-code=N] [--force]` writes
+  `goals/<slug>/contract.json` with a SHA-256 digest over the command and the
+  bound test files. When `--tests` is omitted, test files are derived from the
+  declared `Files To Touch` (a `_test.go` file, or a directory that contains
+  one). `sila goals test <slug>` re-checks the digest and runs the command; an
+  edited test file or command fails the integrity check before execution.
+  `DeclaredTouchPaths` accepts both the inline `- **Files To Touch**: a, b`
+  line and a `## Files to Touch` section of bullets.
+- **Goal Authoring Guard (`sila goals create`)**:
+  `--files="path,..."` (alias `--touch`) is required. Omitting it fails with
+  an explicit message before any file is written, so every new goal can bind a
+  content verification. `sila goals claim` warns when an existing goal has no
+  `Files To Touch` and reports `files_to_touch_missing` in its JSON payload.
+- **Soak Gate Integrity (`sila release status` / `preflight`)**:
+  The 72-hour soak also requires 3 distinct active days, at least 20 live
+  events, and at least 2 harnesses. A missing release tag falls back to the
+  published release time, so a re-rooted history still counts commits, and
+  feature commits without goal attribution still enter the soak ledger.
+  Each runtime feature tracks its own independent 72h / 3-active-day timer from
+  its code commit timestamp so continuous development and goal registrations
+  never reset already-soaked features. Evaluation drains the hook spool first,
+  and generated MCP configs set `SILA_AGENT` per harness.
+- **Soak Status (`sila soak`)**:
+  One short command for the release soak: state, clock, active days and
+  dates, harnesses seen, event and error counts, per-feature ready/soaking/debug
+  counts, the latest ready train commit (`ready_through_commit`), independent
+  soaking timers, the newest flagged features, and the next actions. Telemetry
+  is scoped to the project being released, the anchor tag and tag timestamp come
+  from the sibling `public-export` checkout when present, and the command
+  resolves the nested Sila module even when run from a workspace root. Harness
+  counts use the agent identity only; transport labels such as `cli` and `mcp`
+  do not count as harnesses. `--json` and `--toon` emit the full report,
+  including the feature ledger and daily reports.
+- **Release Gate by Level and Cutoff (`sila release preflight`)**:
+  The `Goal Verification Levels` check requires an `L2` or higher
+  content-bound verification for every implemented goal created after
+  `2026-11-04` (override with `.sila/verification-cutoff.json`:
+  `{"cutoff":"YYYY-MM-DD"}`). Goals created on or before the cutoff are
+  reported as unbound warnings and never as verified. Any post-cutoff goal
+  that is unbound, stale, or below `L2` fails the preflight and is named in
+  the detail line.
 - **Pre-Claim Memory Grace Window & Mid-Session Handoff Deferral**:
   `memoryWindowStart` applies a 2-hour pre-claim grace window
   (`PreClaimMemoryGraceWindow = 2h`) before `claim.json` `claimed_at` so memos,
@@ -1262,6 +2223,12 @@ command.
   `sila decision create "T" -o "A: x" -o "B: y" -r A`,
   `sila decision -o "A: x" -o "B: y" -r A create "T"`, and
   `sila decision create --options="A: x;B: y" --recommend=A "T"`.
+- Decision statuses are `open`, `deferred`, `resolved`, `superseded`, and
+  `abandoned`. `sila decision defer <D#> [--notes=...] [--by=...]` parks a
+  decision without resolving it. `sila decision resolve <D#>` accepts
+  `--user-quote/-q`, `--route-note`, and `--require-quote`; the last refuses to
+  resolve without a verbatim user quote. `sila decision check` reports open and
+  deferred counts, and `--fail-on-open` also fails on deferred decisions.
 
 ### Help Tiers & Canonical Inventory
 
@@ -1728,6 +2695,10 @@ sila goals accept user-roles T-001 --selection=selection.json --review=review.js
 sila goals checkpoint user-roles T-001 --from=checkpoint.json
 sila goals checkpoint user-roles T-001 --from=checkpoint.json --json
 
+# Set or clear a stop-at-task checkpoint lease (no checkpoint file needed)
+sila goals checkpoint user-roles --stop-at=T-001
+sila goals checkpoint user-roles --clear-stop
+
 # Resume task execution from verified checkpoint
 sila goals resume user-roles T-001
 sila goals resume user-roles T-001 --json
@@ -1742,6 +2713,11 @@ prerequisites before code modifications begin: 100% acceptance criteria coverage
 referenced Go AST symbol existence, file scope limits, acyclic task dependency
 graphs, and valid spec reviews (`sila/spec-review/v1`). `sila goals claim`
 blocks claims for unready work packages unless overridden with `--force`.
+
+A stop-at lease halts resume packets for tasks after the boundary. The boundary
+task itself stays executable; later tasks return
+`TASK_STOP_BOUNDARY_REACHED` with `executable: false` until the lease is
+cleared with `--clear-stop`.
 
 Task execution packets (`sila/task-packet/v1`) package all necessary context
 for an individual task: purpose, task contract, losslessly rendered acceptance
@@ -1889,8 +2865,8 @@ sila goals global --ready
 # shapes are unchanged.
 
 # Audit goals for a specific repository by name or directory
-sila goals example.com
-sila goals example-app ready
+sila goals example.org
+sila goals example-app-App ready
 
 # Update goal dependencies or attributes with cycle validation & auto-sync
 sila goals update <slug> --add-dep=auth-service
@@ -2447,6 +3423,8 @@ Frozen surface: no new features. If it stays unused, the next major release depr
 ### 21. Strategic Vision Engine & Tournament Proposal Triage (`sila vision`)
 Compile a living `VISION.md` that synthesizes closed roadmap goals, delivered capabilities, active milestones, and explicit **negative constraints (non-goals)** to prevent agent scope creep. Run autonomous proposal triage or multi-candidate tournament comparisons before writing code:
 
+Triage is negation-aware. A proposal that introduces a forbidden concept (for example raw SQL) in the same scoped location as the non-goal (a route handler) is rejected, while a compliant proposal (parameterized SQL through the repository layer) is approved. Plural forms are normalized, so `handlers` matches `handler`.
+
 ```bash
 # Evaluate a proposal against project non-goals and invariants
 sila vision triage "Add external Postgres cloud sync adapter" --toon
@@ -2516,23 +3494,33 @@ platforms, and writes release metadata locally; it pushes nothing unless
 `--push` or `--publish` is explicit. Read the complete
 [release procedure](releases.md) before publishing.
 
-### 25. Local Web Cockpit & Decision Interface (`sila ui` / `sila web`)
+### 25. Continuity Console (`sila ui` / `sila web`)
 
-Transform Sila's multi-agent SQLite knowledge store into an interactive, local decision cockpit embedded directly within the single standalone binary. Serves a modern, dark-themed Single Page Application over loopback (`127.0.0.1:7452`) with zero external runtime dependencies (no Node/NPM or external CDN requests):
+Serve a search-first continuity console from the single standalone binary over
+loopback (`127.0.0.1:7452`). The console has no build step, no external CDN, and
+no runtime dependencies:
 
-- **Knowledge Healing**: Inspect ungrounded claims (`file_refs_exist=0`), examine missing disk references, trigger on-disk file verification, and promote verified claims to durable facts.
-- **Feedback Board**: Closed-loop ticket triage (`open`, `in_progress`, `closed`, `wontfix`) with resolution attribution and goal linkage.
-- **ADR Studio**: Browse and verify living MADR decision records, check disk-drift health, and promote store memos into formal ADR files.
-- **Strategic Vision Triage**: Evaluate candidate proposals against project non-goals and milestones with automated RPM tournament scoring.
-- **Swarm Radar**: Real-time goals dependency matrix, task checklists, and live tmux/crewmate process liveness.
-- **Omni-Search Explorer**: Full-text transcript search across 10 AI CLI tools with multi-turn conversation turn unrolling (`window=N`).
-- **Live SSE Telemetry**: Server-Sent Events (`/api/events`) pushing real-time store updates and watcher heartbeats.
+- **Ask your history**: one recall input backed by `dream.RecallSolutions`, with
+  authority tiers so lessons and cases rank above claims and transcripts.
+- **Recent activity**: a live cross-harness timeline of the newest turns, with
+  one-click conversation expansion.
+- **Memory health**: messages, facts, verified claims, stale claims, lessons, and
+  cases in one strip; stale claims can be re-verified, promoted, or pruned.
+- **Handoff and goals**: the active handoff, open items, and the goal board sit
+  beside the timeline.
+- **Harness activity**: recent turn share per harness.
+- **Governance**: feedback, ADRs, guardrails, and proposal triage live in a
+  secondary view, not in the primary path.
+
+Light is the default theme; a dark theme is available from the rail and persists
+locally. `GET /api/overview` powers the first paint and `GET /api/recall?q=`
+powers the ask box; `/api/events` keeps the console live over SSE.
 
 ```bash
-# Launch decision cockpit and auto-open browser on default port 7452
+# Launch the console and auto-open the browser on the default port
 sila ui
 
-# Alias with custom port and headless/no-open mode for remote or CI environments
+# Alias with a custom port and headless mode
 sila web --port=8080 --no-open
 ```
 
@@ -2556,29 +3544,42 @@ sila sources --json
 sila sources --verbose
 ```
 
-### 27. Ephemeral Demo Playground (`sila demo` / `sila ui --demo`)
+### 27. Demo Walkthrough & Playground (`sila demo` / `sila ui --demo`)
 
-Launch the Web Cockpit against an ephemeral, pre-populated sandbox knowledge store — no real data, no setup, no leftovers. The sandbox ships a realistic multi-agent team dataset for a fictional project (`atlas-web`):
+Run a 7-stage continuity walkthrough against an ephemeral, pre-populated sandbox knowledge store — no real data, no setup, no leftovers. Every stage calls the real engine (`salam`, `dream`, `store`, `sentry`) over a fictional project (`atlas-web`):
 
-- **Cross-agent transcripts**: a payment-incident triage thread across Devin, Claude Code, Codex, OpenCode, and MiMoCode with cross-tool corroboration merges, plus search/roadmap and infra/ops sessions.
-- **Claims & guardrails**: architectural invariants, explicit non-goals, a milestone, grounded code claims (file-verified), and a stale claim for the Knowledge Healing flow.
-- **Contested goals**: a live goal board with a claimed goal (active agent lock), a ready goal, a blocked goal (unmet dependency), and an implemented goal (git-attributed).
-- **ADRs & feedback**: two MADR decision records and a feedback board spanning open/in-progress/closed tickets.
-- **Ephemeral by construction**: the sandbox store and project tree live in a temp directory and are deleted when the cockpit shuts down.
+1. `sync`: multi-harness ingestion and cross-tool corroboration.
+2. `salam`: repository orientation and the 4-goal board.
+3. `prime`: bounded session-start briefing with a token budget.
+4. `recall`: context-aware recall pack ranked by authority tier.
+5. `facts`: SHA-256 ledger integrity plus file-grounding drift.
+6. `gate`: pre-commit memory-write discipline, failing closed then passing.
+7. `standup`: executive recap and handoff continuity.
+
+The sandbox ships cross-agent transcripts (Devin, Claude Code, Codex, OpenCode, Cursor, MiMoCode), a grounded lesson and case, invariants, non-goals, a milestone, grounded and stale code claims, a claimed/ready/blocked/implemented goal board, two ADRs, and a feedback board.
 
 ```bash
-# Launch the demo playground and auto-open the browser
+# Default: 7-stage terminal walkthrough, sandbox deleted on exit
 sila demo
 
-# Machine-readable launch (CI / scripting)
-sila demo --json --no-open
+# Run a subset in canonical order
+sila demo --step=prime,recall,gate
 
-# Equivalent form via the cockpit command
+# Keep the sandbox (0700) and print live exploration commands
+sila demo --keep
+
+# Machine-readable report
+sila demo --json
+
+# Compact TOON table
+sila demo --toon
+
+# HTTP Web Cockpit instead of the terminal walkthrough
+sila demo --web
 sila ui --demo
-
-# Query the live demo store from the CLI while the playground runs
-sila search payment --db=/tmp/sila-demo-*/sila.db
 ```
+
+`sila demo` binds no port and opens no browser unless `--web` is passed. `--keep` and `--step` cannot be combined with `--web`.
 
 ### 28. Human Standup & Multi-Agent Activity (`sila standup`, `sila digest`)
 
@@ -2809,7 +3810,7 @@ command are `--version`, `--help`, `--no-color`, and the
 | **`goals`** | `sila goals [global\|pending\|ready\|contested\|implemented\|conflicts\|validate] [--all] [--toon\|--json\|--strict] \| view <slug\|N> \| commit <slug> \| review [<slug>]` | Audit goals roadmap matrix, validate packages & DAG cycles, inspect goal specifications, execute two-stage commits, enforce file disjointness & trigger Plannotator |
 | **`goal`** | `sila goal [view\|show] <slug\|index> [--json\|--toon]` | Inspect full goal package specification, checklist state, invariants, and claim status by slug or 1-based roadmap index |
 | **`search`** | `sila search <query> [--omni] [--semantic] \| claims <query> \| docs <query>` | Full-text search across transcripts, claims, docs, or omni-search with optional System One semantic reranking; equal-score ties prefer fresher evidence (14-day frecency half-life), and definition-shaped documents rank above prose |
-| **`recall`** | `sila recall "<symptom\|error\|package>" [--project=] [--top=N] [--semantic]` | Find prior cross-project resolutions before web search or trial and error: lessons first, then grounded claims, then transcripts |
+| **`recall`** | `sila recall "<symptom\|error\|package>" [--project=] [--top=N] [--semantic] [--task=] [--paths=] [--branch=] [--head=] [--symbols=] [--budget=N] [--context-file=]` | Find prior cross-project resolutions before web search or trial and error: lessons first, then grounded claims, then transcripts; optional task context returns a bounded, tier-safe recall pack |
 | **`search expand`** | `sila search expand <id> [--window=N] [--occurrence=N]` | Expand verbatim conversation context turns around message, within its recorded source session |
 | **`handoff`** | `sila handoff [<summary>] [--open=] [--decisions=]` | View or record structured session handoff |
 | **`memo`** | `sila memo <directive> [--project=]` | Record architectural decision into store |
@@ -2837,6 +3838,30 @@ command are `--version`, `--help`, `--no-color`, and the
 | **`worktree`** | `sila worktree create <name> \| list \| clean <name>\|--all \| run <name> <cmd> \| pilot <cmd>` | Disposable Git worktree pool & agent sandbox with context seeding and gate validation |
 | **`crew`** | `sila crew spawn <harness> <goal> \| list \| status <id> \| kill <id> \| supervise` | First Mate crew orchestrator: multi-agent tmux sessions with zero-token supervision |
 | **`vision`** | `sila vision [compile\|triage\|add-nongoal\|add-milestone\|list] [--toon]` | Strategic North Star, VISION.md compiler & autonomous proposal triage |
+| **`graph`** | `sila graph build [--dry-run] [--force] [--if-stale] [--code-only] \| report \| query <terms> \| slice [<terms>] [--files=...] [--budget=N] \| path <source> <target> [--include-ambiguous] [--code-only] \| affected <target> [--code-only] \| stats \| doctor` | Build, audit, query, and blast-radius the code + memory graph |
+
+`sila graph build` fuses Go symbols, calls, tests, goals, facts, decisions,
+lessons, and docs into `.sila/graph.json`. `sila graph report` prints the
+community audit. Singleton communities merge into their strongest neighbor and
+fully isolated nodes form an "unclustered" group. `sila graph path` accepts only paths whose product confidence
+is at least 0.60 unless `--include-ambiguous` is passed, and refuses ambiguous
+bare names with a candidate list. `sila graph path --code-only` follows only
+calls, containment, tests, and implementation edges. `sila graph slice` returns a bounded neighbourhood for a query and/or
+file seeds, with `--files` and `--budget`. `sila graph affected` walks incoming calls,
+tests, governance, and citation edges. Pass `--code-only` to omit memory records
+and keep code dependencies. Graphs record their source snapshot and head; read
+results report `stale` when the source is newer, and `sila graph build --if-stale`
+skips a build that is already current. A content-addressed cache (`.sila/graph-cache.json`)
+reuses the graph when the Go source digest and store fingerprint match, so a
+warm build skips parsing; touching mtimes or changing non-Go files does not
+invalidate it, while source, deletion, and memory changes do. A one-file source
+edit still rebuilds fully. A code-only build omits memory nodes;
+`--force` permits replacing a memory-rich graph with a code-only one. The graph
+cap defaults to 50 MiB and follows `SILA_GRAPH_MAX_BYTES`; MCP builds time out
+after 30 seconds and only accept the server's working directory unless
+`SILA_GRAPH_ALLOW_ANY_PROJECT=1` is set. `sila graph stats` reports node,
+edge, file, orphan, size, and freshness data; `sila graph doctor` returns a
+pass or warn verdict with fixes. Neither writes.
 | **`approve`** | `sila approve [<id>] [--reject] [--by=...] [--reason=...] [--pending] [--json]` | Human-in-the-loop approval steering for autonomous AI agents via CLI, Telegram, or Discord |
 | **`feedback`** | `sila feedback [<msg>] [--share] [--issue] \| share <id> \| drain [--token=] \| submit <id> \| resolve <id> \| reopen <id> \| list [--status=]` | Closed-loop ticket ledger for agent observations, suggestions, Cloudflare D1 edge sharing, upstream GitHub issue dispatch & resolutions |
 | **`install`** | `sila install [--tools=] [--no-hooks] [--no-mcp] [--dry-run]` | Provision agent rules, git quality gates, and tool configs in one command |
@@ -2891,7 +3916,7 @@ command are `--version`, `--help`, `--no-color`, and the
 | **`recap`** | `sila recap [--since=24h] [--project=<id>] [--json]` | Deprecated alias for `sila standup`: decisions, commits shipped, open items, approvals needed |
 | **`config`** | `sila config [path|explain|schema|init|set|get <key>] [--reveal]` | Manage API keys, search engine credentials, explain schema, and inspect XDG paths |
 | **`doc sites`** | `sila doc sites [add\|rm\|list]` | Manage registered documentation sites |
-| **`mcp`** | `sila mcp` | Start Model Context Protocol JSON-RPC stdio server |
+| **`mcp`** | `sila mcp [--profile=continuity\|graph\|full]` | Start Model Context Protocol JSON-RPC stdio server |
 | **`intro`** | `sila intro [--agent=] [--out=]` | Agent onboarding guide + AGENTS.md block |
 | **`export`** | `sila export [--out=file]` | Dump messages + claims as JSON |
 | **`completions`** | `sila completions [bash\|zsh\|fish]` | Print a shell completion script |
@@ -2985,3 +4010,6 @@ sila check onboarding
 sila check cloud status
 sila list personas
 ```
+
+
+

@@ -7,19 +7,42 @@
       "id": "session-start-prime",
       "prompt": "You are starting a new coding session in this repository. Load the session briefing, active handoff, and ready goals before reading files.",
       "expected_first_tool": "prime_context",
-      "expected_sequence": ["prime_context"],
-      "allowed_tools": ["prime_context", "salam", "get_status", "list_goals"],
-      "forbidden_tools": ["grep", "read_file"],
+      "expected_sequence": [
+        "prime_context"
+      ],
+      "allowed_tools": [
+        "prime_context",
+        "salam",
+        "get_status",
+        "list_goals"
+      ],
+      "forbidden_tools": [
+        "grep",
+        "read_file"
+      ],
       "max_turns": 2,
       "harness": "command-code",
       "profile": "continuity",
       "required_surface": "mcp",
       "timeout_ms": 30000,
-      "setup": {"fixture": "repo-session-start", "goal": null},
+      "setup": {
+        "fixture": "repo-session-start",
+        "goal": null
+      },
       "assertions": [
-        {"type": "tool_called", "tool": "prime_context"},
-        {"type": "tool_not_called", "tool": "grep"},
-        {"type": "tool_before", "first": "prime_context", "second": "read_file"}
+        {
+          "type": "tool_called",
+          "tool": "prime_context"
+        },
+        {
+          "type": "tool_not_called",
+          "tool": "grep"
+        },
+        {
+          "type": "tool_before",
+          "first": "prime_context",
+          "second": "read_file"
+        }
       ]
     },
     {
@@ -27,19 +50,41 @@
       "id": "recall-before-web-search",
       "prompt": "The test suite fails with SQLITE_BUSY under concurrent writers. Find the prior fix.",
       "expected_first_tool": "recall",
-      "expected_sequence": ["recall"],
-      "allowed_tools": ["recall", "prime_context", "omni_search"],
-      "forbidden_tools": ["web_search", "grep"],
+      "expected_sequence": [
+        "recall"
+      ],
+      "allowed_tools": [
+        "recall",
+        "prime_context",
+        "omni_search"
+      ],
+      "forbidden_tools": [
+        "web_search",
+        "grep"
+      ],
       "max_turns": 2,
       "harness": "command-code",
       "profile": "continuity",
       "required_surface": "mcp",
       "timeout_ms": 30000,
-      "setup": {"fixture": "go-busy-timeout", "goal": null},
+      "setup": {
+        "fixture": "go-busy-timeout",
+        "goal": null
+      },
       "assertions": [
-        {"type": "tool_called", "tool": "recall"},
-        {"type": "tool_not_called", "tool": "web_search"},
-        {"type": "tool_before", "first": "recall", "second": "grep"}
+        {
+          "type": "tool_called",
+          "tool": "recall"
+        },
+        {
+          "type": "tool_not_called",
+          "tool": "web_search"
+        },
+        {
+          "type": "tool_before",
+          "first": "recall",
+          "second": "grep"
+        }
       ]
     },
     {
@@ -47,19 +92,41 @@
       "id": "prior-research-omni-search",
       "prompt": "Where did we research WAL checkpoint starvation across earlier sessions and specifications?",
       "expected_first_tool": "omni_search",
-      "expected_sequence": ["omni_search"],
-      "allowed_tools": ["omni_search", "search_docs", "get_message_context"],
-      "forbidden_tools": ["grep", "find"],
+      "expected_sequence": [
+        "omni_search"
+      ],
+      "allowed_tools": [
+        "omni_search",
+        "search_docs",
+        "get_message_context"
+      ],
+      "forbidden_tools": [
+        "grep",
+        "find"
+      ],
       "max_turns": 2,
       "harness": "command-code",
       "profile": "continuity",
       "required_surface": "mcp",
       "timeout_ms": 30000,
-      "setup": {"fixture": "prior-research-history", "goal": null},
+      "setup": {
+        "fixture": "prior-research-history",
+        "goal": null
+      },
       "assertions": [
-        {"type": "tool_called", "tool": "omni_search"},
-        {"type": "tool_not_called", "tool": "grep"},
-        {"type": "tool_before", "first": "omni_search", "second": "find"}
+        {
+          "type": "tool_called",
+          "tool": "omni_search"
+        },
+        {
+          "type": "tool_not_called",
+          "tool": "grep"
+        },
+        {
+          "type": "tool_before",
+          "first": "omni_search",
+          "second": "find"
+        }
       ]
     },
     {
@@ -67,18 +134,35 @@
       "id": "decision-made-save-memo",
       "prompt": "We decided that all SQLite connections must enable WAL mode and a 5000ms busy timeout. Record this architectural directive grounded to internal/store/db.go.",
       "expected_first_tool": "save_memo",
-      "expected_sequence": ["save_memo"],
-      "allowed_tools": ["save_memo", "prime_context"],
-      "forbidden_tools": ["write_file", "bash"],
+      "expected_sequence": [
+        "save_memo"
+      ],
+      "allowed_tools": [
+        "save_memo",
+        "prime_context"
+      ],
+      "forbidden_tools": [
+        "write_file",
+        "bash"
+      ],
       "max_turns": 2,
       "harness": "command-code",
       "profile": "continuity",
       "required_surface": "mcp",
       "timeout_ms": 30000,
-      "setup": {"fixture": "goal-decision-memo", "goal": "store-wal-policy"},
+      "setup": {
+        "fixture": "goal-decision-memo",
+        "goal": "store-wal-policy"
+      },
       "assertions": [
-        {"type": "tool_called", "tool": "save_memo"},
-        {"type": "tool_not_called", "tool": "write_file"}
+        {
+          "type": "tool_called",
+          "tool": "save_memo"
+        },
+        {
+          "type": "tool_not_called",
+          "tool": "write_file"
+        }
       ]
     },
     {
@@ -86,18 +170,35 @@
       "id": "problem-solved-save-lesson",
       "prompt": "We solved the flaky pre-commit race by closing the read-only SQLite rows iterator before starting the transaction in internal/store/facts.go. Record this solved problem.",
       "expected_first_tool": "save_lesson",
-      "expected_sequence": ["save_lesson"],
-      "allowed_tools": ["save_lesson", "recall"],
-      "forbidden_tools": ["write_file", "web_search"],
+      "expected_sequence": [
+        "save_lesson"
+      ],
+      "allowed_tools": [
+        "save_lesson",
+        "recall"
+      ],
+      "forbidden_tools": [
+        "write_file",
+        "web_search"
+      ],
       "max_turns": 2,
       "harness": "command-code",
       "profile": "continuity",
       "required_surface": "mcp",
       "timeout_ms": 30000,
-      "setup": {"fixture": "goal-solved-lesson", "goal": "store-rows-close"},
+      "setup": {
+        "fixture": "goal-solved-lesson",
+        "goal": "store-rows-close"
+      },
       "assertions": [
-        {"type": "tool_called", "tool": "save_lesson"},
-        {"type": "tool_not_called", "tool": "web_search"}
+        {
+          "type": "tool_called",
+          "tool": "save_lesson"
+        },
+        {
+          "type": "tool_not_called",
+          "tool": "web_search"
+        }
       ]
     },
     {
@@ -105,18 +206,35 @@
       "id": "reusable-pattern-save-case",
       "prompt": "We introduced a reusable hexagonal adapter registry seam in internal/harness/registry/ with pure static metadata and zero global mutation. Record this architectural pattern.",
       "expected_first_tool": "save_case",
-      "expected_sequence": ["save_case"],
-      "allowed_tools": ["save_case", "save_memo"],
-      "forbidden_tools": ["write_file", "web_search"],
+      "expected_sequence": [
+        "save_case"
+      ],
+      "allowed_tools": [
+        "save_case",
+        "save_memo"
+      ],
+      "forbidden_tools": [
+        "write_file",
+        "web_search"
+      ],
       "max_turns": 2,
       "harness": "command-code",
-      "profile": "continuity",
+      "profile": "full",
       "required_surface": "mcp",
       "timeout_ms": 30000,
-      "setup": {"fixture": "goal-pattern-case", "goal": "harness-adapter-registry"},
+      "setup": {
+        "fixture": "goal-pattern-case",
+        "goal": "harness-adapter-registry"
+      },
       "assertions": [
-        {"type": "tool_called", "tool": "save_case"},
-        {"type": "tool_not_called", "tool": "web_search"}
+        {
+          "type": "tool_called",
+          "tool": "save_case"
+        },
+        {
+          "type": "tool_not_called",
+          "tool": "web_search"
+        }
       ]
     },
     {
@@ -124,18 +242,35 @@
       "id": "session-end-save-handoff",
       "prompt": "We are ending the session after completing Phase 1 of the parser refactor; Phase 2 golden tests remain open. Save the session handoff for the next agent.",
       "expected_first_tool": "save_handoff",
-      "expected_sequence": ["save_handoff"],
-      "allowed_tools": ["save_handoff", "get_latest_handoff"],
-      "forbidden_tools": ["write_file", "git_push"],
+      "expected_sequence": [
+        "save_handoff"
+      ],
+      "allowed_tools": [
+        "save_handoff",
+        "get_latest_handoff"
+      ],
+      "forbidden_tools": [
+        "write_file",
+        "git_push"
+      ],
       "max_turns": 2,
       "harness": "command-code",
       "profile": "continuity",
       "required_surface": "mcp",
       "timeout_ms": 30000,
-      "setup": {"fixture": "session-end-handoff", "goal": null},
+      "setup": {
+        "fixture": "session-end-handoff",
+        "goal": null
+      },
       "assertions": [
-        {"type": "tool_called", "tool": "save_handoff"},
-        {"type": "tool_not_called", "tool": "git_push"}
+        {
+          "type": "tool_called",
+          "tool": "save_handoff"
+        },
+        {
+          "type": "tool_not_called",
+          "tool": "git_push"
+        }
       ]
     },
     {
@@ -143,18 +278,37 @@
       "id": "specialist-routing-skill-load",
       "prompt": "Load the specialized sila continuity skill instructions to route specialist workflows and domain guardrails.",
       "expected_first_tool": "skill_load",
-      "expected_sequence": ["skill_load"],
-      "allowed_tools": ["skill_load", "route_workflow", "skill_search", "list_skills"],
-      "forbidden_tools": ["web_search", "grep"],
+      "expected_sequence": [
+        "skill_load"
+      ],
+      "allowed_tools": [
+        "skill_load",
+        "route_workflow",
+        "skill_search",
+        "list_skills"
+      ],
+      "forbidden_tools": [
+        "web_search",
+        "grep"
+      ],
       "max_turns": 2,
       "harness": "command-code",
-      "profile": "continuity",
+      "profile": "full",
       "required_surface": "skill",
       "timeout_ms": 30000,
-      "setup": {"fixture": "specialist-skill-routing", "goal": null},
+      "setup": {
+        "fixture": "specialist-skill-routing",
+        "goal": null
+      },
       "assertions": [
-        {"type": "tool_called", "tool": "skill_load"},
-        {"type": "tool_not_called", "tool": "web_search"}
+        {
+          "type": "tool_called",
+          "tool": "skill_load"
+        },
+        {
+          "type": "tool_not_called",
+          "tool": "web_search"
+        }
       ]
     },
     {
@@ -162,19 +316,40 @@
       "id": "symbol-rename-blast-radius",
       "prompt": "Before renaming or deleting ResolveWorkspaceIdentity, check the symbol blast radius and contract callers.",
       "expected_first_tool": "check_symbol_blast_radius",
-      "expected_sequence": ["check_symbol_blast_radius"],
-      "allowed_tools": ["check_symbol_blast_radius", "recall"],
-      "forbidden_tools": ["grep", "sed"],
+      "expected_sequence": [
+        "check_symbol_blast_radius"
+      ],
+      "allowed_tools": [
+        "check_symbol_blast_radius",
+        "recall"
+      ],
+      "forbidden_tools": [
+        "grep",
+        "sed"
+      ],
       "max_turns": 2,
       "harness": "command-code",
-      "profile": "continuity",
+      "profile": "full",
       "required_surface": "mcp",
       "timeout_ms": 30000,
-      "setup": {"fixture": "symbol-blast-radius", "goal": null},
+      "setup": {
+        "fixture": "symbol-blast-radius",
+        "goal": null
+      },
       "assertions": [
-        {"type": "tool_called", "tool": "check_symbol_blast_radius"},
-        {"type": "tool_not_called", "tool": "sed"},
-        {"type": "tool_before", "first": "check_symbol_blast_radius", "second": "grep"}
+        {
+          "type": "tool_called",
+          "tool": "check_symbol_blast_radius"
+        },
+        {
+          "type": "tool_not_called",
+          "tool": "sed"
+        },
+        {
+          "type": "tool_before",
+          "first": "check_symbol_blast_radius",
+          "second": "grep"
+        }
       ]
     },
     {
@@ -182,18 +357,35 @@
       "id": "temporal-query-activity-digest",
       "prompt": "Summarize what changed in this project over the last 24 hours across sessions.",
       "expected_first_tool": "get_activity_digest",
-      "expected_sequence": ["get_activity_digest"],
-      "allowed_tools": ["get_activity_digest", "get_status"],
-      "forbidden_tools": ["git_log", "grep"],
+      "expected_sequence": [
+        "get_activity_digest"
+      ],
+      "allowed_tools": [
+        "get_activity_digest",
+        "get_status"
+      ],
+      "forbidden_tools": [
+        "git_log",
+        "grep"
+      ],
       "max_turns": 2,
       "harness": "command-code",
-      "profile": "continuity",
+      "profile": "full",
       "required_surface": "mcp",
       "timeout_ms": 30000,
-      "setup": {"fixture": "temporal-standup-24h", "goal": null},
+      "setup": {
+        "fixture": "temporal-standup-24h",
+        "goal": null
+      },
       "assertions": [
-        {"type": "tool_called", "tool": "get_activity_digest"},
-        {"type": "tool_not_called", "tool": "git_log"}
+        {
+          "type": "tool_called",
+          "tool": "get_activity_digest"
+        },
+        {
+          "type": "tool_not_called",
+          "tool": "git_log"
+        }
       ]
     },
     {
@@ -201,18 +393,35 @@
       "id": "pre-commit-gate-pipeline",
       "prompt": "We are ready to commit our implementation changes. Run the Sila deterministic quality gate pipeline first.",
       "expected_first_tool": "run_gate_pipeline",
-      "expected_sequence": ["run_gate_pipeline"],
-      "allowed_tools": ["run_gate_pipeline", "reconcile_drift"],
-      "forbidden_tools": ["git_push", "git_commit_no_verify"],
+      "expected_sequence": [
+        "run_gate_pipeline"
+      ],
+      "allowed_tools": [
+        "run_gate_pipeline",
+        "reconcile_drift"
+      ],
+      "forbidden_tools": [
+        "git_push",
+        "git_commit_no_verify"
+      ],
       "max_turns": 2,
       "harness": "command-code",
-      "profile": "continuity",
+      "profile": "full",
       "required_surface": "mcp",
       "timeout_ms": 30000,
-      "setup": {"fixture": "pre-commit-gate", "goal": null},
+      "setup": {
+        "fixture": "pre-commit-gate",
+        "goal": null
+      },
       "assertions": [
-        {"type": "tool_called", "tool": "run_gate_pipeline"},
-        {"type": "tool_not_called", "tool": "git_commit_no_verify"}
+        {
+          "type": "tool_called",
+          "tool": "run_gate_pipeline"
+        },
+        {
+          "type": "tool_not_called",
+          "tool": "git_commit_no_verify"
+        }
       ]
     },
     {
@@ -220,18 +429,36 @@
       "id": "goal-status-list-goals",
       "prompt": "Check which roadmap goals are ready to claim and inspect current goal status in this repository.",
       "expected_first_tool": "list_goals",
-      "expected_sequence": ["list_goals"],
-      "allowed_tools": ["list_goals", "audit_goals", "claim_goal"],
-      "forbidden_tools": ["find", "grep"],
+      "expected_sequence": [
+        "list_goals"
+      ],
+      "allowed_tools": [
+        "list_goals",
+        "audit_goals",
+        "claim_goal"
+      ],
+      "forbidden_tools": [
+        "find",
+        "grep"
+      ],
       "max_turns": 2,
       "harness": "command-code",
       "profile": "continuity",
       "required_surface": "mcp",
       "timeout_ms": 30000,
-      "setup": {"fixture": "goals-ready-check", "goal": null},
+      "setup": {
+        "fixture": "goals-ready-check",
+        "goal": null
+      },
       "assertions": [
-        {"type": "tool_called", "tool": "list_goals"},
-        {"type": "tool_not_called", "tool": "find"}
+        {
+          "type": "tool_called",
+          "tool": "list_goals"
+        },
+        {
+          "type": "tool_not_called",
+          "tool": "find"
+        }
       ]
     }
   ]

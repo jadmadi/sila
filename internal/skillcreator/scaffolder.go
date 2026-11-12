@@ -61,7 +61,7 @@ func ScaffoldSkill(projectDir string, draft SkillDraft, force bool) (*ScaffoldRe
 	var b strings.Builder
 	b.WriteString("---\n")
 	fmt.Fprintf(&b, "name: %s\n", cleanSlug)
-	fmt.Fprintf(&b, "description: %s\n", strings.TrimSpace(draft.Description))
+	fmt.Fprintf(&b, "description: %s\n", formatYAMLFrontmatterScalar(draft.Description))
 	b.WriteString("---\n\n")
 
 	title := draft.Name
@@ -228,4 +228,31 @@ func DefaultSkillDraft(grounding *ProjectGrounding, topic SkillTopic) SkillDraft
 		Invariants:  invariants,
 		Rubric:      rubric,
 	}
+}
+
+// formatYAMLFrontmatterScalar quotes scalars that would break YAML frontmatter
+// or be read as comments. Already-quoted values are left intact.
+func formatYAMLFrontmatterScalar(raw string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return raw
+	}
+	if isQuotedFrontmatterScalar(raw) {
+		return raw
+	}
+	needsQuote := strings.Contains(raw, ": ") || strings.HasSuffix(raw, ":") ||
+		strings.Contains(raw, " #") || strings.ContainsRune("[{|>&*!'\"", rune(raw[0]))
+	if !needsQuote {
+		return raw
+	}
+	escaped := strings.ReplaceAll(raw, "\\", "\\\\")
+	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
+	return `"` + escaped + `"`
+}
+
+func isQuotedFrontmatterScalar(s string) bool {
+	if len(s) < 2 {
+		return false
+	}
+	return (s[0] == '"' && s[len(s)-1] == '"') || (s[0] == '\'' && s[len(s)-1] == '\'')
 }

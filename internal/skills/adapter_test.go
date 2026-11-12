@@ -539,3 +539,28 @@ func TestHarnessCompatibility_AllSupportedHarnesses(t *testing.T) {
 		})
 	}
 }
+
+func TestHarnessSkillVault(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", "")
+	if got := HarnessSkillVault(home, "opencode"); got != filepath.Join(home, ".config", "opencode", "skills") {
+		t.Fatalf("default OpenCode vault = %q", got)
+	}
+	xdg := t.TempDir()
+	t.Setenv("XDG_CONFIG_HOME", xdg)
+	xdgVault := filepath.Join(xdg, "opencode", "skills")
+	if err := os.MkdirAll(xdgVault, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := HarnessSkillVault(home, "opencode"); got != xdgVault {
+		t.Fatalf("XDG OpenCode vault = %q, want %q", got, xdgVault)
+	}
+	t.Setenv("XDG_CONFIG_HOME", "")
+	flatpakVault := filepath.Join(home, ".var", "app", "ai.opencode.opencode", "config", "opencode", "skills")
+	if err := os.MkdirAll(flatpakVault, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if got := HarnessSkillVault(home, "opencode"); got != flatpakVault {
+		t.Fatalf("Flatpak OpenCode vault = %q, want %q", got, flatpakVault)
+	}
+}

@@ -92,6 +92,8 @@ func runGoals(ui render.UI, dbPath, project, agent, note, status, reason string,
 	selectionFile := ""
 	autoRun := false
 	checkTasksOpt := false
+	limitOpt := 0
+	limitSet := false
 	if len(opts) > 0 {
 		sessionID = strings.TrimSpace(opts[0].session)
 		staleRelease = opts[0].stale
@@ -122,6 +124,8 @@ func runGoals(ui render.UI, dbPath, project, agent, note, status, reason string,
 		clearPersonasOpt = opts[0].clearPersonas
 		selectionFile = strings.TrimSpace(opts[0].selectionFile)
 		autoRun = opts[0].autoRun
+		limitOpt = opts[0].limit
+		limitSet = opts[0].limitSet
 	}
 
 	for _, a := range args {
@@ -245,6 +249,8 @@ func runGoals(ui render.UI, dbPath, project, agent, note, status, reason string,
 		selectionFile:    selectionFile,
 		autoRun:          autoRun,
 		noMemory:         noMemoryMode,
+		limitOpt:         limitOpt,
+		limitSet:         limitSet,
 	}
 
 	// Strip any leading flag-like args from args, rejecting unknown flags
@@ -401,7 +407,7 @@ func runGoals(ui render.UI, dbPath, project, agent, note, status, reason string,
 			return
 		case "create", "new", "add":
 			if len(args) < 2 {
-				fmt.Fprintln(os.Stderr, "Usage: sila goals create <slug> [--title=\"...\"] [--desc=\"...\"] [--depends-on=\"...\"] [--touch=\"...\"] [--independent] [--seq=N] [--tier=immediate|roadmap|nice-to-have|wont-fix] [--invariants=\"...\"] [--tasks=\"...\"] [--template-dir=path]")
+				fmt.Fprintln(os.Stderr, "Usage: sila goals create <slug> --files=\"path,...\" [--title=\"...\"] [--desc=\"...\"] [--depends-on=\"...\"] [--touch=\"...\"] [--independent] [--seq=N] [--tier=immediate|roadmap|nice-to-have|wont-fix] [--invariants=\"...\"] [--tasks=\"...\"] [--template-dir=path]")
 				os.Exit(2)
 			}
 			if targetDir == "" {
@@ -472,6 +478,18 @@ func runGoals(ui render.UI, dbPath, project, agent, note, status, reason string,
 			return
 		case "audit":
 			gc.handleAudit(targetDir, args)
+			return
+		case "verify":
+			gc.handleVerify(targetDir, args)
+			return
+		case "drift":
+			gc.handleDrift(targetDir, args)
+			return
+		case "reverify":
+			gc.handleReverify(targetDir, args)
+			return
+		case "verification":
+			gc.handleReconcile(targetDir, args)
 			return
 		case "validate":
 			runGoalsValidate(ui, targetDir, args, jsonOut, toonOut, strictMode, manifestOpt, strictMemoryMode)

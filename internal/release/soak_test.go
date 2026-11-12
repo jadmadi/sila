@@ -3,6 +3,7 @@ package release
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -194,26 +195,21 @@ func TestEvaluateSoak_ReadyAfterThreeActiveDaysAnd72Hours(t *testing.T) {
 	certTime := now.Add(-80 * time.Hour)
 
 	writeTestCert(t, repoDir, "feature-delta", certTime)
-	seedSoakStore(t, dbPath, []store.ToolEvent{
-		{
+	var toolEvents []store.ToolEvent
+	for i := 0; i < 24; i++ {
+		agent := "claude-code"
+		if i%2 == 1 {
+			agent = "opencode"
+		}
+		toolEvents = append(toolEvents, store.ToolEvent{
 			ProjectID: "sila",
 			ToolName:  "prime_context",
+			Agent:     agent,
 			Outcome:   "ok",
-			CreatedAt: certTime.Add(1 * time.Hour),
-		},
-		{
-			ProjectID: "sila",
-			ToolName:  "omni_search",
-			Outcome:   "ok",
-			CreatedAt: certTime.Add(25 * time.Hour),
-		},
-		{
-			ProjectID: "sila",
-			ToolName:  "run_gate_pipeline",
-			Outcome:   "ok",
-			CreatedAt: certTime.Add(49 * time.Hour),
-		},
-	}, []store.PrimeEvent{
+			CreatedAt: certTime.Add(time.Duration(i) * 3 * time.Hour),
+		})
+	}
+	seedSoakStore(t, dbPath, toolEvents, []store.PrimeEvent{
 		{
 			ProjectID: "sila",
 			Harness:   "claude-code",
@@ -256,5 +252,336 @@ func TestEvaluateSoak_ReadyAfterThreeActiveDaysAnd72Hours(t *testing.T) {
 	}
 	if len(rep.DailyReports) == 0 {
 		t.Fatalf("expected automated DailyReports row in sila.db, got 0")
+	}
+}
+
+func TestResolveBaseRangeFallsBackWhenTagMissing(t *testing.T) {
+	repo := t.TempDir()
+	run := func(args ...string) {
+		cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
+		cmd.Env = append(os.Environ(),
+			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@example.test",
+			"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@example.test")
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(repo, "a.txt"), []byte("a"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run("init", "-q")
+	run("add", ".")
+	run("commit", "-q", "-m", "feat: one")
+
+	published := time.Now().UTC().Add(-2 * time.Hour).Format(time.RFC3339)
+	ref, since := resolveBaseRange(repo, "v0.18.2", published)
+	if ref != "" {
+		t.Fatalf("missing tag should not be used as a ref, got %q", ref)
+	}
+	if since.IsZero() {
+		t.Fatal("expected the published time as the fallback")
+	}
+
+	commits, impact := analyzeCommits(repo, "v0.18.2", published)
+	if len(commits) == 0 {
+		t.Fatal("expected commits since the published time")
+	}
+	if impact.MinorFeatures == 0 {
+		t.Fatalf("expected a minor feature, got %+v", impact)
+	}
+}
+
+func TestSoakClockFollowsCodeNotRecertification(t *testing.T) {
+	repo := t.TempDir()
+	now := time.Now().UTC().Truncate(time.Second)
+	old := now.Add(-80 * time.Hour).Format(time.RFC3339)
+	if err := os.WriteFile(filepath.Join(repo, "f.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run := func(env []string, args ...string) {
+		cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
+		cmd.Env = append(os.Environ(), env...)
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	run(nil, "init", "-q")
+	run(nil, "add", ".")
+	ident := []string{
+		"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@example.test",
+		"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@example.test",
+		"GIT_AUTHOR_DATE=" + old, "GIT_COMMITTER_DATE=" + old,
+	}
+	run(ident, "commit", "-q", "-m", "feat: old feature")
+
+	writeTestCert(t, repo, "late-recert", now.Add(-1*time.Hour))
+
+	rep := EvaluateSoak(SoakOptions{
+		RepoDir: repo,
+		DBPath:  filepath.Join(t.TempDir(), "sila.db"),
+		Now:     now,
+	})
+	if !strings.Contains(rep.SoakTrigger, "commit") {
+		t.Fatalf("soak trigger = %q, want the feature commit", rep.SoakTrigger)
+	}
+	if rep.ElapsedHours < 70 {
+		t.Fatalf("elapsed = %.1fh, want the 80h commit clock, not a 1h recertification clock", rep.ElapsedHours)
+	}
+}
+
+func TestSoakProjectScope(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "scope.db")
+	st, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	root := t.TempDir()
+	child := filepath.Join(root, "cli")
+	if err := os.MkdirAll(child, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	rootProject, err := st.EnsureProject(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	childProject, err := st.EnsureProject(child)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ids := soakProjectIDs(st, root)
+	if len(ids) != 1 || ids[0] != rootProject.ID {
+		t.Fatalf("root ids = %v", ids)
+	}
+	ids = soakProjectIDs(st, child)
+	got := map[string]bool{}
+	for _, id := range ids {
+		got[id] = true
+	}
+	if len(ids) != 2 || !got[childProject.ID] || !got[rootProject.ID] {
+		t.Fatalf("child ids = %v", ids)
+	}
+	ids = soakProjectIDs(st, root)
+	now := time.Now().UTC()
+	_ = st.RecordToolEvent(store.ToolEvent{ProjectID: rootProject.ID, SessionID: "s1", Agent: "cli", Source: "cli", ToolName: "memo", Category: "write", Outcome: "ok", CreatedAt: now})
+	_ = st.RecordToolEvent(store.ToolEvent{ProjectID: childProject.ID, SessionID: "s2", Agent: "mcp", Source: "mcp", ToolName: "memo", Category: "write", Outcome: "error", CreatedAt: now})
+	events := soakToolEvents(st, ids, now.Add(-time.Hour))
+	if len(events) != 1 || events[0].Outcome != "ok" {
+		t.Fatalf("scoped events = %+v", events)
+	}
+	unscoped := soakToolEvents(st, nil, now.Add(-time.Hour))
+	if len(unscoped) != 2 {
+		t.Fatalf("unscoped events = %d", len(unscoped))
+	}
+}
+
+func TestSoakReleaseScopeFindsNestedModule(t *testing.T) {
+	root := t.TempDir()
+	cli := filepath.Join(root, "sila", "cli")
+	if err := os.MkdirAll(cli, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(cli, "go.mod"), []byte("module github.com/jadmadi/sila\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if got := soakReleaseScope(root); got != cli {
+		t.Fatalf("root scope = %q, want %q", got, cli)
+	}
+	if got := soakReleaseScope(cli); got != cli {
+		t.Fatalf("cli scope = %q, want %q", got, cli)
+	}
+	if got := soakReleaseScope(t.TempDir()); got == cli {
+		t.Fatalf("unexpected module scope %q", got)
+	}
+}
+
+func TestHarnessIdentity(t *testing.T) {
+	cases := []struct{ agent, source, want string }{
+		{"cli", "cli", ""},
+		{"mcp", "mcp", ""},
+		{"", "cli", ""},
+		{"", "mcp", ""},
+		{"opencode", "mcp", "opencode"},
+		{"antigravity", "cli", "antigravity"},
+		{"", "codex", "codex"},
+	}
+	for _, tc := range cases {
+		if got := harnessIdentity(tc.agent, tc.source); got != tc.want {
+			t.Fatalf("harnessIdentity(%q,%q) = %q, want %q", tc.agent, tc.source, got, tc.want)
+		}
+	}
+}
+
+func TestLatestPublishedTag(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git unavailable")
+	}
+	root := t.TempDir()
+	priv := filepath.Join(root, "sila", "cli")
+	pub := filepath.Join(root, "sila", "public-export")
+	for _, dir := range []string{priv, pub} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		runGit := func(args ...string) {
+			cmd := exec.Command("git", append([]string{"-C", dir}, args...)...)
+			cmd.Env = append(os.Environ(), "GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@e", "GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@e")
+			if out, err := cmd.CombinedOutput(); err != nil {
+				t.Fatalf("git %v: %v (%s)", args, err, out)
+			}
+		}
+		runGit("init", "-q")
+		runGit("commit", "--allow-empty", "-q", "-m", "init")
+	}
+	cmd := exec.Command("git", "-C", pub, "tag", "v9.9.9")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("tag: %v (%s)", err, out)
+	}
+	if got := latestPublishedTag(priv); got != "v9.9.9" {
+		t.Fatalf("tag = %q", got)
+	}
+	if ts := tagCommitTime(priv, "v9.9.9"); ts.IsZero() {
+		t.Fatalf("expected tagCommitTime to resolve v9.9.9 from sibling public-export")
+	}
+}
+
+func TestEvaluateSoak_PerFeatureIndependentTimers(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git unavailable")
+	}
+	repo := t.TempDir()
+	dbPath := filepath.Join(t.TempDir(), "sila.db")
+	now := time.Date(2026, 11, 9, 12, 0, 0, 0, time.UTC)
+
+	runGit := func(commitTime time.Time, args ...string) {
+		t.Helper()
+		cmd := exec.Command("git", append([]string{"-C", repo}, args...)...)
+		env := append(os.Environ(),
+			"GIT_AUTHOR_NAME=t", "GIT_AUTHOR_EMAIL=t@example.test",
+			"GIT_COMMITTER_NAME=t", "GIT_COMMITTER_EMAIL=t@example.test",
+		)
+		if !commitTime.IsZero() {
+			iso := commitTime.UTC().Format(time.RFC3339)
+			env = append(env, "GIT_AUTHOR_DATE="+iso, "GIT_COMMITTER_DATE="+iso)
+		}
+		cmd.Env = env
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+
+	runGit(time.Time{}, "init", "-q")
+
+	// Commit 1: 80h ago (already soaked >= 72h across 4 active days)
+	t1 := now.Add(-80 * time.Hour)
+	if err := os.WriteFile(filepath.Join(repo, "alpha.go"), []byte("package p\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t1, "add", ".")
+	runGit(t1, "commit", "-q", "-m", "feat(core): add alpha engine")
+
+	// Commit 2: 6h ago (new feature with its own independent timer; must not reset alpha)
+	t2 := now.Add(-6 * time.Hour)
+	if err := os.WriteFile(filepath.Join(repo, "beta.go"), []byte("package p\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t2, "add", ".")
+	runGit(t2, "commit", "-q", "-m", "feat(core): add beta engine")
+
+	// Commit 3: 1h ago touching only goals/ paperwork (must not create a feature timer)
+	t3 := now.Add(-1 * time.Hour)
+	goalDir := filepath.Join(repo, "goals", "new-goal")
+	if err := os.MkdirAll(goalDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(goalDir, "goal.md"), []byte("# Goal: New Goal\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t3, "add", ".")
+	runGit(t3, "commit", "-q", "-m", "feat(goals): register new-goal")
+
+	st, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	proj, err := st.EnsureProject(repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = st.Close()
+
+	var events []store.ToolEvent
+	for i := 0; i < 24; i++ {
+		agent := "antigravity"
+		if i%2 == 1 {
+			agent = "commandcode"
+		}
+		events = append(events, store.ToolEvent{
+			ProjectID: proj.ID,
+			ToolName:  "recall",
+			Agent:     agent,
+			Outcome:   "ok",
+			CreatedAt: t1.Add(time.Duration(i) * 3 * time.Hour),
+		})
+	}
+	// Error in an unrelated project must not mark repo features as needs_debug.
+	events = append(events, store.ToolEvent{
+		ProjectID: "unrelated-project",
+		ToolName:  "audit_goal",
+		Agent:     "antigravity",
+		Outcome:   "error",
+		CreatedAt: t1.Add(10 * time.Hour),
+	})
+	seedSoakStore(t, dbPath, events, nil)
+
+	rep := EvaluateSoak(SoakOptions{
+		RepoDir: repo,
+		DBPath:  dbPath,
+		Now:     now,
+	})
+
+	if rep.State != SoakReady {
+		t.Fatalf("expected SoakReady when alpha is ready and beta is soaking on its own timer, got %s (%s)", rep.State, rep.Summary)
+	}
+	if rep.ReadyFeatures != 1 {
+		t.Fatalf("ReadyFeatures = %d, want 1", rep.ReadyFeatures)
+	}
+	if rep.SoakingFeatures != 1 {
+		t.Fatalf("SoakingFeatures = %d, want 1", rep.SoakingFeatures)
+	}
+	if rep.DebugFeatures != 0 {
+		t.Fatalf("DebugFeatures = %d, want 0", rep.DebugFeatures)
+	}
+	if rep.ReadyThroughCommit == "" {
+		t.Fatalf("expected non-empty ReadyThroughCommit for ready alpha feature")
+	}
+	if len(rep.FeatureLedger) != 2 {
+		t.Fatalf("len(FeatureLedger) = %d, want 2 (alpha and beta; goals-only commit excluded)", len(rep.FeatureLedger))
+	}
+	// FeatureLedger is sorted newest-first: [0] is beta (soaking, ~6h), [1] is alpha (ready, ~80h).
+	if rep.FeatureLedger[0].Status != "soaking" || rep.FeatureLedger[0].ElapsedHours > 10 {
+		t.Fatalf("expected newest feature beta to be soaking (~6h), got %+v", rep.FeatureLedger[0])
+	}
+	if rep.FeatureLedger[1].Status != "ready" || rep.FeatureLedger[1].ElapsedHours < 79 {
+		t.Fatalf("expected older feature alpha to remain ready (~80h), got %+v", rep.FeatureLedger[1])
+	}
+	if got := formatFeatureTrigger(rep.FeatureLedger[0]); !strings.Contains(got, "feat(core): add beta engine") {
+		t.Fatalf("formatFeatureTrigger = %q", got)
+	}
+	if got := nonEmptyCommit("abc12345"); got != "abc12345" {
+		t.Fatalf("nonEmptyCommit = %q", got)
+	}
+	if !isNonRuntimeCommit([]string{"goals/foo/goal.md", "docs/reference.md"}) || isNonRuntimeCommit([]string{"goals/foo/goal.md", "internal/release/soak.go"}) {
+		t.Fatal("isNonRuntimeCommit classification failed")
+	}
+	if !isNonRuntimePath("goals/README.md") || isNonRuntimePath("cmd/sila/soak.go") {
+		t.Fatal("isNonRuntimePath classification failed")
+	}
+	if !hasGitCommits(repo) || commitTimeInRepo(repo, "HEAD").IsZero() {
+		t.Fatal("expected hasGitCommits and commitTimeInRepo to succeed on test repo")
+	}
+	filtered := filterFeatureLedger(rep.FeatureLedger, []string{proj.ID}, time.Time{})
+	if len(filtered) != 2 {
+		t.Fatalf("filterFeatureLedger = %d, want 2", len(filtered))
 	}
 }

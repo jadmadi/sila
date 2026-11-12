@@ -1,386 +1,287 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>sila · decision cockpit</title>
+  <title>sila · continuity console</title>
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <!-- Top Navigation Header -->
-  <header>
-    <div class="brand">
-      <h1>sila</h1>
-      <span class="tagline">Cross-Harness Memory & Decisions</span>
-      <span id="header-project-badge" class="badge badge-purple">sila</span>
-    </div>
-    <div class="header-meta">
-      <div class="sse-status">
-        <span id="sse-indicator" class="sse-dot"></span>
-        <span id="sse-label">Connecting...</span>
+  <div class="shell">
+    <aside class="rail">
+      <a class="brand" href="#today" data-view="today" aria-label="Sila continuity console">
+        <span class="brand-mark" aria-hidden="true">ص</span>
+        <span class="brand-text">
+          <strong>sila</strong>
+          <small>continuity console</small>
+        </span>
+      </a>
+
+      <nav class="nav" aria-label="Console views">
+        <button type="button" class="nav-item is-active" data-view="today">Today</button>
+        <button type="button" class="nav-item" data-view="timeline">Timeline</button>
+        <button type="button" class="nav-item" data-view="recall">Recall</button>
+        <button type="button" class="nav-item" data-view="memory">Memory</button>
+        <button type="button" class="nav-item" data-view="goals">Goals</button>
+        <button type="button" class="nav-item" data-view="governance">Governance</button>
+      </nav>
+
+      <div class="rail-foot">
+        <button type="button" id="theme-toggle" class="ghost-btn btn-sm">Light</button>
+        <button type="button" id="btn-shutdown" class="ghost-btn danger btn-sm">Stop</button>
       </div>
-      <button id="theme-toggle" class="btn" title="Toggle theme">🌙 Dark</button>
-      <button id="btn-refresh" class="btn" title="Refresh all data">↻ Refresh</button>
-      <button id="btn-shutdown" class="btn btn-danger" title="Safely stop the Sila server (shortcut: 'q')">⏹️ Stop Cockpit</button>
-    </div>
-  </header>
+    </aside>
 
-  <!-- Key Metrics Ribbon -->
-  <section class="stats-ribbon">
-    <div class="stat-item">💬 Messages: <strong id="stat-messages">-</strong></div>
-    <div class="stat-item">💡 Facts: <strong id="stat-facts">-</strong></div>
-    <div class="stat-item">✔ Verified: <strong id="stat-verified">-</strong></div>
-    <div class="stat-item">⚠️ Stale Claims: <strong id="stat-stale">-</strong></div>
-    <div class="stat-item">📁 Projects: <strong id="stat-projects">-</strong></div>
-    <div class="stat-item">💾 Freelist: <strong id="stat-freelist">-</strong></div>
-  </section>
+    <main class="main">
+      <header class="topbar">
+        <div class="topbar-left">
+          <span class="project" id="header-project">sila</span>
+          <span class="sse" id="sse-status"><span class="dot"></span><span id="sse-label">connecting</span></span>
+        </div>
+        <div class="topbar-right">
+          <button type="button" id="btn-refresh" class="ghost-btn btn-sm">Refresh</button>
+        </div>
+      </header>
 
-  <!-- Navigation Tab Bar -->
-  <nav class="tab-bar">
-    <button class="tab-btn active" data-tab="healing">🩺 Knowledge Healing</button>
-    <button class="tab-btn" data-tab="feedback">🎫 Feedback Board</button>
-    <button class="tab-btn" data-tab="adrs">🏛️ ADR Studio</button>
-    <button class="tab-btn" data-tab="vision">🔭 Strategic Vision</button>
-    <button class="tab-btn" data-tab="swarm">🛰️ Swarm & Roadmap</button>
-    <button class="tab-btn" data-tab="search">🔍 Omni-Search</button>
-  </nav>
-
-  <!-- Main Content Area -->
-  <main>
-    <!-- Tab 1: Knowledge Healing -->
-    <section id="panel-healing" class="tab-panel active">
-      <div class="guidance-banner">
-        <div class="icon">💡</div>
-        <div>
-          <h4>Knowledge Healing & Decision Guidance</h4>
-          <p>
-            Claims are raw assertions extracted from AI transcripts. When files are refactored or deleted, claims referencing them become <strong>stale</strong>.
-            <strong>What to do:</strong> (1) Click <strong>Re-verify On Disk</strong> to check physical files, (2) If a claim represents a timeless architectural decision (not tied to transient files), click <strong>Promote to Invariant</strong>, or (3) If obsolete, click <strong>Prune</strong>.
-          </p>
-        </div>
-      </div>
-
-      <div class="panel-header">
-        <div>
-          <h2>Knowledge Healing & Claim Grounding</h2>
-          <p class="card-meta">Detect ungrounded assertions, verify file references on disk, and promote durable claims.</p>
-        </div>
-        <div class="action-bar">
-          <label style="font-size:12.5px; cursor:pointer;"><input type="checkbox" id="chk-stale-only" checked> Show Stale Only</label>
-          <button id="btn-reverify-disk" class="btn btn-primary">⚡ Re-verify On Disk</button>
-          <button id="btn-add-invariant" class="btn">+ New Invariant</button>
-        </div>
-      </div>
-      <div id="claims-list" class="card-grid"></div>
-    </section>
-
-    <!-- Tab 2: Feedback Board -->
-    <section id="panel-feedback" class="tab-panel">
-      <div class="guidance-banner">
-        <div class="icon">💡</div>
-        <div>
-          <h4>Closed-Loop Feedback Protocol</h4>
-          <p>
-            Feedback items capture friction, ideas, and observations from AI agents.
-            <strong>What to do:</strong> Move tickets from <strong>Open</strong> to <strong>In Progress</strong> while actively investigating, then click <strong>Resolve</strong> with a resolution note and optional goal slug to close the loop in the knowledge store.
-          </p>
-        </div>
-      </div>
-
-      <div class="panel-header">
-        <div>
-          <h2>Closed-Loop Feedback Ledger</h2>
-          <p class="card-meta">Actionable agent observations, suggestions, and resolution tracking.</p>
-        </div>
-      </div>
-      <div class="kanban-grid">
-        <div class="kanban-col" data-status="open">
-          <div class="kanban-col-header">
-            <span class="kanban-col-title">💡 Open</span>
-            <span id="badge-count-open" class="badge badge-yellow">0</span>
-          </div>
-          <div id="col-feedback-open" class="kanban-cards"></div>
-        </div>
-        <div class="kanban-col" data-status="in_progress">
-          <div class="kanban-col-header">
-            <span class="kanban-col-title">⚙ In Progress</span>
-            <span id="badge-count-in_progress" class="badge badge-purple">0</span>
-          </div>
-          <div id="col-feedback-in_progress" class="kanban-cards"></div>
-        </div>
-        <div class="kanban-col" data-status="closed">
-          <div class="kanban-col-header">
-            <span class="kanban-col-title">✅ Closed</span>
-            <span id="badge-count-closed" class="badge badge-green">0</span>
-          </div>
-          <div id="col-feedback-closed" class="kanban-cards"></div>
-        </div>
-        <div class="kanban-col" data-status="wontfix">
-          <div class="kanban-col-header">
-            <span class="kanban-col-title">🚫 Wontfix</span>
-            <span id="badge-count-wontfix" class="badge badge-neutral">0</span>
-          </div>
-          <div id="col-feedback-wontfix" class="kanban-cards"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Tab 3: ADR Studio -->
-    <section id="panel-adrs" class="tab-panel">
-      <div class="guidance-banner">
-        <div class="icon">💡</div>
-        <div>
-          <h4>Living Architecture Decision Records (MADR)</h4>
-          <p>
-            ADRs are living markdown decision records in <code>docs/adr/</code>. Sila continuously verifies that files backtick-quoted in <code>## References</code> exist on disk.
-            <strong>What to do:</strong> If an ADR is marked <strong>Drifted</strong>, inspect the missing file paths and update the ADR's references or restore the file. Use <strong>Promote Memo to ADR</strong> to elevate temporary memos into formal decisions.
-          </p>
-        </div>
-      </div>
-
-      <div class="panel-header">
-        <div>
-          <h2>Living Architecture Decision Records (ADRs)</h2>
-          <p class="card-meta">MADR-compatible decisions grounded in codebase reality.</p>
-        </div>
-      </div>
-      <div id="adrs-list" class="card-grid"></div>
-    </section>
-
-    <!-- Tab 4: Strategic Vision -->
-    <section id="panel-vision" class="tab-panel">
-      <div class="guidance-banner">
-        <div class="icon">💡</div>
-        <div>
-          <h4>Strategic Vision: Autonomous Product & Architecture Guardrail</h4>
-          <p>
-            <strong>What is this?</strong> In multi-agent projects, agents often propose ideas that break settled architecture (e.g., adding CGO, switching databases, or building out-of-scope features). Strategic Vision simulates proposals against your project's <strong>Non-Goals</strong> (what we refuse to build) and <strong>Durable Invariants</strong> (architectural tenets) <em>before</em> any code is written.
-          </p>
-        </div>
-      </div>
-
-      <!-- Explainer Card for New Users -->
-      <div class="card" style="margin-bottom: 20px;">
-        <div class="card-header">
-          <span class="card-title">📖 How Strategic Vision Works</span>
-          <span class="badge badge-purple">Research Preference Model (RPM)</span>
-        </div>
-        <div class="how-it-works-steps">
-          <div class="step-card">
-            <h5>1. ⛔ Stored Non-Goals</h5>
-            <p>Explicit negative constraints (e.g. <em>"Pure-Go SQLite: CGO_ENABLED=0"</em>) stored in Sila knowledge base.</p>
-          </div>
-          <div class="step-card">
-            <h5>2. ⚖️ Autonomous Triage</h5>
-            <p>Engine checks candidate proposals for negative keyword overlap, semantic conflicts, and active roadmap goals.</p>
-          </div>
-          <div class="step-card">
-            <h5>3. 🎯 Instant Verdict</h5>
-            <p>Outputs a 0–100 Fit Score with 🟢 APPROVED, 🔴 REJECTED, or 🟡 NEEDS_ALIGNMENT rationale.</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- Project Guardrails Section -->
-      <div class="guardrails-grid">
-        <div class="guardrail-card">
-          <h3>⛔ Explicit Non-Goals <span class="badge badge-red" id="badge-nongoals-count">0</span></h3>
-          <p class="card-meta">Things this project explicitly refuses to build or adopt.</p>
-          <ul id="list-nongoals" class="guardrail-list">
-            <li class="guardrail-item card-meta">Loading project non-goals...</li>
-          </ul>
-        </div>
-        <div class="guardrail-card">
-          <h3>🏛️ Durable Invariants <span class="badge badge-green" id="badge-invariants-count">0</span></h3>
-          <p class="card-meta">Settled architectural tenets and engineering rules.</p>
-          <ul id="list-invariants" class="guardrail-list">
-            <li class="guardrail-item card-meta">Loading invariants...</li>
-          </ul>
-        </div>
-      </div>
-
-      <!-- Interactive Triage Simulator -->
-      <div class="panel-header">
-        <div>
-          <h2>Autonomous Proposal Triage Simulator</h2>
-          <p class="card-meta">Test an idea or refactor to verify if it aligns with project vision before coding.</p>
-        </div>
-      </div>
-
-      <div class="card" style="margin-bottom: 24px;">
-        <!-- Interactive Example Chips -->
-        <label style="font-size: 12px; font-weight: 600; color: var(--text-bright);">⚡ Try an Example Proposal (Click to simulate):</label>
-        <div class="example-chips">
-          <button type="button" class="chip-btn" data-sample="Implement CGO SQLite driver for maximum query speed">❌ Add CGO SQLite Driver</button>
-          <button type="button" class="chip-btn" data-sample="Introduce remote PostgreSQL server for cloud data sync">❌ Add Remote Cloud Database</button>
-          <button type="button" class="chip-btn" data-sample="Add real-time webhook event notifications when roadmap goals are completed">✔ Add Webhook Event Notifications</button>
-          <button type="button" class="chip-btn" data-sample="Support export rules for Neovim and Zed editors">✔ Support Neovim & Zed Rules Export</button>
+      <!-- Today -->
+      <section class="view is-active" id="view-today" data-view-panel="today">
+        <div class="ask">
+          <h1>Ask your history</h1>
+          <form id="form-ask" class="ask-form">
+            <input id="ask-input" type="search" placeholder="e.g. why did the payment webhook double write?" autocomplete="off" required>
+            <button class="primary-btn" type="submit">Recall</button>
+          </form>
+          <div id="ask-results" class="ask-results" hidden></div>
         </div>
 
-        <form id="form-triage">
-          <div class="form-group">
-            <label for="input-proposal">Candidate Proposal / Refactor Description</label>
-            <textarea id="input-proposal" placeholder="e.g. Implement CGO SQLite driver for performance or add cloud postgres sync..." required></textarea>
-          </div>
-          <button type="submit" class="btn btn-primary">⚖ Evaluate Proposal Alignment</button>
-        </form>
-      </div>
-      <div id="triage-result-container" style="display:none;"></div>
-    </section>
-
-    <!-- Tab 5: Swarm & Roadmap -->
-    <section id="panel-swarm" class="tab-panel">
-      <div class="guidance-banner">
-        <div class="icon">💡</div>
-        <div>
-          <h4>Swarm Radar & Roadmap Execution Protocol</h4>
-          <p>
-            Goals are organized under <code>goals/&lt;slug&gt;/</code>.
-            <strong>What to do:</strong> Unblocked goals marked <strong>⚡ Independent</strong> have zero file collisions and can be claimed and run immediately. Launch via <code>/goal goals/&lt;slug&gt;/goal.md</code> or spawn a First Mate crewmate via <code>sila crew spawn &lt;harness&gt; &lt;slug&gt;</code>.
-          </p>
+        <div class="health" id="health-strip">
+          <div class="health-cell"><span class="health-label">Messages</span><span class="health-value" id="stat-messages">-</span></div>
+          <div class="health-cell"><span class="health-label">Facts</span><span class="health-value" id="stat-facts">-</span></div>
+          <div class="health-cell"><span class="health-label">Verified</span><span class="health-value" id="stat-verified">-</span></div>
+          <div class="health-cell"><span class="health-label">Stale claims</span><span class="health-value" id="stat-stale">-</span></div>
+          <div class="health-cell"><span class="health-label">Lessons</span><span class="health-value" id="stat-lessons">-</span></div>
+          <div class="health-cell"><span class="health-label">Cases</span><span class="health-value" id="stat-cases">-</span></div>
         </div>
-      </div>
 
-      <div class="panel-header">
-        <div>
-          <h2>Roadmap Matrix & Swarm Radar</h2>
-          <p class="card-meta">Multi-agent goal readiness, task checklists, and tmux crewmate liveness.</p>
-        </div>
-      </div>
-      <div style="margin-bottom: 24px;">
-        <h3 style="margin-bottom: 12px; color: var(--text-bright);">Active Crewmates (First Mate Swarm)</h3>
-        <div id="crew-list" class="card-grid"></div>
-      </div>
-      <div>
-        <h3 style="margin-bottom: 12px; color: var(--text-bright);">Goals Roadmap Matrix</h3>
-        <div id="goals-list" class="card-grid"></div>
-      </div>
-    </section>
+        <div class="today-grid">
+          <section class="panel">
+            <div class="panel-head">
+              <h2>Recent activity</h2>
+              <button type="button" class="link-btn" data-view="timeline">Open timeline</button>
+            </div>
+            <ol id="today-timeline" class="timeline"></ol>
+          </section>
 
-    <!-- Tab 6: Omni-Search -->
-    <section id="panel-search" class="tab-panel">
-      <div class="guidance-banner">
-        <div class="icon">💡</div>
-        <div>
-          <h4>Omni-Search & Conversation Unrolling</h4>
-          <p>
-            Search across verbatim conversation transcripts across all 7 AI CLI tools.
-            <strong>What to do:</strong> Enter search terms or keywords. Click <strong>Expand Context</strong> on any matching card to unroll preceding and following conversation turns in a full modal dialog.
-          </p>
-        </div>
-      </div>
+          <aside class="side">
+            <section class="panel" id="handoff-panel">
+              <h3>Active handoff</h3>
+              <div id="handoff-body" class="panel-empty">No handoff recorded.</div>
+            </section>
 
-      <div class="panel-header">
-        <div>
-          <h2>Omni-Search & Conversation Unrolling</h2>
-          <p class="card-meta">Search transcripts across all AI CLI tools with surrounding turn context.</p>
+            <section class="panel">
+              <h3>Goal board</h3>
+              <div id="goals-summary" class="panel-empty">Loading goals...</div>
+            </section>
+
+            <section class="panel">
+              <h3>Harness activity</h3>
+              <div id="harness-list" class="panel-empty">Loading activity...</div>
+            </section>
+          </aside>
         </div>
-      </div>
-      <div class="card" style="margin-bottom: 24px;">
-        <form id="form-search" style="display: flex; gap: 12px;">
-          <input type="text" id="input-search-q" placeholder="Search prompts, tool outputs, decisions..." required style="flex:1;">
-          <select id="select-search-tool" style="width: 160px;">
-            <option value="">All Tools</option>
+      </section>
+
+      <!-- Timeline -->
+      <section class="view" id="view-timeline" data-view-panel="timeline">
+        <div class="panel-head">
+          <h2>Timeline</h2>
+          <span class="panel-sub">Cross-harness turns, newest first</span>
+        </div>
+        <div class="filter-bar">
+          <input id="timeline-filter" type="search" placeholder="Filter turns by text, tool, or role">
+          <select id="timeline-role">
+            <option value="">All roles</option>
+            <option value="user">User</option>
+            <option value="assistant">Assistant</option>
+          </select>
+          <select id="timeline-tool">
+            <option value="">All tools</option>
             <option value="claude">Claude Code</option>
             <option value="devin">Devin</option>
             <option value="opencode">OpenCode</option>
             <option value="mimocode">MiMoCode</option>
             <option value="codex">Codex</option>
+            <option value="cursor">Cursor</option>
+            <option value="windsurf">Windsurf</option>
+            <option value="cline">Cline</option>
+            <option value="zed">Zed</option>
+            <option value="zcode">ZCode</option>
             <option value="agy">Antigravity</option>
             <option value="git">Git</option>
           </select>
-          <button type="submit" class="btn btn-primary">Search</button>
-        </form>
-      </div>
-      <div id="search-results" class="card-grid"></div>
-    </section>
-  </main>
+        </div>
+        <ol id="full-timeline" class="timeline"></ol>
+      </section>
 
-  <!-- Reusable Guarded Confirmation Modal -->
-  <div id="modal-confirm" class="modal-overlay">
+      <!-- Recall -->
+      <section class="view" id="view-recall" data-view-panel="recall">
+        <div class="panel-head">
+          <h2>Recall</h2>
+          <span class="panel-sub">Ranked by authority: lessons and cases first</span>
+        </div>
+        <form id="form-recall">
+          <div class="form-group">
+            <label for="recall-query">Symptom or question</label>
+            <input id="recall-query" type="search" placeholder="e.g. 3DS webhook 500 double write" required>
+          </div>
+          <div class="form-group">
+            <label for="recall-task">Current task (optional)</label>
+            <input id="recall-task" type="text" placeholder="e.g. apply idempotency key to refund webhook">
+          </div>
+          <div class="form-group">
+            <label for="recall-paths">Repository paths (optional, comma separated)</label>
+            <input id="recall-paths" type="text" placeholder="src/payments/checkout.go, src/payments/refunds.go">
+          </div>
+          <button class="primary-btn" type="submit">Run recall</button>
+        </form>
+        <div id="recall-results" class="ask-results"></div>
+      </section>
+
+      <!-- Memory -->
+      <section class="view" id="view-memory" data-view-panel="memory">
+        <div class="panel-head">
+          <h2>Memory health</h2>
+          <span class="panel-sub">Ungrounded claims and durable rules</span>
+        </div>
+        <div class="filter-bar">
+          <label class="check-label"><input type="checkbox" id="memory-stale-only" checked> Stale only</label>
+          <button type="button" id="btn-reverify" class="ghost-btn btn-sm">Re-verify on disk</button>
+          <button type="button" id="btn-add-invariant" class="ghost-btn btn-sm">New invariant</button>
+        </div>
+        <div id="claims-list"></div>
+      </section>
+
+      <!-- Goals -->
+      <section class="view" id="view-goals" data-view-panel="goals">
+        <div class="panel-head">
+          <h2>Goal board</h2>
+          <span class="panel-sub">Ready, claimed, blocked, and implemented</span>
+        </div>
+        <div id="goals-list"></div>
+      </section>
+
+      <!-- Governance -->
+      <section class="view" id="view-governance" data-view-panel="governance">
+        <div class="panel-head">
+          <h2>Governance</h2>
+          <span class="panel-sub">Feedback, decisions, and strategic guardrails</span>
+        </div>
+        <div class="gov-grid">
+          <section class="panel">
+            <div class="panel-head"><h2>Feedback</h2><span class="panel-sub">Open and in progress</span></div>
+            <div class="kanban">
+              <div class="kanban-col">
+                <div class="kanban-title"><span>Open</span><span id="count-open">0</span></div>
+                <div id="feedback-open"></div>
+              </div>
+              <div class="kanban-col">
+                <div class="kanban-title"><span>In progress</span><span id="count-in-progress">0</span></div>
+                <div id="feedback-in-progress"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><h2>Architecture decisions</h2><span class="panel-sub">ADR drift is checked on disk</span></div>
+            <div id="adrs-list"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><h2>Guardrails</h2><span class="panel-sub">Non-goals and invariants</span></div>
+            <div id="vision-guardrails"></div>
+          </section>
+
+          <section class="panel">
+            <div class="panel-head"><h2>Triage a proposal</h2><span class="panel-sub">Check a proposal against the guardrails</span></div>
+            <div class="example-chips" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+              <button type="button" class="chip-btn" data-sample="Add raw SQL query in checkout route handler for speed">Raw SQL in handler</button>
+              <button type="button" class="chip-btn" data-sample="Add second frontend framework alongside the SPA">Second frontend</button>
+              <button type="button" class="chip-btn" data-sample="Key refund webhook writes on (order_id, provider_event_id)">Key refund webhook</button>
+            </div>
+            <form id="form-triage">
+              <div class="form-group">
+                <label for="triage-input">Proposal</label>
+                <textarea id="triage-input" placeholder="e.g. add a raw SQL query in the checkout handler" required></textarea>
+              </div>
+              <button class="primary-btn" type="submit">Evaluate</button>
+            </form>
+            <div id="triage-result" class="triage-result"></div>
+          </section>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Confirm modal -->
+  <div id="modal-confirm" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
     <div class="modal">
-      <div class="modal-header">
-        <h3 id="modal-confirm-title">Confirm Action</h3>
-      </div>
-      <div id="modal-confirm-body" class="card-body"></div>
+      <div class="modal-header"><h3 id="confirm-title">Confirm action</h3></div>
+      <div id="confirm-body" class="panel-sub"></div>
       <div class="modal-footer">
-        <button id="modal-confirm-cancel" class="btn">Cancel</button>
-        <button id="modal-confirm-submit" class="btn btn-primary">Confirm</button>
+        <button type="button" class="ghost-btn" data-close-modal>Cancel</button>
+        <button type="button" id="confirm-submit" class="primary-btn">Confirm</button>
       </div>
     </div>
   </div>
 
-  <!-- Resolve Feedback Modal -->
-  <div id="modal-resolve" class="modal-overlay">
+  <!-- Resolve feedback modal -->
+  <div id="modal-resolve" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="resolve-title">
     <div class="modal">
-      <div class="modal-header">
-        <h3>Resolve Feedback Ticket</h3>
-      </div>
-      <form id="form-resolve-ticket">
-        <input type="hidden" id="resolve-ticket-id">
-        <div class="form-group">
-          <label>Resolving Agent</label>
-          <input type="text" id="resolve-agent" value="human" required>
-        </div>
-        <div class="form-group">
-          <label>Associated Goal Slug (Optional)</label>
-          <input type="text" id="resolve-goal" placeholder="e.g. web-knowledge-and-decision-interface">
-        </div>
-        <div class="form-group">
-          <label>Resolution Note</label>
-          <textarea id="resolve-note" placeholder="Explain what changes addressed this feedback..." required></textarea>
-        </div>
+      <div class="modal-header"><h3 id="resolve-title">Resolve feedback</h3></div>
+      <form id="form-resolve">
+        <input type="hidden" id="resolve-id">
+        <div class="form-group"><label for="resolve-agent">Resolving agent</label><input id="resolve-agent" type="text" value="human" required></div>
+        <div class="form-group"><label for="resolve-goal">Goal slug (optional)</label><input id="resolve-goal" type="text" placeholder="e.g. continuity-console"></div>
+        <div class="form-group"><label for="resolve-note">Resolution note</label><textarea id="resolve-note" required></textarea></div>
         <div class="modal-footer">
-          <button type="button" class="btn modal-close">Cancel</button>
-          <button type="submit" class="btn btn-primary">Resolve Ticket</button>
+          <button type="button" class="ghost-btn" data-close-modal>Cancel</button>
+          <button type="submit" class="primary-btn">Resolve</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Add Invariant Modal -->
-  <div id="modal-add-invariant" class="modal-overlay">
+  <!-- Add invariant modal -->
+  <div id="modal-invariant" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="invariant-title">
     <div class="modal">
-      <div class="modal-header">
-        <h3>Record New Architectural Invariant</h3>
-      </div>
-      <form id="form-add-invariant">
+      <div class="modal-header"><h3 id="invariant-title">New guardrail</h3></div>
+      <form id="form-invariant">
+        <div class="form-group"><label for="invariant-claim">Directive</label><textarea id="invariant-claim" placeholder="e.g. Zero CGO: keep SQLite strictly pure-Go" required></textarea></div>
         <div class="form-group">
-          <label>Directive / Architectural Invariant</label>
-          <textarea id="invariant-claim" placeholder="e.g. Zero CGO dependencies: keep SQLite strictly pure-Go (modernc.org/sqlite)" required></textarea>
-        </div>
-        <div class="form-group">
-          <label>Kind</label>
+          <label for="invariant-kind">Kind</label>
           <select id="invariant-kind">
-            <option value="invariant">Architectural Invariant</option>
-            <option value="nongoal">Explicit Non-Goal</option>
-            <option value="milestone">Roadmap Milestone</option>
+            <option value="invariant">Invariant</option>
+            <option value="nongoal">Non-goal</option>
+            <option value="milestone">Milestone</option>
           </select>
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn modal-close">Cancel</button>
-          <button type="submit" class="btn btn-primary">Save Invariant</button>
+          <button type="button" class="ghost-btn" data-close-modal>Cancel</button>
+          <button type="submit" class="primary-btn">Save</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- Transcript Context Expand Modal -->
-  <div id="modal-expand" class="modal-overlay">
-    <div class="modal" style="max-width: 800px;">
-      <div class="modal-header">
-        <h3>Conversation Context Unrolling</h3>
-      </div>
-      <div id="expand-content" style="max-height: 60vh; overflow-y: auto;"></div>
-      <div class="modal-footer">
-        <button type="button" class="btn modal-close">Close</button>
-      </div>
+  <!-- Expand modal -->
+  <div id="modal-expand" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="expand-title">
+    <div class="modal" style="max-width: 820px;">
+      <div class="modal-header"><h3 id="expand-title">Conversation context</h3><button type="button" class="ghost-btn btn-sm" data-close-modal>Close</button></div>
+      <div id="expand-content"></div>
     </div>
   </div>
 
-  <!-- Toast Notification Container -->
-  <div id="toast-container"></div>
-
+  <div id="toast-container" aria-live="polite"></div>
   <script src="/app.js" type="module"></script>
 </body>
 </html>

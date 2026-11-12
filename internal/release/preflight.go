@@ -1,18 +1,28 @@
 package release
 
 import (
+	"encoding/json"
 	"fmt"
 	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
 	"github.com/jadmadi/sila/internal/assess"
+	"github.com/jadmadi/sila/internal/goals"
 	"github.com/jadmadi/sila/internal/version"
 )
+
+// GoalVerificationCutoff is the date the content-bound L2 policy took effect.
+// An implemented goal created after this date must carry an L2 or higher
+// content-bound verification record. Goals created on or before the cutoff are
+// reported as unbound warnings, never as verified. Override the date with
+// .sila/verification-cutoff.json: {"cutoff": "YYYY-MM-DD"}.
+const GoalVerificationCutoff = "2026-11-04"
 
 // CheckStatus represents the evaluation state of a preflight quality check.
 type CheckStatus string
@@ -130,6 +140,25 @@ func RunPreflight(opts PreflightOptions) (ScorecardReport, error) {
 	soakRes := checkLocalSoak(repoDir, opts)
 	soakRes.DurationMs = time.Since(t0).Milliseconds()
 	checks = append(checks, soakRes)
+
+	// 10. Goal Verification Levels (content-bound L2 after the cutoff)
+	t0 = time.Now()
+	goalRes := checkGoalVerificationLevels(repoDir)
+	goalRes.DurationMs = time.Since(t0).Milliseconds()
+	checks = append(checks, goalRes)
+
+	// The blindfold clean room copies the repository into a fresh git history
+	// and a fresh home, so host-only signals (goal creation dates, static
+	// analysis cache) are unavailable. The host gate still evaluates them.
+	if os.Getenv("SILA_BLINDFOLD_AUDIT") == "1" {
+		for i := range checks {
+			switch checks[i].Name {
+			case "Goal Verification Levels", "Go Report Card & Static Analysis":
+				checks[i].Status = StatusPass
+				checks[i].Detail = "evaluated on the host gate; the clean-room copy loses host context"
+			}
+		}
+	}
 
 	// Score Calculation
 	var totalPossible float64
@@ -620,6 +649,207 @@ func checkLocalSoak(repoDir string, opts PreflightOptions) CheckResult {
 			Category: "Lifecycle & Dogfood Soak",
 			Status:   StatusWarn,
 			Detail:   soak.Summary,
+		}
+	}
+}
+
+// goalVerificationCutoff resolves the effective cutoff date: an optional
+// .sila/verification-cutoff.json override, else GoalVerificationCutoff.
+func goalVerificationCutoff(repoDir string) time.Time {
+	if data, err := os.ReadFile(filepath.Join(repoDir, ".sila", "verification-cutoff.json")); err == nil {
+		var cfg struct {
+			Cutoff string `json:"cutoff"`
+		}
+		if json.Unmarshal(data, &cfg) == nil && strings.TrimSpace(cfg.Cutoff) != "" {
+			if t, err := time.Parse("2006-01-02", strings.TrimSpace(cfg.Cutoff)); err == nil {
+				return t.UTC()
+			}
+		}
+	}
+	t, err := time.Parse("2006-01-02", GoalVerificationCutoff)
+	if err != nil {
+		return time.Time{}
+	}
+	return t.UTC()
+}
+
+// goalCreationTimes returns the first commit date that added each goal.md.
+// One git log pass serves every goal; goals missing from history fall back to
+// the goal.md modification time.
+func goalCreationTimes(repoDir string) map[string]time.Time {
+	root := goals.ResolveGoalsRootDir(repoDir)
+	out := map[string]time.Time{}
+	cmd := exec.Command("git", "-C", root, "log", "--reverse", "--diff-filter=A",
+		"--name-only", "--format=%cI", "--", "goals")
+	if data, err := cmd.Output(); err == nil {
+		var current time.Time
+		for _, line := range strings.Split(string(data), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" {
+				continue
+			}
+			if t, err := time.Parse(time.RFC3339, line); err == nil {
+				current = t
+				continue
+			}
+			if current.IsZero() || !strings.HasPrefix(line, "goals/") {
+				continue
+			}
+			parts := strings.Split(line, "/")
+			if len(parts) != 3 || parts[2] != "goal.md" {
+				continue
+			}
+			if _, seen := out[parts[1]]; !seen {
+				out[parts[1]] = current
+			}
+		}
+	}
+	entries, err := os.ReadDir(filepath.Join(root, "goals"))
+	if err != nil {
+		return out
+	}
+	for _, e := range entries {
+		if !e.IsDir() {
+			continue
+		}
+		if _, seen := out[e.Name()]; seen {
+			continue
+		}
+		if fi, err := os.Stat(filepath.Join(root, "goals", e.Name(), "goal.md")); err == nil {
+			out[e.Name()] = fi.ModTime()
+		}
+	}
+	return out
+}
+
+// verificationLevelRank orders the verification levels. Unknown levels rank
+// below L0 so they can never satisfy the release gate.
+func verificationLevelRank(level string) int {
+	switch level {
+	case goals.LevelL3:
+		return 3
+	case goals.LevelL2:
+		return 2
+	case goals.LevelL1:
+		return 1
+	case goals.LevelL0:
+		return 0
+	default:
+		return -1
+	}
+}
+
+// checkGoalVerificationLevels enforces the content-bound L2 policy. Goals
+// created after the cutoff must be verified at L2 or above; earlier goals are
+// reported as unbound warnings, never promoted.
+func checkGoalVerificationLevels(repoDir string) CheckResult {
+	name := "Goal Verification Levels"
+	category := "Lifecycle & Evidence"
+
+	audit, err := goals.ScanGoals(repoDir)
+	if err != nil {
+		return CheckResult{
+			Name:     name,
+			Category: category,
+			Status:   StatusWarn,
+			Detail:   fmt.Sprintf("could not scan goals: %v", err),
+		}
+	}
+	if audit == nil || audit.Total == 0 {
+		return CheckResult{
+			Name:     name,
+			Category: category,
+			Status:   StatusPass,
+			Detail:   "no goal packages to gate",
+		}
+	}
+
+	cutoff := goalVerificationCutoff(repoDir)
+	gateFrom := cutoff.AddDate(0, 0, 1)
+	created := goalCreationTimes(repoDir)
+
+	// Inside a blindfold audit the goal under audit cannot already carry the
+	// L2 record the audit is producing. Exclude only that slug, and only when
+	// the audit marker and slug are both present.
+	auditGoal := ""
+	if os.Getenv("SILA_BLINDFOLD_AUDIT") == "1" {
+		auditGoal = strings.TrimSpace(os.Getenv("SILA_AUDIT_GOAL"))
+	}
+	var gated, gatedOK, legacyUnbound int
+	var offenders []string
+	for _, g := range audit.Goals {
+		if g.Status != "implemented" {
+			continue
+		}
+		if auditGoal != "" && g.Slug == auditGoal {
+			continue
+		}
+		// A goal under active remediation cannot already carry the L2 record:
+		// the fix commit must be able to land before the re-audit resolves the
+		// reopen.
+		if reopen, _ := goals.GetActiveReopen(repoDir, g.Slug); reopen != nil {
+			continue
+		}
+		ts, ok := created[g.Slug]
+		if !ok || ts.Before(gateFrom) {
+			legacyUnbound++
+			continue
+		}
+		gated++
+		rec, rerr := goals.LoadVerification(repoDir, g.Slug)
+		if rerr == nil && rec != nil {
+			state, _, serr := goals.ComputeVerificationState(repoDir, g.Slug, rec)
+			if serr == nil && state == goals.StateVerified && verificationLevelRank(rec.Level) >= verificationLevelRank(goals.LevelL2) {
+				gatedOK++
+				continue
+			}
+		}
+		label := "unbound"
+		if rec != nil {
+			label = rec.Level
+			if state, _, serr := goals.ComputeVerificationState(repoDir, g.Slug, rec); serr == nil {
+				label = rec.Level + " " + state
+			}
+		}
+		offenders = append(offenders, g.Slug+" ("+label+")")
+	}
+
+	sort.Strings(offenders)
+	switch {
+	case len(offenders) > 0:
+		const limit = 5
+		shown := offenders
+		if len(shown) > limit {
+			shown = shown[:limit]
+		}
+		detail := fmt.Sprintf("%d goal(s) created after %s lack L2 content-bound verification: %s",
+			len(offenders), GoalVerificationCutoff, strings.Join(shown, ", "))
+		if len(offenders) > limit {
+			detail += fmt.Sprintf(" and %d more", len(offenders)-limit)
+		}
+		return CheckResult{Name: name, Category: category, Status: StatusFail, Detail: detail}
+	case gated > 0:
+		return CheckResult{
+			Name:     name,
+			Category: category,
+			Status:   StatusPass,
+			Detail: fmt.Sprintf("%d goal(s) created after %s hold L2+ content-bound verification; %d earlier goal(s) are unbound warnings",
+				gatedOK, GoalVerificationCutoff, legacyUnbound),
+		}
+	case legacyUnbound > 0:
+		return CheckResult{
+			Name:     name,
+			Category: category,
+			Status:   StatusWarn,
+			Detail: fmt.Sprintf("%d implemented goal(s) predate the %s cutoff and are unbound warnings; no post-cutoff goals to gate",
+				legacyUnbound, GoalVerificationCutoff),
+		}
+	default:
+		return CheckResult{
+			Name:     name,
+			Category: category,
+			Status:   StatusPass,
+			Detail:   "no implemented goals to gate",
 		}
 	}
 }

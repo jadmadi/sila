@@ -45,9 +45,12 @@ func TestDocumentedMCPToolCountsMatchRegistry(t *testing.T) {
 		file    string
 		pattern *regexp.Regexp
 	}{
-		{"README.md", "README.md", regexp.MustCompile(`(\d+) tools in the full profile`)},
+		{"README.md (heading)", "README.md", regexp.MustCompile(`Model Context Protocol \(MCP\) Server \((\d+) Tools\)`)},
+		{"README.md (map docs/mcp)", "README.md", regexp.MustCompile(`all (\d+) tools`)},
+		{"README.md (map html-docs)", "README.md", regexp.MustCompile(`(\d+)-tool MCP reference`)},
 		{"docs/mcp.md", "docs/mcp.md", regexp.MustCompile(`## Exposed Tools \((\d+)\)`)},
 		{"AGENTS.md", "AGENTS.md", regexp.MustCompile(`(\d+)-tool Model Context Protocol`)},
+		{"HANDOFF.md", "HANDOFF.md", regexp.MustCompile(`canonical (\d+)-tool MCP inventory`)},
 	}
 	for _, s := range surfaces {
 		content := repoFile(t, s.file)
@@ -146,13 +149,7 @@ func TestTier0AndTriggerMCPToolsExistInContinuityProfile(t *testing.T) {
 		}
 	}
 
-	required := []string{
-		"prime_context", "recall", "search_docs", "omni_search", "get_message_context",
-		"save_memo", "save_lesson", "save_case", "get_project_facts", "reconcile_drift",
-		"run_gate_pipeline", "save_handoff", "get_operational_guidebook", "skill_search",
-		"skill_load", "route_workflow", "list_goals", "claim_goal", "audit_goals",
-		"audit_goal", "record_feedback",
-	}
+	required := append([]string(nil), mcp.ContinuityToolOrder...)
 	for _, name := range required {
 		if !defNames[name] {
 			t.Errorf("required MCP tool %q is absent from ToolDefinitions", name)
@@ -170,19 +167,23 @@ func TestTier0AndTriggerMCPToolsExistInContinuityProfile(t *testing.T) {
 	for _, name := range required {
 		// get_project_facts is the structured-facts retrieval primitive; the
 		// prose surfaces route to it through `sila recall`/`omni_search`.
-		if name == "get_project_facts" {
+		if name == "get_project_facts" || name == "get_status" {
 			continue
 		}
 		if !strings.Contains(guidance, name) {
 			t.Errorf("required continuity tool %q is not referenced by any rulebook or briefing surface", name)
 		}
 	}
+	tier0Defs := map[string]bool{}
+	for _, def := range mcp.ToolDefinitions() {
+		tier0Defs[def.Name] = true
+	}
 	for _, tier0 := range []string{"salam", "prime_context", "list_goals", "run_gate_pipeline"} {
 		if !strings.Contains(agents, tier0) {
 			t.Errorf("AGENTS.md no longer names Tier-0 MCP tool %q", tier0)
 		}
-		if !mcp.ContinuityToolNames[tier0] {
-			t.Errorf("Tier-0 MCP tool %q is excluded from the continuity profile", tier0)
+		if !tier0Defs[tier0] {
+			t.Errorf("Tier-0 MCP tool %q is not defined", tier0)
 		}
 	}
 }

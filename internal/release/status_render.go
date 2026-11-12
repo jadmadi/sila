@@ -257,6 +257,16 @@ func RenderStatusTerminal(ui render.UI, report ReleaseStatusReport, showDiff boo
 				report.SoakStatus.ActiveDays, report.SoakStatus.RequiredActiveDays,
 				report.SoakStatus.ToolEventsTotal, report.SoakStatus.ToolErrorCount,
 				report.SoakStatus.PrimeEventsTotal, report.SoakStatus.PrimeErrorCount))
+			if len(report.SoakStatus.FeatureLedger) > 0 {
+				sb.WriteString(fmt.Sprintf("  %-24s %d ready · %d soaking · %d needs debug (independent 72h timers)\n",
+					ui.Bold("Feature Timers:"),
+					report.SoakStatus.ReadyFeatures, report.SoakStatus.SoakingFeatures, report.SoakStatus.DebugFeatures))
+			}
+			if report.SoakStatus.ReadyThroughCommit != "" {
+				sb.WriteString(fmt.Sprintf("  %-24s %s\n",
+					ui.Bold("Ready Train Commit:"),
+					ui.Green(report.SoakStatus.ReadyThroughCommit)))
+			}
 		} else if report.SoakStatus.Summary != "" {
 			sb.WriteString("  " + ui.Dim(report.SoakStatus.Summary) + "\n")
 		}

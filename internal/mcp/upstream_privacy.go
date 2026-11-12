@@ -19,7 +19,7 @@ var (
 	egressPemKeyRE      = regexp.MustCompile(`-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?-----END [A-Z ]*PRIVATE KEY-----|(?i)-----BEGIN [A-Z ]*PRIVATE KEY-----`)
 	egressParamSecretRE = regexp.MustCompile(`(?i)(password|token|secret|api_key|client_secret)=([^&\s]+)`)
 	egressGLTokenRE     = regexp.MustCompile(`(?i)\b(glpat-[0-9a-zA-Z\-_]{20})\b`)
-	egressSlackTokenRE  = regexp.MustCompile(`(?i)\b(xox[baprs]-[0-9a-zA-Z]{10,48})\b`)
+	egressSlackTokenRE  = regexp.MustCompile(`(?i)\b(xox[baprs]-[0-9a-zA-Z]{3,48})\b`)
 	egressKVSecretRE    = regexp.MustCompile(`(?i)\b((?:api[_-]?key|secret[_-]?key)\s*[:=]\s*["'][0-9a-zA-Z\-_]{16,}["'])`)
 )
 

@@ -16,6 +16,20 @@ import (
 
 // runHandoff views, records, claims, pops, or lists structured session handoffs.
 func runHandoff(ui render.UI, dbPath, project, branch, agent, openItems, decisions, files string, jsonOut, verbose bool, args []string) {
+	expectedRevision := ""
+	var filteredArgs []string
+	for _, a := range args {
+		if strings.HasPrefix(a, "--expected-revision=") {
+			expectedRevision = strings.TrimSpace(strings.TrimPrefix(a, "--expected-revision="))
+			continue
+		}
+		filteredArgs = append(filteredArgs, a)
+	}
+	args = filteredArgs
+	if expectedRevision != "" && len(expectedRevision) != 64 {
+		fmt.Fprintln(os.Stderr, "sila handoff: --expected-revision must be a full 64-character hash")
+		os.Exit(2)
+	}
 	st, err := store.Open(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sila: %v\n", err)
@@ -232,15 +246,28 @@ func runHandoff(ui render.UI, dbPath, project, branch, agent, openItems, decisio
 		h.ID = store.HandoffID(h.ProjectID, h.Summary, h.CreatedAt)
 	}
 
-	if err := st.InsertHandoff(h); err != nil {
-		fmt.Fprintf(os.Stderr, "sila: %v\n", err)
+	newRevision, replayed, currentRevision, revisionOK := handoffRevisionDecision(st, project, branch, expectedRevision, h)
+	if !revisionOK {
+		fmt.Fprintf(os.Stderr, "revision conflict: current %s\n", currentRevision)
 		os.Exit(1)
 	}
-	recordMemoryEvent(st, project, agent, "handoff", "ok", "", "cli", 0)
+	if !replayed {
+		if err := st.InsertHandoff(h); err != nil {
+			fmt.Fprintf(os.Stderr, "sila: %v\n", err)
+			os.Exit(1)
+		}
+		recordMemoryEvent(st, project, agent, "handoff", "ok", "", "cli", 0)
+	}
 
 	if jsonOut {
+		type handoffWithRevision struct {
+			store.Handoff
+			RevisionHash string `json:"revision_hash"`
+			Unchecked    bool   `json:"unchecked,omitempty"`
+			Replayed     bool   `json:"replayed,omitempty"`
+		}
 		h.RepoFiles = jsonCardFiles(cwd, h.RepoFiles)
-		emitJSON(h)
+		emitJSON(handoffWithRevision{Handoff: h, RevisionHash: newRevision, Unchecked: expectedRevision == "", Replayed: replayed})
 		return
 	}
 	if outModes.porcelain {
@@ -257,6 +284,7 @@ func runHandoff(ui render.UI, dbPath, project, branch, agent, openItems, decisio
 				{Label: "Summary", Value: strings.ReplaceAll(summary, "\n", " ")},
 				{Label: "Open items", Value: strings.Join(openList, ", ")},
 				{Label: "Repo files", Value: displayCardFiles(cwd, fileList)},
+				{Label: "Revision", Value: newRevision},
 			},
 		}))
 	}
@@ -518,4 +546,23 @@ func handoffContractOpenItems(st *store.Store, project, cwd, session, agent stri
 		items = append(items, "contract receipt: "+d.ReceiptPath)
 	}
 	return items
+}
+
+// handoffRevisionDecision resolves whether a handoff write may proceed. It
+// returns the new revision, replay status, the current revision, and whether
+// the write is allowed.
+func handoffRevisionDecision(st *store.Store, project, branch, expected string, h store.Handoff) (string, bool, string, bool) {
+	newRevision := store.HandoffRevision(h)
+	if expected == "" {
+		return newRevision, false, "", true
+	}
+	latest, _ := st.LatestHandoffForBranch(project, branch)
+	current := ""
+	if latest != nil {
+		current = store.HandoffRevision(*latest)
+	}
+	if latest == nil || current != expected {
+		return newRevision, false, current, false
+	}
+	return newRevision, newRevision == current, current, true
 }

@@ -65,8 +65,14 @@ func runRelease(ui render.UI, jsonOut, toonOut bool, outFile string, allowDirty,
 		runReleaseStatus(ui, jsonOut, toonOut, allowDirty, offline, subArgs)
 	case "preflight", "scorecard":
 		runReleasePreflight(ui, jsonOut, toonOut, allowDirty, offline, strict)
+	case "export":
+		subArgs := []string{}
+		if len(args) > 1 {
+			subArgs = args[1:]
+		}
+		runReleaseExport(ui, jsonOut, subArgs)
 	default:
-		failRelease(fmt.Errorf("unknown release command %q (use status, preflight, check, snapshot, or metadata)", cmd))
+		failRelease(fmt.Errorf("unknown release command %q (use status, preflight, export, check, snapshot, or metadata)", cmd))
 	}
 }
 
@@ -170,8 +176,14 @@ func runReleasePreflight(ui render.UI, jsonOut, toonOut bool, allowDirty, offlin
 		fmt.Fprintf(os.Stdout, "✔ Release Quality Scorecard passed: %s Score: %.1f%% %s\n",
 			gradeBadge, report.Score, ui.Dim("("+report.Summary+")"))
 	} else {
-		fmt.Fprintf(os.Stderr, "✖ Release Quality Scorecard failed: %s Score: %.1f%% %s\n",
-			gradeBadge, report.Score, ui.Dim("("+report.Summary+")"))
+		var failing []string
+		for _, c := range report.Checks {
+			if c.Status == release.StatusFail {
+				failing = append(failing, c.Name+": "+strings.TrimSpace(c.Detail))
+			}
+		}
+		fmt.Fprintf(os.Stderr, "✖ Release Quality Scorecard failed: %s Score: %.1f%% %s failing: %s\n",
+			gradeBadge, report.Score, ui.Dim("("+report.Summary+")"), strings.Join(failing, "; "))
 		os.Exit(1)
 	}
 }
@@ -224,3 +236,73 @@ func releaseCheck() (releaseCheckResult, error) {
 }
 
 func failRelease(err error) { fmt.Fprintln(os.Stderr, "sila release:", err); os.Exit(2) }
+
+func runReleaseExport(ui render.UI, jsonOut bool, args []string) {
+	dryRun := false
+	destDir := ""
+	refOverride := ""
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+		switch {
+		case arg == "--dry-run":
+			dryRun = true
+		case strings.HasPrefix(arg, "--dest="):
+			destDir = strings.TrimSpace(strings.TrimPrefix(arg, "--dest="))
+		case arg == "--dest" && i+1 < len(args):
+			i++
+			destDir = strings.TrimSpace(args[i])
+		case strings.HasPrefix(arg, "--ref="):
+			refOverride = strings.TrimSpace(strings.TrimPrefix(arg, "--ref="))
+		case arg == "--ref" && i+1 < len(args):
+			i++
+			refOverride = strings.TrimSpace(args[i])
+		}
+	}
+
+	repoDir := release.ResolveGitRepoDir("")
+	if destDir == "" {
+		destDir = filepath.Join(filepath.Dir(repoDir), "public-export")
+	}
+
+	soak := release.EvaluateSoak(release.SoakOptions{
+		RepoDir: repoDir,
+		DBPath:  store.DefaultDBPath(),
+	})
+	targetRef := refOverride
+	if targetRef == "" {
+		if soak.State != release.SoakReady || soak.ReadyThroughCommit == "" {
+			failRelease(fmt.Errorf("no soaked feature train ready for public export (state=%s: %s)", soak.State, soak.Summary))
+		}
+		targetRef = soak.ReadyThroughCommit
+	}
+
+	exportArgs := []string{"run", "./tools/exportpublic", "--source", repoDir, "--dest", destDir, "--ref", targetRef, "--force"}
+	if dryRun {
+		exportArgs = append(exportArgs, "--dry-run")
+	}
+	cmd := exec.Command("go", exportArgs...)
+	cmd.Dir = repoDir
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		failRelease(fmt.Errorf("exportpublic --ref %s failed: %v\n%s", targetRef, err, strings.TrimSpace(string(out))))
+	}
+
+	if jsonOut {
+		emitJSON(map[string]any{
+			"status":               "exported",
+			"dry_run":              dryRun,
+			"ready_through_commit": targetRef,
+			"ready_features":       soak.ReadyFeatures,
+			"soaking_features":     soak.SoakingFeatures,
+			"dest":                 destDir,
+			"output":               strings.TrimSpace(string(out)),
+		})
+		return
+	}
+	modeStr := "Exported"
+	if dryRun {
+		modeStr = "Dry-run verified"
+	}
+	fmt.Fprintf(os.Stdout, "%s %s ready feature train (%s, %d ready, %d soaking on own 72h timer) -> %s\n  %s\n",
+		ui.Green("✔"), modeStr, targetRef, soak.ReadyFeatures, soak.SoakingFeatures, destDir, strings.TrimSpace(string(out)))
+}

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 // Config represents persistent user settings for sila.
@@ -45,6 +46,81 @@ type Config struct {
 	StitchAPIKey           string                       `json:"stitch_api_key,omitempty"`
 	MCPUpstreams           map[string]UpstreamMCPServer `json:"mcp_upstreams,omitempty"`
 	MCPUpstreamsEnabled    bool                         `json:"mcp_upstreams_enabled,omitempty"`
+	RecallGate             string                       `json:"recall_gate_policy,omitempty"`
+	StateBlock             StateBlockConfig             `json:"state_block,omitempty"`
+	Memory                 MemoryConfig                 `json:"memory,omitempty"`
+	Agent                  AgentConfig                  `json:"agent,omitempty"`
+	Redaction              RedactionConfig              `json:"redaction,omitempty"`
+	Trust                  TrustConfig                  `json:"trust,omitempty"`
+	Recall                 RecallConfig                 `json:"recall,omitempty"`
+	Retrieval              RetrievalConfig              `json:"retrieval,omitempty"`
+}
+
+// RetrievalConfig controls the precision guards.
+type RetrievalConfig struct {
+	IDFVeto  *bool    `json:"idf_veto,omitempty"`
+	OODGuard *bool    `json:"ood_guard,omitempty"`
+	OODTheta *float64 `json:"ood_theta,omitempty"`
+}
+
+// RecallConfig flips the compact default for recall surfaces.
+type RecallConfig struct {
+	CompactDefault bool `json:"compact_default,omitempty"`
+}
+
+// TrustConfig lists full commit SHAs trusted by the review gate.
+type TrustConfig struct {
+	Targets []string `json:"targets,omitempty"`
+}
+
+// RedactionConfig controls mask mode and operator rules.
+type RedactionConfig struct {
+	Mask     string `json:"mask,omitempty"`      // full | prefix
+	RulesDir string `json:"rules_dir,omitempty"` // directory of *.yaml rules
+}
+
+// AgentConfig carries the default agent identity for MCP attribution.
+type AgentConfig struct {
+	Identity string `json:"identity,omitempty"`
+}
+
+// MemoryConfig controls the real-time harness memory mirror.
+type MemoryConfig struct {
+	Mirror string `json:"mirror,omitempty"` // on | off; default on
+}
+
+// MemoryMirrorEnabled resolves the mirror switch. The environment variable
+// SILA_MEMORY_MIRROR overrides the config in both directions.
+func (c *Config) MemoryMirrorEnabled() bool {
+	if env := strings.ToLower(strings.TrimSpace(os.Getenv("SILA_MEMORY_MIRROR"))); env != "" {
+		return env != "off"
+	}
+	if c != nil {
+		switch strings.ToLower(strings.TrimSpace(c.Memory.Mirror)) {
+		case "off":
+			return false
+		case "on":
+			return true
+		}
+	}
+	return true
+}
+
+// StateBlockConfig controls the pushed continuity state block.
+type StateBlockConfig struct {
+	WelcomeBackHours *int `json:"welcome_back_hours,omitempty"` // 0 disables the since-you-left line; default 6
+}
+
+// WelcomeBackWindow returns the configured gap window. Zero disables the line.
+func (c *Config) WelcomeBackWindow() time.Duration {
+	hours := 6
+	if c != nil && c.StateBlock.WelcomeBackHours != nil {
+		hours = *c.StateBlock.WelcomeBackHours
+	}
+	if hours <= 0 {
+		return 0
+	}
+	return time.Duration(hours) * time.Hour
 }
 
 // UpstreamMCPServer defines an upstream Model Context Protocol server configuration.
@@ -635,6 +711,38 @@ func LoadForDir(path, projectDir string) (*Config, error) {
 		cfg.MCPUpstreamsEnabled = strings.EqualFold(envEnable, "true") || envEnable == "1"
 	}
 
+	if cfg.Retrieval.OODTheta != nil && (*cfg.Retrieval.OODTheta < 0 || *cfg.Retrieval.OODTheta > 1) {
+		return nil, fmt.Errorf("retrieval.ood_theta must be between 0 and 1, got %v", *cfg.Retrieval.OODTheta)
+	}
+	seenTargets := map[string]bool{}
+	var deduped []string
+	for _, target := range cfg.Trust.Targets {
+		normalized := strings.ToLower(strings.TrimSpace(target))
+		if normalized == "" {
+			continue
+		}
+		if !isFullCommitSHA(normalized) {
+			return nil, fmt.Errorf("trust.targets: %q is not a full 40-character commit SHA", target)
+		}
+		if seenTargets[normalized] {
+			continue
+		}
+		seenTargets[normalized] = true
+		deduped = append(deduped, normalized)
+	}
+	cfg.Trust.Targets = deduped
+	if value := strings.ToLower(strings.TrimSpace(cfg.Redaction.Mask)); value != "" && value != "full" && value != "prefix" {
+		return nil, fmt.Errorf("redaction.mask must be full or prefix, got %q", cfg.Redaction.Mask)
+	}
+	if value := strings.ToLower(strings.TrimSpace(cfg.Memory.Mirror)); value != "" && value != "on" && value != "off" {
+		return nil, fmt.Errorf("memory.mirror must be on or off, got %q", cfg.Memory.Mirror)
+	}
+	if cfg.StateBlock.WelcomeBackHours != nil {
+		hours := *cfg.StateBlock.WelcomeBackHours
+		if hours < 0 || hours > 720 {
+			return nil, fmt.Errorf("state_block.welcome_back_hours must be between 0 and 720, got %d", hours)
+		}
+	}
 	return cfg, nil
 }
 
@@ -814,8 +922,14 @@ func SetKey(path, key, value string) error {
 	case "mcp_upstreams_enabled", "upstreams_enabled", "mcp_upstream_enabled":
 		val := strings.TrimSpace(value)
 		cfg.MCPUpstreamsEnabled = strings.EqualFold(val, "true") || val == "1" || strings.EqualFold(val, "yes")
+	case "recall_gate_policy", "recall_gate", "recall-policy":
+		policy, err := ParseRecallGatePolicy(value)
+		if err != nil {
+			return err
+		}
+		cfg.RecallGate = string(policy)
 	default:
-		return errors.New("unknown config key: " + key + " (supported: brave_api_key, tavily_api_key, kagi_api_key, github_token, sourcegraph_token, stackoverflow_key, google_api_key, google_cse_cx, search_provider, typesafe_api_key, assist_provider, assist_enabled, assist_scopes, assist_projects, cloud_enabled, cloud_endpoint, cloud_token, cloud_scopes, cloud_projects, gateway_enabled, gateway_surfaces, gateway_discord_enabled, gateway_discord_webhook, gateway_telegram_enabled, gateway_telegram_token, gateway_telegram_chat_id, gateway_gemini_enabled, gateway_gemini_endpoint, gateway_gemini_token, gateway_mcp_enabled, gateway_mcp_endpoint, gateway_mcp_token, cloudflare_api_token, cloudflare_account_id, cloudflare_d1_database_id, alphaxiv_api_token, stitch_api_key, mcp_upstreams_enabled)")
+		return errors.New("unknown config key: " + key + " (supported: brave_api_key, tavily_api_key, kagi_api_key, github_token, sourcegraph_token, stackoverflow_key, google_api_key, google_cse_cx, search_provider, typesafe_api_key, assist_provider, assist_enabled, assist_scopes, assist_projects, cloud_enabled, cloud_endpoint, cloud_token, cloud_scopes, cloud_projects, gateway_enabled, gateway_surfaces, gateway_discord_enabled, gateway_discord_webhook, gateway_telegram_enabled, gateway_telegram_token, gateway_telegram_chat_id, gateway_gemini_enabled, gateway_gemini_endpoint, gateway_gemini_token, gateway_mcp_enabled, gateway_mcp_endpoint, gateway_mcp_token, cloudflare_api_token, cloudflare_account_id, cloudflare_d1_database_id, alphaxiv_api_token, stitch_api_key, mcp_upstreams_enabled, recall_gate_policy)")
 	}
 
 	return Save(path, cfg)
@@ -863,4 +977,46 @@ func RemoveDocSite(path, site string) error {
 
 	cfg.DocSites = updated
 	return Save(path, cfg)
+}
+
+func isFullCommitSHA(value string) bool {
+	if len(value) != 40 {
+		return false
+	}
+	for _, ch := range value {
+		if (ch < '0' || ch > '9') && (ch < 'a' || ch > 'f') {
+			return false
+		}
+	}
+	return true
+}
+
+// RetrievalSettings resolves the precision guard controls with env overrides.
+func (c *Config) RetrievalSettings() (idfVeto, oodGuard bool, theta float64) {
+	idfVeto, oodGuard, theta = true, true, 0.60
+	if c != nil {
+		if c.Retrieval.IDFVeto != nil {
+			idfVeto = *c.Retrieval.IDFVeto
+		}
+		if c.Retrieval.OODGuard != nil {
+			oodGuard = *c.Retrieval.OODGuard
+		}
+		if c.Retrieval.OODTheta != nil {
+			theta = *c.Retrieval.OODTheta
+		}
+	}
+	idfVeto = envSwitch("SILA_IDF_VETO", idfVeto)
+	oodGuard = envSwitch("SILA_OOD_GUARD", oodGuard)
+	return idfVeto, oodGuard, theta
+}
+
+func envSwitch(name string, fallback bool) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(name))) {
+	case "off", "0", "false":
+		return false
+	case "on", "1", "true":
+		return true
+	default:
+		return fallback
+	}
 }

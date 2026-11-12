@@ -679,7 +679,7 @@ func runDoc(ui render.UI, dbPath, project, customTitle, lang, repo, ext, eco, ta
 		headers := []string{"id", "project", "title", "content snippet"}
 		var rows [][]string
 		for _, d := range docs {
-			snippet := trunc(strings.ReplaceAll(d.Content, "\n", " "), 60)
+			snippet := trunc(strings.ReplaceAll(store.ExtractDocSnippet(d.Content, query, 160), "\n", " "), 60)
 			rows = append(rows, []string{d.ID, d.ProjectID, ui.Bold(d.Title), snippet})
 		}
 		fmt.Fprintln(os.Stdout, ui.Table(headers, rows, []string{"l", "l", "l", "l"}))
@@ -778,7 +778,7 @@ func runDoc(ui render.UI, dbPath, project, customTitle, lang, repo, ext, eco, ta
 			headers := []string{"id", "project", "title", "content snippet"}
 			var rows [][]string
 			for _, d := range docs {
-				snippet := trunc(strings.ReplaceAll(d.Content, "\n", " "), 60)
+				snippet := trunc(strings.ReplaceAll(store.ExtractDocSnippet(d.Content, query, 160), "\n", " "), 60)
 				rows = append(rows, []string{d.ID, d.ProjectID, ui.Bold(d.Title), snippet})
 			}
 			fmt.Fprintln(os.Stdout, ui.Table(headers, rows, []string{"l", "l", "l", "l"}))

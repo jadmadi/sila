@@ -425,3 +425,60 @@ func TestCheckUserScopeSkillFallback(t *testing.T) {
 		t.Fatalf("expected Sila skill to pass via user-scope fallback, got items: %+v", rep.Items)
 	}
 }
+
+func TestMCPConfiguredFlatpakAndCursorUser(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	repo := t.TempDir()
+	if mcpConfigured(repo) {
+		t.Fatal("empty repo must not report MCP configured")
+	}
+	cursor := filepath.Join(home, ".cursor", "mcp.json")
+	if err := os.MkdirAll(filepath.Dir(cursor), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cursor, []byte(`{"mcpServers":{"sila":{"command":"sila mcp"}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !mcpConfigured(repo) {
+		t.Fatal("user ~/.cursor/mcp.json was not detected")
+	}
+	if err := os.Remove(cursor); err != nil {
+		t.Fatal(err)
+	}
+	flatpak := filepath.Join(home, ".var", "app", "ai.opencode.opencode", "config", "opencode", "opencode.json")
+	if err := os.MkdirAll(filepath.Dir(flatpak), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(flatpak, []byte(`{"mcp":{"servers":{"sila":{"command":["sila","mcp"]}}}}`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if !mcpConfigured(repo) {
+		t.Fatal("Flatpak OpenCode config was not detected")
+	}
+}
+
+func TestWriteOpenCodePluginFlatpak(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_CONFIG_HOME", "")
+	flatpakDir := filepath.Join(home, ".var", "app", "ai.opencode.opencode", "config", "opencode", "plugins")
+	if err := os.MkdirAll(flatpakDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	path, err := WriteOpenCodePlugin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if path != filepath.Join(flatpakDir, "sila-onboard.ts") {
+		t.Fatalf("written path = %q", path)
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), ".local/bin/sila") {
+		t.Fatal("plugin content is missing the ~/.local/bin/sila fallback")
+	}
+}

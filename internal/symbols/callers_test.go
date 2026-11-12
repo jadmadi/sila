@@ -1,8 +1,10 @@
 package symbols
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -159,5 +161,138 @@ func run() {
 	}
 	if len(unusedCallers) != 0 {
 		t.Errorf("expected 0 callers for UnusedFunction, got %d", len(unusedCallers))
+	}
+}
+
+func TestFindCallersGoInterfaceDispatch(t *testing.T) {
+	tmpDir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmpDir, "go.mod"), []byte("module testmod\n\ngo 1.26\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	var a strings.Builder
+	a.WriteString(`package a
+
+type Service interface{ Close() error }
+type Pinger interface{ Ping() error }
+type Closer interface{ Close() error }
+type Runner interface{ run() }
+
+type Server struct{}
+func (s *Server) Close() error { return nil }
+func (s *Server) Ping() error { return nil }
+
+type Other struct{}
+func (o *Other) Close() error { return nil }
+
+type same struct{}
+func (s *same) run() {}
+`)
+	for i := 1; i <= 11; i++ {
+		fmt.Fprintf(&a, "\ntype Impl%d struct{}\nfunc (i *Impl%d) Close() error { return nil }\n", i, i)
+	}
+	aDir := filepath.Join(tmpDir, "pkg", "a")
+	if err := os.MkdirAll(aDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(aDir, "a.go"), []byte(a.String()), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	bDir := filepath.Join(tmpDir, "pkg", "b")
+	if err := os.MkdirAll(bDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	bSrc := `package b
+
+import "testmod/pkg/a"
+
+type foreign struct{}
+func (f *foreign) run() {}
+
+func Use(p a.Pinger, srv *a.Server, other *a.Other, c a.Closer, r a.Runner) {
+	p.Ping()
+	srv.Close()
+	other.Close()
+	c.Close()
+	r.run()
+}
+`
+	if err := os.WriteFile(filepath.Join(bDir, "b.go"), []byte(bSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	callers, err := FindCallers(tmpDir, "testmod/pkg/a::Server.Close")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(callers) != 1 || !callers[0].IsDirect {
+		t.Fatalf("Server.Close callers = %+v, want one direct call", callers)
+	}
+
+	pingers, err := FindCallers(tmpDir, "testmod/pkg/a::Server.Ping")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pingers) != 1 || pingers[0].IsDirect {
+		t.Fatalf("Server.Ping callers = %+v, want one interface dispatch", pingers)
+	}
+
+	closer, err := FindCallers(tmpDir, "testmod/pkg/a::Closer.Close")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(closer) != 1 {
+		t.Fatalf("Closer.Close callers = %d, want the direct interface call: %+v", len(closer), closer)
+	}
+
+	foreign, err := FindCallers(tmpDir, "testmod/pkg/b::foreign.run")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(foreign) != 0 {
+		t.Fatalf("unexported cross-package run should not satisfy a.Runner: %+v", foreign)
+	}
+}
+
+func TestBuildCallEdgesFromParsed(t *testing.T) {
+	root := t.TempDir()
+	write := func(rel, body string) {
+		t.Helper()
+		path := filepath.Join(root, filepath.FromSlash(rel))
+		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("go.mod", "module testmod\n\ngo 1.26\n")
+	write("pkg/a/a.go", `package a
+
+type Service interface{ Close() error }
+type Server struct{}
+func (s *Server) Close() error { return nil }
+func Use(s Service) { _ = s.Close() }
+func Direct(s *Server) { _ = s.Close() }
+`)
+
+	fset, files, err := ScanRepositoryGoFiles(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byCaller := map[string]map[string]bool{}
+	for _, edge := range BuildCallEdgesFromParsed(fset, files) {
+		if byCaller[edge.Caller] == nil {
+			byCaller[edge.Caller] = map[string]bool{}
+		}
+		byCaller[edge.Caller][edge.Callee] = true
+	}
+	callee := "testmod/pkg/a::Server.Close"
+	if !byCaller["testmod/pkg/a::Direct"][callee] {
+		t.Fatalf("direct call missing: %+v", byCaller)
+	}
+	if !byCaller["testmod/pkg/a::Use"][callee] {
+		t.Fatalf("interface dispatch missing: %+v", byCaller)
 	}
 }

@@ -20,24 +20,25 @@ type statusRow struct {
 
 // jsonStatus is the machine-readable status shape.
 type jsonStatus struct {
-	StoreExists   bool     `json:"store_exists"`
-	Scanned       bool     `json:"scanned"`
-	InSync        bool     `json:"in_sync"`
-	Messages      int      `json:"messages"`
-	Claims        int      `json:"claims"`
-	Facts         int      `json:"facts"`
-	FileRefsExist int      `json:"file_refs_exist"`
-	Verified      int      `json:"verified"`
-	Projects      int      `json:"projects"`
-	Pending       int64    `json:"pending"`
-	PendingTools  []string `json:"pending_tools,omitempty"`
-	StaleClaims   int      `json:"stale_claims"`
-	StaleFacts    int      `json:"stale_facts"`
-	ClaimVelocity []int    `json:"claim_velocity,omitempty"`
-	GroundedTrend []int    `json:"grounded_trend,omitempty"`
-	PageGrowth    []int    `json:"page_growth,omitempty"`
-	LastAgentSync string   `json:"last_agent_sync,omitempty"`
-	HubCommit     string   `json:"hub_commit,omitempty"`
+	StoreExists   bool              `json:"store_exists"`
+	Scanned       bool              `json:"scanned"`
+	InSync        bool              `json:"in_sync"`
+	Messages      int               `json:"messages"`
+	Claims        int               `json:"claims"`
+	Facts         int               `json:"facts"`
+	FileRefsExist int               `json:"file_refs_exist"`
+	Verified      int               `json:"verified"`
+	Projects      int               `json:"projects"`
+	Pending       int64             `json:"pending"`
+	PendingTools  []string          `json:"pending_tools,omitempty"`
+	StaleClaims   int               `json:"stale_claims"`
+	StaleFacts    int               `json:"stale_facts"`
+	ClaimVelocity []int             `json:"claim_velocity,omitempty"`
+	GroundedTrend []int             `json:"grounded_trend,omitempty"`
+	PageGrowth    []int             `json:"page_growth,omitempty"`
+	LastAgentSync string            `json:"last_agent_sync,omitempty"`
+	Capture       *captureStateJSON `json:"capture,omitempty"`
+	HubCommit     string            `json:"hub_commit,omitempty"`
 }
 
 // runStatus is the sync-health dashboard: a verdict plus per-tool freshness and
@@ -126,8 +127,14 @@ func runStatus(ui render.UI, dbPath string, jsonOut, verbose, scan bool) {
 		hubCommit = rec.HubCommit
 	}
 
+	cwd, _ := os.Getwd()
+	capture := captureStateFor(st, store.ProjectID(cwd))
+	if !jsonOut {
+		fmt.Fprintf(os.Stdout, "capture: %s\n", captureLine(capture))
+	}
 	if jsonOut {
 		emitJSON(jsonStatus{
+			Capture:       &capture,
 			StoreExists:   true,
 			Scanned:       scan,
 			InSync:        inSync,

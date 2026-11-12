@@ -331,17 +331,10 @@ func (s *Server) handleCollabTool(req JSONRPCRequest, name string, rawArgs json.
 		return true
 
 	case "run_gate_pipeline":
-		var args struct {
-			Branch        string `json:"branch"`
-			ForwardTarget string `json:"forward_target"`
-			AutoForward   bool   `json:"auto_forward"`
-			Project       string `json:"project"`
-		}
-		if len(rawArgs) > 0 {
-			if err := json.Unmarshal(rawArgs, &args); err != nil {
-				s.sendError(req.ID, -32602, "Invalid params", err.Error())
-				return true
-			}
+		args, err := decodeGatePipelineArgs(rawArgs)
+		if err != nil {
+			s.sendError(req.ID, -32602, "Invalid params", err.Error())
+			return true
 		}
 		repoDir, err := s.resolveTargetProjectDir(args.Project)
 		if err != nil {
@@ -358,11 +351,12 @@ func (s *Server) handleCollabTool(req JSONRPCRequest, name string, rawArgs json.
 			s.sendError(req.ID, -32603, "Internal error", fmt.Sprintf("run gate pipeline: %v", err))
 			return true
 		}
-		summary := fmt.Sprintf("Gate pipeline result: clean=%v, branch=%s, duration=%s", res.Clean, res.Branch, res.Duration.Round(time.Millisecond))
+		view := buildGatePipelineResponse(*res, args.Verbose)
+		summary := fmt.Sprintf("Gate pipeline result: clean=%v, branch=%s, duration=%s, stages=%d", view.Clean, view.Branch, res.Duration.Round(time.Millisecond), len(view.StageLines))
 		if res.Forwarded {
 			summary += fmt.Sprintf(", forwarded to %s", res.TargetRef)
 		}
-		s.sendToolResult(req.ID, res, summary)
+		s.sendToolResult(req.ID, view, summary)
 		return true
 
 	case "run_preflight_eval":

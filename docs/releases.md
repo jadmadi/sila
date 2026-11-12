@@ -105,7 +105,7 @@ failure path.
 
 `sila release check` runs inside the tagged build and verifies the exact
 annotated tag, clean tree, matching changelog section, MCP baseline, and schema
-metadata. `sila upgrade` and `install.sh` verify release metadata and the SHA-256
+metadata. `sila update` and `install.sh` verify release metadata and the SHA-256
 manifest before replacing a binary.
 
 Do not move or recreate a published tag. If a release is defective, publish a

@@ -1,0 +1,34 @@
+{
+  "as_of": "2026-06-01T00:00:00Z",
+  "historical": true,
+  "facts": [
+    {
+      "id": "f-old",
+      "project_id": "g",
+      "claim": "claim f-old",
+      "confidence": "grounded",
+      "corroboration": "grounded",
+      "verified": false,
+      "file_refs_exist": false,
+      "repo_files": [],
+      "tools": [],
+      "session_ref": "",
+      "first_seen": "2025-12-01T00:00:00Z",
+      "promoted_at": "2025-12-01T00:00:00Z",
+      "refs_checked_at": "",
+      "distilled": "",
+      "distill_status": "pending",
+      "review_status": "approved",
+      "visibility": "project",
+      "access_count": 0,
+      "distinct_tools": 1,
+      "tier": "episodic",
+      "salience": 1,
+      "maturity_tier": "draft",
+      "maturity_score": 40,
+      "byte_start": -1,
+      "byte_end": -1
+    }
+  ]
+}
+

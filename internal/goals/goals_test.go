@@ -2219,10 +2219,16 @@ func TestReopenGoalLifecycle(t *testing.T) {
 		t.Fatalf("expected claim for remedy-agent, got: %+v", cl)
 	}
 
-	// Check idempotency / double reopen guard
-	_, _, err = ReopenGoal(tmp, "reopen-target", "another-agent", "duplicate reopen", false)
-	if err == nil {
-		t.Fatal("expected error on duplicate active reopen, got nil")
+	// A repeated reopen updates the active record instead of failing.
+	rec2, _, err := ReopenGoal(tmp, "reopen-target", "another-agent", "duplicate reopen", false)
+	if err != nil {
+		t.Fatalf("second ReopenGoal: %v", err)
+	}
+	if rec2 == nil || !rec2.Active || rec2.ReopenEpoch <= rec.ReopenEpoch {
+		t.Fatalf("expected an updated active reopen, got %+v", rec2)
+	}
+	if rec2.Reason != "duplicate reopen" || rec2.ReopenedBy != "another-agent" {
+		t.Fatalf("reason or agent not updated: %+v", rec2)
 	}
 
 	// ScanGoals after reopen: goal should revert to claimed/pending, Reopened=true, ImplementedCount=0
@@ -2237,7 +2243,7 @@ func TestReopenGoalLifecycle(t *testing.T) {
 		t.Fatalf("expected 1 reopened goal, got %d", audit2.ReopenedCount)
 	}
 	g2 := audit2.Goals[0]
-	if g2.Status != "claimed" || !g2.Reopened || g2.ReopenReason != "critical race condition in auth" {
+	if g2.Status != "claimed" || !g2.Reopened || g2.ReopenReason != "duplicate reopen" {
 		t.Fatalf("unexpected goal state after reopen: %+v", g2)
 	}
 
@@ -2742,7 +2748,7 @@ Testing reopened goal epistemic task gate.
 func TestGoalAccounting_ImplementedGoalsCompleteTasks(t *testing.T) {
 	dir := t.TempDir()
 
-	// 1. Goal with step headings (like example-shop.com)
+	// 1. Goal with step headings (like alsheshani.com)
 	g1Dir := filepath.Join(dir, "goals", "step-goal")
 	if err := os.MkdirAll(g1Dir, 0755); err != nil {
 		t.Fatal(err)
@@ -3252,52 +3258,20 @@ func TestGoalVerificationEvidenceLabels(t *testing.T) {
 		goalBySlug[g.Slug] = g
 	}
 
-	// Verify unverified-feat: implemented but explicitly unverified
-	uv := goalBySlug["unverified-feat"]
-	if uv.Status != "implemented" {
-		t.Errorf("expected unverified-feat status=implemented, got %q", uv.Status)
-	}
-	if uv.VerificationStatus != "unverified" || uv.VerificationLabel != "unverified" {
-		t.Errorf("expected unverified-feat verification=unverified, got status=%q label=%q", uv.VerificationStatus, uv.VerificationLabel)
-	}
-	if uv.Certified {
-		t.Errorf("expected unverified-feat certified=false")
-	}
-
-	// Verify verified-feat: implemented and verified
-	vf := goalBySlug["verified-feat"]
-	if vf.Status != "implemented" {
-		t.Errorf("expected verified-feat status=implemented, got %q", vf.Status)
-	}
-	if vf.VerificationStatus != "verified" || vf.VerificationLabel != "verified" {
-		t.Errorf("expected verified-feat verification=verified, got status=%q label=%q", vf.VerificationStatus, vf.VerificationLabel)
-	}
-	if !vf.Certified {
-		t.Errorf("expected verified-feat certified=true")
-	}
-
-	// Verify stale-commit-feat: implemented but stale receipt (commit mismatch)
-	sc := goalBySlug["stale-commit-feat"]
-	if sc.Status != "implemented" {
-		t.Errorf("expected stale-commit-feat status=implemented, got %q", sc.Status)
-	}
-	if sc.VerificationStatus != "stale" || sc.VerificationLabel != "stale" {
-		t.Errorf("expected stale-commit-feat verification=stale, got status=%q label=%q", sc.VerificationStatus, sc.VerificationLabel)
-	}
-	if sc.Certified {
-		t.Errorf("expected stale-commit-feat certified=false")
-	}
-
-	// Verify stale-dirty-feat: implemented but stale receipt due to dirty worktree
-	sd := goalBySlug["stale-dirty-feat"]
-	if sd.Status != "implemented" {
-		t.Errorf("expected stale-dirty-feat status=implemented, got %q", sd.Status)
-	}
-	if sd.VerificationStatus != "stale" || sd.VerificationLabel != "stale" {
-		t.Errorf("expected stale-dirty-feat verification=stale, got status=%q label=%q", sd.VerificationStatus, sd.VerificationLabel)
-	}
-	if sd.Certified {
-		t.Errorf("expected stale-dirty-feat certified=false")
+	// A legacy receipt cannot prove what content it covered, so every
+	// implemented goal without verification.json is reported as unbound.
+	unbound := []string{"unverified-feat", "verified-feat", "stale-commit-feat", "stale-dirty-feat"}
+	for _, slug := range unbound {
+		g := goalBySlug[slug]
+		if g.Status != "implemented" {
+			t.Errorf("%s: expected status=implemented, got %q", slug, g.Status)
+		}
+		if g.VerificationStatus != "unbound" || g.VerificationLabel != "unbound" {
+			t.Errorf("%s: expected verification=unbound, got status=%q label=%q", slug, g.VerificationStatus, g.VerificationLabel)
+		}
+		if g.Certified {
+			t.Errorf("%s: legacy evidence must not certify a goal", slug)
+		}
 	}
 
 	// Verify reopened-feat: reopened
@@ -3309,18 +3283,21 @@ func TestGoalVerificationEvidenceLabels(t *testing.T) {
 		t.Errorf("expected reopened-feat verification=reopened, got status=%q label=%q", ro.VerificationStatus, ro.VerificationLabel)
 	}
 
-	// Verify AuditResult counts
+	// Verify AuditResult counts: no goal here holds a content-bound record.
 	if res.ImplementedCount != 4 {
 		t.Errorf("expected ImplementedCount=4, got %d", res.ImplementedCount)
 	}
-	if res.VerifiedCount != 1 {
-		t.Errorf("expected VerifiedCount=1, got %d", res.VerifiedCount)
+	if res.VerifiedCount != 0 {
+		t.Errorf("expected VerifiedCount=0, got %d", res.VerifiedCount)
 	}
-	if res.StaleCount != 2 {
-		t.Errorf("expected StaleCount=2, got %d", res.StaleCount)
+	if res.StaleCount != 0 {
+		t.Errorf("expected StaleCount=0, got %d", res.StaleCount)
 	}
-	if res.UnverifiedCount != 1 {
-		t.Errorf("expected UnverifiedCount=1, got %d", res.UnverifiedCount)
+	if res.UnboundCount != 4 {
+		t.Errorf("expected UnboundCount=4, got %d", res.UnboundCount)
+	}
+	if res.UnverifiedCount != 0 {
+		t.Errorf("expected UnverifiedCount=0, got %d", res.UnverifiedCount)
 	}
 
 	// Verify SyncReadme output
@@ -3334,7 +3311,7 @@ func TestGoalVerificationEvidenceLabels(t *testing.T) {
 	readmeStr := string(readmeData)
 
 	// Summary check
-	if !strings.Contains(readmeStr, "- 🟢 **Implemented**: 4 (1 verified 📜, 2 stale ⚠️, 1 unverified)") {
+	if !strings.Contains(readmeStr, "- 🟢 **Implemented**: 4 (0 verified 📜, 4 unbound ○, 0 unverified)") {
 		t.Errorf("README missing truthful verification summary:\n%s", readmeStr)
 	}
 
@@ -3343,18 +3320,12 @@ func TestGoalVerificationEvidenceLabels(t *testing.T) {
 		t.Errorf("README missing Implemented table with Verification column:\n%s", readmeStr)
 	}
 
-	// Table entries check
-	if !strings.Contains(readmeStr, "| [`verified-feat`](verified-feat/goal.md) | `⚡ Indep` | 🚢 SHIP | verified 📜 |") {
-		t.Errorf("README missing verified-feat row:\n%s", readmeStr)
-	}
-	if !strings.Contains(readmeStr, "| [`unverified-feat`](unverified-feat/goal.md) | `⚡ Indep` | 🚢 SHIP | unverified |") {
-		t.Errorf("README missing unverified-feat row:\n%s", readmeStr)
-	}
-	if !strings.Contains(readmeStr, "| [`stale-commit-feat`](stale-commit-feat/goal.md) | `⚡ Indep` | 🚢 SHIP | stale ⚠️ |") {
-		t.Errorf("README missing stale-commit-feat row:\n%s", readmeStr)
-	}
-	if !strings.Contains(readmeStr, "| [`stale-dirty-feat`](stale-dirty-feat/goal.md) | `⚡ Indep` | 🚢 SHIP | stale ⚠️ |") {
-		t.Errorf("README missing stale-dirty-feat row:\n%s", readmeStr)
+	// Table entries check: legacy receipts never render as verified.
+	for _, slug := range unbound {
+		row := fmt.Sprintf("| [`%s`](%s/goal.md) | `⚡ Indep` | 🚢 SHIP | unbound ○ |", slug, slug)
+		if !strings.Contains(readmeStr, row) {
+			t.Errorf("README missing unbound %s row:\n%s", slug, readmeStr)
+		}
 	}
 
 	// Criterion 3: A generated README cannot upgrade verification authority
@@ -3363,7 +3334,7 @@ func TestGoalVerificationEvidenceLabels(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, g := range res2.Goals {
-		if g.Slug == "unverified-feat" && g.VerificationStatus != "unverified" {
+		if g.Slug == "unverified-feat" && g.VerificationStatus != "unbound" {
 			t.Fatalf("generated README upgraded unverified-feat authority: got %s", g.VerificationStatus)
 		}
 	}
@@ -3442,11 +3413,11 @@ func TestParentCommitReceiptMatching(t *testing.T) {
 	if target == nil {
 		t.Fatalf("goal parent-receipt-feat not found in scan")
 	}
-	if target.VerificationStatus != "verified" {
-		t.Errorf("expected parent-receipt-feat to be verified, got: %s", target.VerificationStatus)
+	if target.VerificationStatus != "unbound" {
+		t.Errorf("legacy audit receipts cannot prove content; expected unbound, got: %s", target.VerificationStatus)
 	}
-	if !target.Certified {
-		t.Errorf("expected parent-receipt-feat certified=true")
+	if target.Certified {
+		t.Errorf("expected parent-receipt-feat certified=false")
 	}
 }
 
@@ -3509,11 +3480,11 @@ func TestCertificationRecordCommitSHA(t *testing.T) {
 	if target == nil {
 		t.Fatalf("goal cert-commit-feat not found in scan")
 	}
-	if target.VerificationStatus != "verified" {
-		t.Errorf("expected cert-commit-feat to be verified, got: %s", target.VerificationStatus)
+	if target.VerificationStatus != "unbound" {
+		t.Errorf("legacy certifications cannot prove content; expected unbound, got: %s", target.VerificationStatus)
 	}
-	if !target.Certified {
-		t.Errorf("expected cert-commit-feat certified=true")
+	if target.Certified {
+		t.Errorf("expected cert-commit-feat certified=false")
 	}
 }
 
@@ -3859,8 +3830,11 @@ func TestScanGoalsRecertWithOlderAuditReceiptAndRetroDep(t *testing.T) {
 			gotTarget = &res.Goals[i]
 		}
 	}
-	if gotTarget == nil || gotTarget.VerificationStatus != "verified" {
-		t.Fatalf("expected audit-release-trust-config to be verified despite older audit-receipt.json, got %+v", gotTarget)
+	if gotTarget == nil || gotTarget.VerificationStatus != "unbound" {
+		t.Fatalf("expected audit-release-trust-config to stay unbound: legacy certifications cannot bind content, got %+v", gotTarget)
+	}
+	if gotTarget.Certified {
+		t.Fatalf("legacy certification must not mark the goal certified")
 	}
 	blockers, err := GoalDependencyBlockers(dir, "audit-release-trust-config")
 	if err != nil || len(blockers) != 0 {

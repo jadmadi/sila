@@ -118,8 +118,8 @@ func TestSpecialistMCPDescriptionsAndMissingTool(t *testing.T) {
 		if !strings.Contains(strings.ToLower(def.Description), trigger) {
 			t.Errorf("%s description %q does not mention %q", name, def.Description, trigger)
 		}
-		if !mcp.ContinuityToolNames[name] {
-			t.Errorf("%s is excluded from the continuity profile", name)
+		if mcp.ContinuityToolNames[name] {
+			t.Errorf("%s should stay in the full profile only", name)
 		}
 	}
 

@@ -1149,15 +1149,19 @@ func runHireAuditGoal(ui render.UI, st *store.Store, jsonOut, toonOut bool, args
 
 	if jsonOut {
 		emitJSON(eval)
+		if eval.Verdict != "PASS" {
+			os.Exit(auditExitCode(eval.Verdict))
+		}
 		return
 	}
 
-	if eval.Verdict == "PASS" {
+	switch eval.Verdict {
+	case "PASS":
 		fmt.Fprintf(os.Stdout, "%s Goal %s passed epistemic mystery audit!\n\n", ui.Green("✔"), ui.Bold(slug))
 		fmt.Fprintf(os.Stdout, "  CCDSI Score:          %0.2f (floor: 0.40)\n", eval.CCDSI.CCDSIScore)
 		fmt.Fprintf(os.Stdout, "  Probes Passed:        %d/%d\n", eval.CCDSI.PassedProbes, eval.CCDSI.TotalProbes)
 		fmt.Fprintf(os.Stdout, "  Requirement Coverage: %0.2f (floor: 0.50)\n", eval.CCDSI.ReqCoverage)
-		fmt.Fprintf(os.Stdout, "  Canary Detected:      %v\n", eval.CanaryPassed)
+		fmt.Fprintf(os.Stdout, "  Canary Detected:      %v (%s)\n", eval.CanaryPassed, eval.CanaryStatus)
 		fmt.Fprintf(os.Stdout, "  Blindfold Isolation:  %v\n", eval.BlindfoldVerified)
 		if eval.RemotePanelResult != nil {
 			fmt.Fprintf(os.Stdout, "  Advisory Jury Score:  %0.2f / 1.00\n", eval.RemotePanelResult.ConsensusScore)
@@ -1166,11 +1170,22 @@ func runHireAuditGoal(ui render.UI, st *store.Store, jsonOut, toonOut bool, args
 		if eval.Receipt != nil {
 			fmt.Fprintf(os.Stdout, "  Receipt:              goals/%s/audit-receipt.json\n", slug)
 		}
-	} else {
+	case "INCONCLUSIVE":
+		fmt.Fprintf(os.Stdout, "%s Goal %s audit was inconclusive; the goal state is unchanged.\n\n", ui.Yellow("▲"), ui.Bold(slug))
+		fmt.Fprintf(os.Stdout, "  Canary Status:        %s\n", eval.CanaryStatus)
+		fmt.Fprintf(os.Stdout, "  Canary Detail:        %s\n", eval.CanaryDetail)
+		fmt.Fprintf(os.Stdout, "  Inconclusive Reason:  %s\n", eval.InconclusiveReason)
+		fmt.Fprintf(os.Stdout, "  Probes Passed:        %d/%d\n", eval.CCDSI.PassedProbes, eval.CCDSI.TotalProbes)
+		os.Exit(auditExitCode(eval.Verdict))
+	default:
 		fmt.Fprintf(os.Stdout, "%s Goal %s was rejected by mystery audit and reopened for remediation.\n\n", ui.Red("✖"), ui.Bold(slug))
 		fmt.Fprintf(os.Stdout, "  CCDSI Score:          %0.2f\n", eval.CCDSI.CCDSIScore)
 		fmt.Fprintf(os.Stdout, "  Probes Passed:        %d/%d\n", eval.CCDSI.PassedProbes, eval.CCDSI.TotalProbes)
 		fmt.Fprintf(os.Stdout, "  Failure Reason:       %s\n", eval.CCDSI.FailureReason)
+		if eval.CanaryStatus != "" && eval.CanaryStatus != "passed" && eval.CanaryStatus != "skipped" {
+			fmt.Fprintf(os.Stdout, "  Canary Status:        %s\n", eval.CanaryStatus)
+			fmt.Fprintf(os.Stdout, "  Canary Detail:        %s\n", eval.CanaryDetail)
+		}
 		if eval.RemotePanelResult != nil {
 			fmt.Fprintf(os.Stdout, "  Advisory Jury Score:  %0.2f / 1.00\n", eval.RemotePanelResult.ConsensusScore)
 			fmt.Fprintf(os.Stdout, "  Advisory Consensus:   %s\n", eval.RemotePanelResult.Summary)
@@ -1180,6 +1195,7 @@ func runHireAuditGoal(ui render.UI, st *store.Store, jsonOut, toonOut bool, args
 			fmt.Fprintf(os.Stdout, "  Defect Dossier:       goals/%s/defect-dossier.json\n", slug)
 			fmt.Fprintf(os.Stdout, "  Remediation Guide:    goals/%s/remediation.md\n", slug)
 		}
+		os.Exit(auditExitCode(eval.Verdict))
 	}
 }
 

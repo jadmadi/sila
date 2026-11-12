@@ -198,3 +198,28 @@ func TestDeduplicate_MergesAndBoostsAcrossProjects(t *testing.T) {
 		t.Errorf("expected merged tags to contain performance, cloudflare, and d1: %+v", d1Learning.Tags)
 	}
 }
+
+func TestCalculateSimilarityDedupGuards(t *testing.T) {
+	base := OperationalLearning{
+		Title:     "Enable read-only mode in worker",
+		Symptom:   "worker writes during read-only run",
+		RootCause: "mode flag ignored",
+	}
+	opposite := base
+	opposite.Title = "Disable read-only mode in worker"
+	if got := calculateSimilarity(base, opposite); got >= 0.60 {
+		t.Fatalf("opposite title similarity = %v, want < 0.60", got)
+	}
+
+	numeric := base
+	numeric.Title = "Fix ADR 0011 migration"
+	otherNumeric := base
+	otherNumeric.Title = "Fix ADR 0013 migration"
+	if got := calculateSimilarity(numeric, otherNumeric); got >= 0.60 {
+		t.Fatalf("numeric title similarity = %v, want < 0.60", got)
+	}
+
+	if got := calculateSimilarity(base, base); got < 0.99 {
+		t.Fatalf("identical learning similarity = %v, want ~1.0", got)
+	}
+}

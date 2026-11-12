@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/jadmadi/sila/internal/goals"
 	"github.com/jadmadi/sila/internal/store"
@@ -105,10 +106,21 @@ func TestCreateSeedsProjectFiles(t *testing.T) {
 		filepath.Join("docs", "adr", "ADR-0001-idempotent-payment-writes.md"),
 		filepath.Join("docs", "adr", "ADR-0002-standard-api-envelope.md"),
 		filepath.Join("docs", "deploy.md"),
+		filepath.Join("src", "payments", "checkout.go"),
+		filepath.Join("src", "payments", "refunds.go"),
+		"AGENTS.md",
+		".gitignore",
 	} {
 		if _, err := os.Stat(filepath.Join(sb.Dir, p)); err != nil {
 			t.Errorf("demo project file missing: %s (%v)", p, err)
 		}
+	}
+	if _, err := os.Stat(filepath.Join(sb.Dir, ".sila")); err != nil {
+		t.Errorf("demo .sila directory missing: %v", err)
+	}
+	// The stale claim must stay ungrounded, so the legacy file must not exist.
+	if _, err := os.Stat(filepath.Join(sb.Dir, "src", "payments", "refund_legacy.go")); !os.IsNotExist(err) {
+		t.Errorf("refund_legacy.go must be absent, stat err: %v", err)
 	}
 
 	// The goal scanner reads the seeded board with all four statuses.
@@ -130,6 +142,77 @@ func TestCreateSeedsProjectFiles(t *testing.T) {
 		if status[slug] != s {
 			t.Errorf("goal %s status = %q, want %q", slug, status[slug], s)
 		}
+	}
+}
+
+func TestCreateSeedsGroundedAndStaleFiles(t *testing.T) {
+	sb, st, err := Create()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	defer sb.Cleanup()
+
+	res, err := st.ReconcileFactDrift(ProjectName, sb.Dir)
+	if err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+	if res.NewlyStale != 0 {
+		t.Errorf("NewlyStale = %d, want 0 (grounded files must exist on disk)", res.NewlyStale)
+	}
+
+	facts, err := st.FactsByProject(ProjectName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var stale []string
+	for _, f := range facts {
+		if f.Kind == "code_claim" && !f.FileRefsExist {
+			stale = append(stale, f.ID)
+		}
+	}
+	if len(stale) != 1 || stale[0] != "fact_demo_stale_refund" {
+		t.Errorf("stale code claims = %v, want [fact_demo_stale_refund]", stale)
+	}
+}
+
+func TestCreateSeedsLessonCaseAndIntactChain(t *testing.T) {
+	sb, st, err := Create()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	defer sb.Cleanup()
+
+	lessons, err := st.ListFactsByKind("lesson", ProjectName, time.Time{}, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases, err := st.ListFactsByKind("case", ProjectName, time.Time{}, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(lessons) < 1 {
+		t.Errorf("seeded lessons = %d, want >= 1", len(lessons))
+	}
+	if len(cases) < 1 {
+		t.Errorf("seeded cases = %d, want >= 1", len(cases))
+	}
+	for _, f := range append(append([]store.Fact{}, lessons...), cases...) {
+		if !f.FileRefsExist {
+			t.Errorf("%s %q is not grounded on disk", f.Kind, f.ID)
+		}
+	}
+
+	chain, err := st.VerifyChain(ProjectName)
+	if err != nil {
+		t.Fatalf("verify chain: %v", err)
+	}
+	if !chain.Intact {
+		t.Errorf("hash chain is broken: violations=%v", chain.Violations)
+	}
+	if len(chain.Violations) != 0 {
+		t.Errorf("violations = %v, want none", chain.Violations)
 	}
 }
 

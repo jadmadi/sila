@@ -1,0 +1,9 @@
+{
+  "cases": [
+    {"name": "correction", "prompt": "no wait, that broke it", "gap_seconds": 60, "want": "corrected"},
+    {"name": "success", "prompt": "Perfect, ship it", "gap_seconds": 60, "want": "success"},
+    {"name": "neutral", "prompt": "Now do the next task", "gap_seconds": 60, "want": "neutral"},
+    {"name": "gap", "prompt": "thanks", "gap_seconds": 90000, "want": "neutral"},
+    {"name": "empty", "prompt": "", "gap_seconds": 0, "want": "neutral"}
+  ]
+}

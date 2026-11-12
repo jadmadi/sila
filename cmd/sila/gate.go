@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"database/sql"
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/parser"
@@ -43,18 +44,21 @@ type gateCheck struct {
 	Detail      string `json:"detail"`
 	Remediation string `json:"remediation,omitempty"`
 	Warning     string `json:"warning,omitempty"`
+	DurationMS  int64  `json:"duration_ms,omitempty"`
+	Output      string `json:"output,omitempty"`
 }
 
 // gateReport is the machine-readable gate verdict.
 type gateReport struct {
-	Clean    bool        `json:"clean"`
-	Tier     string      `json:"tier,omitempty"`
-	Checks   []gateCheck `json:"checks"`
-	Blockers []gateCheck `json:"blockers"`
-	Warnings []gateCheck `json:"warnings"`
-	Advisory []gateCheck `json:"advisory"`
-	Skipped  []gateCheck `json:"skipped"`
-	ExitCode int         `json:"exit_code"`
+	Clean       bool        `json:"clean"`
+	Tier        string      `json:"tier,omitempty"`
+	Checks      []gateCheck `json:"checks"`
+	Blockers    []gateCheck `json:"blockers"`
+	Warnings    []gateCheck `json:"warnings"`
+	Advisory    []gateCheck `json:"advisory"`
+	Skipped     []gateCheck `json:"skipped"`
+	ExitCode    int         `json:"exit_code"`
+	ReceiptPath string      `json:"receipt_path,omitempty"`
 }
 
 // gateVerdict is the single attribution model used by text, JSON, TOON, and
@@ -158,7 +162,12 @@ func gateRemediation(name string) string {
 }
 
 // runGate verifies engineering discipline or manages pre-push gate hooks and validation pipeline.
-func runGate(ui render.UI, jsonOut, toonOut, hookFlag, remoteFlag, scarTissueFlag, docCoverageFlag, reportCardFlag, coverageFlag, strictFlag, requireTestsFlag, preCommitFlag, fullFlag, skipArchFlag bool, customProfile, forwardTarget, branch string, args []string) {
+func runGate(ui render.UI, jsonOut, toonOut, hookFlag, remoteFlag, scarTissueFlag, docCoverageFlag, reportCardFlag, coverageFlag, strictFlag, requireTestsFlag, preCommitFlag, fullFlag, skipArchFlag, compactFlag, verboseFlag, postCommitFlag bool, trustTarget, trustRange string, showConfig bool, customProfile, forwardTarget, branch string, args []string) {
+	gateTrust = gateTrustOptions{Target: trustTarget, Range: trustRange, ShowConfig: showConfig}
+	if showConfig {
+		showGateTrustConfig(ui)
+		return
+	}
 	if reportCardFlag || (len(args) > 0 && (args[0] == "reportcard" || args[0] == "report-card")) {
 		runGateReportCardStandalone(ui, jsonOut, toonOut)
 		return
@@ -194,7 +203,7 @@ func runGate(ui render.UI, jsonOut, toonOut, hookFlag, remoteFlag, scarTissueFla
 
 	// Pre-commit fast path (<3s changed-package tests, formatting, secrets)
 	if preCommitFlag || (len(args) > 0 && (args[0] == "pre-commit" || args[0] == "quick" || args[0] == "fast")) {
-		runGatePreCommit(ui, jsonOut, toonOut, skipArchFlag, requireTestsFlag, strictFlag)
+		runGatePreCommit(ui, jsonOut, toonOut, skipArchFlag, requireTestsFlag, strictFlag, compactFlag, verboseFlag)
 		return
 	}
 	if fullFlag || (len(args) > 0 && args[0] == "full") {
@@ -204,7 +213,7 @@ func runGate(ui render.UI, jsonOut, toonOut, hookFlag, remoteFlag, scarTissueFla
 
 	if len(args) == 0 {
 		if os.Getenv("SILA_GATE_TIER") == "pre-commit" {
-			runGatePreCommit(ui, jsonOut, toonOut, skipArchFlag, requireTestsFlag, strictFlag)
+			runGatePreCommit(ui, jsonOut, toonOut, skipArchFlag, requireTestsFlag, strictFlag, compactFlag, verboseFlag)
 			return
 		}
 		runGateDiscipline(ui, jsonOut, toonOut, skipArchFlag, requireTestsFlag, strictFlag)
@@ -216,23 +225,27 @@ func runGate(ui render.UI, jsonOut, toonOut, hookFlag, remoteFlag, scarTissueFla
 	case "check":
 		runGateDiscipline(ui, jsonOut, toonOut, skipArchFlag, requireTestsFlag, strictFlag)
 	case "pre-commit", "quick", "fast":
-		runGatePreCommit(ui, jsonOut, toonOut, skipArchFlag, requireTestsFlag, strictFlag)
+		runGatePreCommit(ui, jsonOut, toonOut, skipArchFlag, requireTestsFlag, strictFlag, compactFlag, verboseFlag)
 	case "full":
 		runGateDiscipline(ui, jsonOut, toonOut, skipArchFlag, requireTestsFlag, strictFlag)
 	case "arch", "arch-sentry", "architecture":
 		runGateArchStandalone(ui, jsonOut, toonOut, skipArchFlag)
 	case "install":
-		runGateInstall(ui, jsonOut, hookFlag, remoteFlag)
+		installArgs := []string{}
+		if len(args) > 1 {
+			installArgs = args[1:]
+		}
+		runGateInstall(ui, jsonOut, hookFlag, remoteFlag, postCommitFlag, installArgs)
 	case "pipeline":
 		runGatePipelineCmd(ui, jsonOut, branch, forwardTarget, false)
 	case "run-remote":
 		runGatePipelineCmd(ui, jsonOut, branch, forwardTarget, true)
 	case "hook":
 		if len(args) > 1 && args[1] == "install" {
-			runGateInstall(ui, jsonOut, true, false)
+			runGateInstall(ui, jsonOut, true, false, postCommitFlag, args[2:])
 			return
 		}
-		runGateInstall(ui, jsonOut, true, false)
+		runGateInstall(ui, jsonOut, true, false, postCommitFlag, args)
 	case "scar-tissue", "scartissue":
 		runGateScarTissueStandalone(ui, jsonOut, toonOut)
 	case "doc-coverage", "doc-lint", "doclint":
@@ -267,9 +280,11 @@ func runGateDiscipline(ui render.UI, jsonOut, toonOut, skipArch, requireTests, s
 	cwd, _ := os.Getwd()
 	proj := store.ProjectID(cwd)
 
+	trustCheck := runGateTrustGuard(ui, jsonOut)
 	var checks []gateCheck
 	if onboard.IsSilaSourceRepo(cwd) {
 		checks = []gateCheck{
+			trustCheck,
 			gateTests(),
 			gateCoverage(),
 			gateReportCard(),
@@ -339,7 +354,8 @@ func runGateDiscipline(ui render.UI, jsonOut, toonOut, skipArch, requireTests, s
 // and deterministic architectural sentry (SRP file weights, edge anti-patterns, fact grounding).
 // Heavy checks (25-package full race detector, SLSA provenance, statement coverage, 194-file report card)
 // are deferred to pre-push and CI.
-func runGatePreCommit(ui render.UI, jsonOut, toonOut, skipArch, requireTests, strict bool) {
+func runGatePreCommit(ui render.UI, jsonOut, toonOut, skipArch, requireTests, strict, compactFlag, verboseFlag bool) {
+	started := time.Now()
 	if os.Getenv("SILA_SKIP_GATE") == "1" || os.Getenv("SILA_NO_GATE") == "1" || os.Getenv("SKIP_GATE") == "1" {
 		if jsonOut {
 			emitJSON(gateReport{Clean: true, Tier: "pre-commit", Checks: []gateCheck{{Name: "gate", Status: "skip", Detail: "skipped via SILA_SKIP_GATE"}}})
@@ -353,9 +369,11 @@ func runGatePreCommit(ui render.UI, jsonOut, toonOut, skipArch, requireTests, st
 	cwd, _ := os.Getwd()
 	proj := store.ProjectID(cwd)
 
+	trustCheck := runGateTrustGuard(ui, jsonOut)
 	var checks []gateCheck
 	if onboard.IsSilaSourceRepo(cwd) {
 		checks = []gateCheck{
+			trustCheck,
 			gateTestsPreCommit(),
 			gateFormat(),
 			gateChangelog(),
@@ -391,15 +409,23 @@ func runGatePreCommit(ui render.UI, jsonOut, toonOut, skipArch, requireTests, st
 	}
 	verdict := computeGateVerdict(checks, requireTests, strict)
 	emitGateHeartbeats(cwd, checks)
+	compact, modeErr := gateCompactMode(compactFlag, verboseFlag, gateIsTerminal(os.Stdout))
+	if modeErr != nil {
+		fmt.Fprintf(os.Stderr, "sila gate: %v\n", modeErr)
+		os.Exit(2)
+	}
+	receiptPath := writeGateRunReceipt(cwd, checks, verdict)
 	if jsonOut {
 		emitJSON(gateReport{
 			Clean: verdict.Clean, Tier: "pre-commit", Checks: checks,
 			Blockers: verdict.Blockers, Warnings: verdict.Warnings,
 			Advisory: verdict.Advisory, Skipped: verdict.Skipped,
-			ExitCode: verdict.ExitCode,
+			ExitCode: verdict.ExitCode, ReceiptPath: receiptPath,
 		})
 	} else if toonOut {
 		fmt.Fprint(os.Stdout, renderGateTOON(checks, verdict.Clean))
+	} else if compact {
+		renderGateCompact(ui, checks, verdict, receiptPath, time.Since(started))
 	} else {
 		printGatePreCommit(ui, checks, verdict)
 	}
@@ -434,6 +460,11 @@ func printGatePreCommit(ui render.UI, checks []gateCheck, verdict gateVerdict) {
 			fix = gateRemediation(b.Name)
 		}
 		fmt.Fprintf(os.Stdout, "  %s %s: %s\n", ui.Red("✖"), ui.Bold(b.Name), b.Detail)
+		if b.Output != "" {
+			for _, line := range strings.Split(strings.TrimRight(b.Output, "\n"), "\n") {
+				fmt.Fprintf(os.Stdout, "    %s\n", line)
+			}
+		}
 		fmt.Fprintf(os.Stdout, "    %s %s\n", ui.Dim("fix:"), fix)
 	}
 	if verdict.Clean {
@@ -604,7 +635,7 @@ func gateExternalTestsPreCommit(cwd string) gateCheck {
 	return gateExternalTests(cwd)
 }
 
-func runGateInstall(ui render.UI, jsonOut, hookFlag, remoteFlag bool) {
+func runGateInstall(ui render.UI, jsonOut, hookFlag, remoteFlag, postCommitFlag bool, args []string) {
 	cwd, _ := os.Getwd()
 	mgr, err := git.NewManager(cwd)
 	if err != nil {
@@ -616,9 +647,49 @@ func runGateInstall(ui render.UI, jsonOut, hookFlag, remoteFlag bool) {
 		os.Exit(1)
 	}
 
-	installAll := !hookFlag && !remoteFlag
-	var installedHook, installedRemote string
+	if len(args) > 0 && (args[0] == "status" || args[0] == "hooks") {
+		names := []string{"pre-commit", "pre-push", "post-commit"}
+		statuses := make([]git.HookStatus, 0, len(names))
+		for _, name := range names {
+			statuses = append(statuses, mgr.ManagedHookStatus(name))
+		}
+		if jsonOut {
+			emitJSON(map[string]any{"hooks": statuses})
+			return
+		}
+		fmt.Fprintln(os.Stdout, ui.Cyan(ui.Bold("sila · gate hooks")))
+		for _, status := range statuses {
+			state := "missing"
+			switch {
+			case status.Current:
+				state = "current (sila)"
+			case status.Installed && status.Owned:
+				state = "installed (outdated)"
+			case status.Installed:
+				state = "installed (foreign)"
+			}
+			fmt.Fprintf(os.Stdout, "  %-12s %s\n", status.Name, state)
+		}
+		return
+	}
+
+	installAll := !hookFlag && !remoteFlag && !postCommitFlag
+	var installedHook, installedRemote, installedPostCommit string
 	var errs []string
+
+	if postCommitFlag {
+		hookPath, postErr := mgr.InstallPostCommitHook()
+		switch {
+		case postErr == nil:
+			installedPostCommit = hookPath
+		case errors.Is(postErr, git.ErrForeignHook):
+			fmt.Fprintln(os.Stdout, "sila gate install: a foreign post-commit hook is in place; add this line to it:")
+			fmt.Fprintln(os.Stdout, "  sila hook commit >/dev/null 2>&1 || true")
+			return
+		default:
+			errs = append(errs, fmt.Sprintf("post-commit hook: %v", postErr))
+		}
+	}
 
 	if hookFlag || installAll {
 		hookPath, err := mgr.InstallPrePushHook()
@@ -651,9 +722,10 @@ func runGateInstall(ui render.UI, jsonOut, hookFlag, remoteFlag bool) {
 
 	if jsonOut {
 		emitJSON(map[string]any{
-			"hook":   installedHook,
-			"remote": installedRemote,
-			"status": "installed",
+			"hook":        installedHook,
+			"remote":      installedRemote,
+			"post_commit": installedPostCommit,
+			"status":      "installed",
 		})
 		return
 	}
@@ -664,6 +736,9 @@ func runGateInstall(ui render.UI, jsonOut, hookFlag, remoteFlag bool) {
 	}
 	if installedRemote != "" {
 		fmt.Fprintf(os.Stdout, "  %s installed git remote proxy: %s (%s)\n", ui.Green("✔"), ui.Bold(installedRemote), ui.Dim("git push sila-gate <branch>"))
+	}
+	if installedPostCommit != "" {
+		fmt.Fprintf(os.Stdout, "  %s installed post-commit hook: %s\n", ui.Green("✔"), ui.Dim(installedPostCommit))
 	}
 }
 
@@ -905,6 +980,11 @@ func printGate(ui render.UI, checks []gateCheck, verdict gateVerdict) {
 			fix = gateRemediation(b.Name)
 		}
 		fmt.Fprintf(os.Stdout, "  %s %s: %s\n", ui.Red("✖"), ui.Bold(b.Name), b.Detail)
+		if b.Output != "" {
+			for _, line := range strings.Split(strings.TrimRight(b.Output, "\n"), "\n") {
+				fmt.Fprintf(os.Stdout, "    %s\n", line)
+			}
+		}
 		fmt.Fprintf(os.Stdout, "    %s %s\n", ui.Dim("fix:"), fix)
 	}
 	if verdict.Clean {

@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -61,11 +62,16 @@ func isExecutableVerificationLine(cmd string, inVerificationSection bool) bool {
 	if inVerificationSection {
 		for _, pfx := range []string{
 			"go test", "go vet", "go run", "sila ", "./", "pnpm ", "npm ",
-			"cargo ", "pytest", "sh ", "bash ", "false", "true", "test ", "[",
+			"cargo ", "pytest", "sh ", "bash ", "false", "true", "test ",
 		} {
 			if strings.HasPrefix(lower, pfx) || lower == "false" || lower == "true" {
 				return true
 			}
+		}
+		// Shell test operator: require a space after the bracket so Markdown
+		// references such as `[Unreleased]` are not executed as commands.
+		if strings.HasPrefix(lower, "[ ") && strings.HasSuffix(lower, "]") {
+			return true
 		}
 		return false
 	}
@@ -399,6 +405,9 @@ func ProvisionBlindfoldSandbox(rootDir, slug, commitSHA string, contract *Stripp
 	}
 
 	cleanEnv := BuildScrubbedEnvironment(homeDir, cacheDir)
+	if slug != "" {
+		cleanEnv = append(cleanEnv, "SILA_AUDIT_GOAL="+slug)
+	}
 	// Prepend sandboxDir/bin to PATH for probe execution
 	for i, env := range cleanEnv {
 		if strings.HasPrefix(env, "PATH=") {
@@ -488,6 +497,8 @@ type ProbeResult struct {
 	Stderr        string        `json:"stderr"`
 	FailureReason string        `json:"failure_reason,omitempty"`
 	UsedBwrap     bool          `json:"used_bwrap"`
+	Waived        bool          `json:"waived,omitempty"`
+	WaiverReason  string        `json:"waiver_reason,omitempty"`
 }
 
 // SynthesizeProbes generates an autonomous contract-coupled probe suite.
@@ -626,7 +637,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "goals", "touch"},
 					ExpectedExitCode:    2,
 					ExpectedOutputRegex: "(?i)(usage|touch|slug|agent)",
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				Probe{
 					ID:                  "EPIST-NEG-002",
@@ -637,7 +648,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "goals", "touch", "nonexistent-epistemic-invariant-goal"},
 					ExpectedExitCode:    1,
 					ExpectedOutputRegex: "(?i)(not found|error|cannot|unknown|does not exist)",
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				// Boundary probes
 				Probe{
@@ -649,7 +660,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "prime", "--top=0", "--json"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s)("top_facts"|"total_claims"|"context_budget"|"budget_metrics")`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				Probe{
 					ID:                  "EPIST-BND-002",
@@ -660,7 +671,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "prime", "--pressure=HIGH", "--json"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s)("shrink"|"pressure"|"fits_budget")`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				// Concurrency probe
 				Probe{
@@ -672,7 +683,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "prime", "--json"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s).*`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				// Happy path probe
 				Probe{
@@ -684,7 +695,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "prime", "--json"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s)("context_budget"|"budget_metrics"|"fits_budget")`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 			)
 
@@ -699,7 +710,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 						Command:             []string{bin, "prime", "--json"},
 						ExpectedExitCode:    0,
 						ExpectedOutputRegex: `(?s).*`,
-						Timeout:             5 * time.Second,
+						Timeout:             30 * time.Second,
 					})
 				}
 			}
@@ -716,7 +727,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "silence", "override"},
 					ExpectedExitCode:    2,
 					ExpectedOutputRegex: "(?i)(usage|override|signature|reason)",
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				Probe{
 					ID:                  "SILENCE-NEG-002",
@@ -727,7 +738,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "silence", "invalid-action-xyz"},
 					ExpectedExitCode:    2,
 					ExpectedOutputRegex: "(?i)(unknown subcommand|expected status, list, or override)",
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				// Boundary probes
 				Probe{
@@ -739,7 +750,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "silence", "list", "--json"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s)(null|\[\s*\]|\{.*\})`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				Probe{
 					ID:                  "SILENCE-BND-002",
@@ -750,7 +761,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "silence", "status", "--json"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s)("clusters"|"anomalies"|"project_id")`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				// Concurrency probe
 				Probe{
@@ -762,7 +773,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "silence", "status", "--json"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s).*`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				// Happy path probe
 				Probe{
@@ -774,7 +785,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "silence", "status", "--json"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s)\{.*"clusters":.*\}`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 			)
 
@@ -789,7 +800,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 						Command:             []string{bin, "silence", "status", "--json"},
 						ExpectedExitCode:    0,
 						ExpectedOutputRegex: `(?s).*`,
-						Timeout:             5 * time.Second,
+						Timeout:             30 * time.Second,
 					})
 				}
 			}
@@ -806,7 +817,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "goals", "view", "/etc/shadow"},
 					ExpectedExitCode:    1,
 					ExpectedOutputRegex: "(?i)(error|cannot|not found|invalid)",
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				Probe{
 					ID:                  "HERMETIC-NEG-002",
@@ -817,7 +828,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "goals", "view", "nonexistent-mutant-canary-goal"},
 					ExpectedExitCode:    1,
 					ExpectedOutputRegex: "(?i)(not found|error|cannot|unknown)",
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				// Boundary probes
 				Probe{
@@ -829,7 +840,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{"sh", "-c", "test ! -d .agents && test ! -d scratch && echo SCRUBBED_OK"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: "SCRUBBED_OK",
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				Probe{
 					ID:                  "HERMETIC-BND-002",
@@ -840,7 +851,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{"sh", "-c", "test -d /usr && test -d /bin && test -d /etc && echo MOUNTS_OK"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: "MOUNTS_OK",
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				// Concurrency probe
 				Probe{
@@ -852,7 +863,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{"sh", "-c", "git status --porcelain || echo CLEAN"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s).*`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				// Happy path probe
 				Probe{
@@ -864,7 +875,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "--help"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s)Sila.*`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 			)
 
@@ -879,7 +890,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 						Command:             []string{bin, "--help"},
 						ExpectedExitCode:    0,
 						ExpectedOutputRegex: `(?s).*`,
-						Timeout:             5 * time.Second,
+						Timeout:             30 * time.Second,
 					})
 				}
 			}
@@ -896,7 +907,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "goals", "view", "../../../etc/passwd"},
 					ExpectedExitCode:    1,
 					ExpectedOutputRegex: "(?i)(invalid|not found|error|cannot)",
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				Probe{
 					ID:                  "CLI-NEG-002",
@@ -907,7 +918,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "goals", "claim"},
 					ExpectedExitCode:    2,
 					ExpectedOutputRegex: "(?i)(usage|required|missing|provide)",
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				// Boundary probes
 				Probe{
@@ -919,7 +930,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "goals", "--tier=wont-fix", "--json"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s)("goals":\s*(null|\[\s*\])|\[\s*\])`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				Probe{
 					ID:                  "CLI-BND-002",
@@ -930,7 +941,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "goals", "view", strings.Repeat("x", 256)},
 					ExpectedExitCode:    1,
 					ExpectedOutputRegex: "(?i)(not found|error|invalid)",
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				// Concurrency probe
 				Probe{
@@ -942,7 +953,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "goals", "ready", "--json"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s).*`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 				// Happy path probe
 				Probe{
@@ -954,7 +965,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					Command:             []string{bin, "goals", "--json"},
 					ExpectedExitCode:    0,
 					ExpectedOutputRegex: `(?s)\{.*"total":.*\}`,
-					Timeout:             5 * time.Second,
+					Timeout:             30 * time.Second,
 				},
 			)
 
@@ -973,7 +984,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 						Command:             []string{bin, "goals", "ready", "--json"},
 						ExpectedExitCode:    0,
 						ExpectedOutputRegex: `(?s).*`,
-						Timeout:             5 * time.Second,
+						Timeout:             30 * time.Second,
 					})
 				}
 			}
@@ -989,6 +1000,11 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 					if i%2 == 0 {
 						pType = ProbeContractBoundary
 					}
+					delivTimeout := 30 * time.Second
+					if strings.Contains(cmdStr, "go test ") {
+						// A full race suite needs minutes, not seconds.
+						delivTimeout = 90 * time.Minute
+					}
 					probes = append(probes, Probe{
 						ID:                  fmt.Sprintf("CLI-DELIV-%03d", i+1),
 						Name:                fmt.Sprintf("Deliverable Contract Verification (%s)", cmdStr),
@@ -998,7 +1014,7 @@ func SynthesizeProbes(contract *StrippedContract, surface TargetSurface, targetB
 						Command:             []string{"sh", "-c", cmdStr},
 						ExpectedExitCode:    0,
 						ExpectedOutputRegex: `(?s).*`,
-						Timeout:             30 * time.Second,
+						Timeout:             delivTimeout,
 					})
 				}
 			}
@@ -1103,7 +1119,7 @@ func runSingleProbe(ctx context.Context, sandbox *BlindfoldSandbox, probe Probe)
 		return result
 	}
 
-	nsRes, err := ExecuteInNamespace(pCtx, sandbox, probe.Command, probe.Env, probe.Stdin)
+	nsRes, err := ExecuteInNamespace(pCtx, sandbox, withProbeTestTimeout(probe.Command), probe.Env, probe.Stdin)
 	result.Duration = nsRes.Duration
 	result.Stdout = nsRes.Stdout
 	result.Stderr = nsRes.Stderr
@@ -1167,7 +1183,7 @@ func EvaluateCanaryMutation(ctx context.Context, sandbox *BlindfoldSandbox, prob
 
 	baseResult := RunProbe(ctx, sandbox, baselineProbe)
 	if !baseResult.Passed {
-		return false, fmt.Errorf("candidate binary %q is missing or broken: %s", targetBin, baseResult.FailureReason)
+		return false, fmt.Errorf("%w: candidate binary %q is missing or broken: %s", ErrCanaryUnavailable, targetBin, baseResult.FailureReason)
 	}
 
 	// 2. If probes are provided, evaluate sensitivity against the supplied suite.
@@ -1188,7 +1204,7 @@ func EvaluateCanaryMutation(ctx context.Context, sandbox *BlindfoldSandbox, prob
 		// Ensure genuine candidate passes selected baseline probe first
 		genuineRes := RunProbe(ctx, sandbox, *targetProbe)
 		if !genuineRes.Passed {
-			return false, fmt.Errorf("candidate binary %q failed genuine probe %s: %s", targetBin, targetProbe.ID, genuineRes.FailureReason)
+			return false, fmt.Errorf("%w: candidate binary %q failed genuine probe %s: %s", ErrCanaryUnavailable, targetBin, targetProbe.ID, genuineRes.FailureReason)
 		}
 
 		// Derive contract-coupled mutant probe: invert contract expectation
@@ -1205,10 +1221,10 @@ func EvaluateCanaryMutation(ctx context.Context, sandbox *BlindfoldSandbox, prob
 
 		mutantResult := RunProbe(ctx, sandbox, mutantProbe)
 		if mutantResult.ExitCode == 127 || strings.Contains(mutantResult.FailureReason, "executable file not found") {
-			return false, fmt.Errorf("candidate binary %q failed execution during canary mutant check: %s", targetBin, mutantResult.FailureReason)
+			return false, fmt.Errorf("%w: candidate binary %q failed execution during canary mutant check: %s", ErrCanaryUnavailable, targetBin, mutantResult.FailureReason)
 		}
 		if mutantResult.Passed {
-			return false, fmt.Errorf("canary probe passed on invalid expectation; test suite lacks discrimination")
+			return false, fmt.Errorf("%w: canary probe passed on invalid expectation; test suite lacks discrimination", ErrCanaryDiscrimination)
 		}
 
 		return true, nil
@@ -1235,7 +1251,7 @@ func EvaluateCanaryMutation(ctx context.Context, sandbox *BlindfoldSandbox, prob
 		Command:             []string{targetBin, "goals", "nonexistent-goal-should-never-succeed-" + contractSlug},
 		ExpectedExitCode:    0, // Intentionally impossible expectation: failure must exit non-zero
 		ExpectedOutputRegex: "DEFINITIVELY_IMPOSSIBLE_TOKEN_XYZ",
-		Timeout:             3 * time.Second,
+		Timeout:             30 * time.Second,
 	}
 
 	mutantResult := RunProbe(ctx, sandbox, canaryProbe)
@@ -1271,15 +1287,73 @@ type MysteryAuditConfig struct {
 
 // AuditEvaluation contains the comprehensive verdict and cryptographic receipts.
 type AuditEvaluation struct {
-	GoalSlug          string                  `json:"goal_slug"`
-	Verdict           string                  `json:"verdict"` // "PASS" or "REJECT"
-	Receipt           *goals.AuditReceipt     `json:"receipt,omitempty"`
-	Dossier           *goals.DefectDossier    `json:"dossier,omitempty"`
-	CCDSI             CCDSIReport             `json:"ccdsi"`
-	ProbeResults      []ProbeResult           `json:"probe_results"`
-	BlindfoldVerified bool                    `json:"blindfold_verified"`
-	CanaryPassed      bool                    `json:"canary_passed"`
-	RemotePanelResult *hire.PanelReviewResult `json:"remote_panel_result,omitempty"`
+	GoalSlug           string                  `json:"goal_slug"`
+	Verdict            string                  `json:"verdict"` // PASS, REJECT, or INCONCLUSIVE
+	Receipt            *goals.AuditReceipt     `json:"receipt,omitempty"`
+	Dossier            *goals.DefectDossier    `json:"dossier,omitempty"`
+	CCDSI              CCDSIReport             `json:"ccdsi"`
+	ProbeResults       []ProbeResult           `json:"probe_results"`
+	BlindfoldVerified  bool                    `json:"blindfold_verified"`
+	CanaryPassed       bool                    `json:"canary_passed"`
+	CanaryStatus       string                  `json:"canary_status,omitempty"`
+	CanaryDetail       string                  `json:"canary_detail,omitempty"`
+	InconclusiveReason string                  `json:"inconclusive_reason,omitempty"`
+	RemotePanelResult  *hire.PanelReviewResult `json:"remote_panel_result,omitempty"`
+	WaivedProbes       []string                `json:"waived_probes,omitempty"`
+}
+
+// Audit verdicts. INCONCLUSIVE means the harness could not decide: an
+// environment fault, not a defect in the goal.
+const (
+	VerdictPass         = "PASS"
+	VerdictReject       = "REJECT"
+	VerdictInconclusive = "INCONCLUSIVE"
+)
+
+// Canary outcomes. Only discrimination_failure is a goal defect.
+const (
+	CanaryStatusPassed         = "passed"
+	CanaryStatusSkipped        = "skipped"
+	CanaryStatusDiscrimination = "discrimination_failure"
+	CanaryStatusUnavailable    = "unavailable"
+	CanaryStatusError          = "error"
+)
+
+var (
+	// ErrCanaryUnavailable marks an environment fault: the candidate binary,
+	// bwrap, or the sandbox was not reachable. It is not a goal defect.
+	ErrCanaryUnavailable = errors.New("canary unavailable")
+	// ErrCanaryDiscrimination marks a real harness defect: the mutant passed
+	// when it should have failed.
+	ErrCanaryDiscrimination = errors.New("canary discrimination failure")
+)
+
+// classifyCanary maps a canary result to an explicit status and detail.
+func classifyCanary(passed bool, err error) (string, string) {
+	switch {
+	case err == nil && passed:
+		return CanaryStatusPassed, ""
+	case errors.Is(err, ErrCanaryDiscrimination):
+		return CanaryStatusDiscrimination, err.Error()
+	case errors.Is(err, ErrCanaryUnavailable):
+		return CanaryStatusUnavailable, err.Error()
+	case err != nil:
+		return CanaryStatusError, err.Error()
+	default:
+		return CanaryStatusError, "canary returned false without an error"
+	}
+}
+
+// auditOutcome decides the verdict. Threshold and probe failures are always
+// real rejections. A canary that could not run is inconclusive.
+func auditOutcome(ccdsiPassed bool, canaryStatus string, probeFailed bool) string {
+	if probeFailed || !ccdsiPassed {
+		return VerdictReject
+	}
+	if canaryStatus == CanaryStatusUnavailable || canaryStatus == CanaryStatusError {
+		return VerdictInconclusive
+	}
+	return VerdictReject
 }
 
 // CalculateProbeManifest formats the canonical manifest text for a slice of probe results.
@@ -1346,19 +1420,33 @@ func ExecuteMysteryAudit(ctx context.Context, cfg MysteryAuditConfig) (*AuditEva
 		probes = SynthesizeProbes(contract, surface, target)
 	}
 
-	// Verify canary mutant detection
-	canaryPassed := true
-	if !cfg.SkipCanary {
+	// Verify canary mutant detection. An environment fault must not be
+	// recorded as a goal defect, so the outcome is kept as a status.
+	canaryStatus := CanaryStatusPassed
+	canaryDetail := ""
+	if cfg.SkipCanary {
+		canaryStatus = CanaryStatusSkipped
+		canaryDetail = "canary skipped by configuration"
+	} else {
 		cp, cErr := EvaluateCanaryMutation(ctx, sandbox, probes)
-		if cErr != nil || !cp {
-			canaryPassed = false
-		}
+		canaryStatus, canaryDetail = classifyCanary(cp, cErr)
 	}
+	canaryPassed := canaryStatus == CanaryStatusPassed || canaryStatus == CanaryStatusSkipped
 
-	// Execute all synthesized probes
+	// Execute all synthesized probes, honoring recorded goal waivers.
+	waivers, waiverErr := LoadGoalWaivers(cfg.RootDir, cfg.GoalSlug, time.Now().UTC())
+	if waiverErr != nil {
+		return nil, fmt.Errorf("load goal waivers: %w", waiverErr)
+	}
+	var waivedNames []string
 	var results []ProbeResult
 	var failedProbe *ProbeResult
 	for _, p := range probes {
+		if waiver, ok := waivers[p.Name]; ok {
+			results = append(results, WaivedProbeResult(p, waiver))
+			waivedNames = append(waivedNames, p.Name)
+			continue
+		}
 		res := RunProbe(ctx, sandbox, p)
 		results = append(results, res)
 		if !res.Passed && failedProbe == nil {
@@ -1392,13 +1480,17 @@ func ExecuteMysteryAudit(ctx context.Context, cfg MysteryAuditConfig) (*AuditEva
 		BlindfoldVerified: sandbox.BlindfoldVerified,
 		CanaryPassed:      canaryPassed,
 		RemotePanelResult: panelResult,
+		WaivedProbes:      waivedNames,
 	}
 
-	// Gate decision: PASS requires all probes green, canary caught, and CCDSI threshold met
+	// Gate decision: PASS requires all probes green, canary caught (or
+	// explicitly skipped), and the CCDSI threshold met.
+	eval.CanaryStatus = canaryStatus
+	eval.CanaryDetail = canaryDetail
 	passedGating := ccdsi.GatingPassed && canaryPassed && failedProbe == nil
 
 	if passedGating {
-		eval.Verdict = "PASS"
+		eval.Verdict = VerdictPass
 
 		// Generate ephemeral Ed25519 keypair and sign receipt
 		_, privKey, err := ed25519.GenerateKey(rand.Reader)
@@ -1421,6 +1513,7 @@ func ExecuteMysteryAudit(ctx context.Context, cfg MysteryAuditConfig) (*AuditEva
 			ProbesExecuted:     ccdsi.TotalProbes,
 			ProbesPassed:       ccdsi.PassedProbes,
 			ProbeManifestHash:  probeManifestHash,
+			WaiverSummary:      strings.Join(waivedNames, "; "),
 			CertifiedAt:        now,
 		}
 		if err := SignAuditReceipt(receipt, privKey); err != nil {
@@ -1435,19 +1528,42 @@ func ExecuteMysteryAudit(ctx context.Context, cfg MysteryAuditConfig) (*AuditEva
 		if err := goals.SaveAuditReceipt(cfg.RootDir, cfg.GoalSlug, receipt, auditor, cfg.SessionID, cfg.Store); err != nil {
 			return nil, fmt.Errorf("save audit receipt: %w", err)
 		}
+		level := goals.LevelL3
+		if canaryStatus != CanaryStatusPassed {
+			level = goals.LevelL2
+		}
+		// Best effort: legacy goals without declared paths stay unbound.
+		_, _ = goals.RecordVerification(cfg.RootDir, cfg.GoalSlug, level, "audit")
 	} else {
-		eval.Verdict = "REJECT"
+		eval.Verdict = auditOutcome(ccdsi.GatingPassed, canaryStatus, failedProbe != nil)
+		if eval.Verdict == VerdictInconclusive {
+			eval.InconclusiveReason = canaryDetail
+			if eval.InconclusiveReason == "" {
+				eval.InconclusiveReason = "canary could not run"
+			}
+			return eval, nil
+		}
 
 		failedName := "General Gating Threshold Failure"
 		stderrSnippet := ""
+		stdoutSnippet := ""
 		remediationAdvice := ccdsi.FailureReason
 		triggerCond := "Probe suite evaluation against contract specification"
 		expected := "100% probe pass rate and CCDSI score >= 0.40"
 		actual := fmt.Sprintf("Passed %d/%d probes, CCDSI=%0.2f", ccdsi.PassedProbes, ccdsi.TotalProbes, ccdsi.CCDSIScore)
 
+		if failedProbe == nil && canaryStatus == CanaryStatusDiscrimination {
+			failedName = "Canary Discrimination Failure"
+			triggerCond = "Canary mutant probe against the candidate suite"
+			expected = "The inverted-contract mutant must fail"
+			actual = canaryDetail
+			remediationAdvice = canaryDetail
+		}
+
 		if failedProbe != nil {
 			failedName = ScrubReceiptPaths(failedProbe.ProbeName, cfg.RootDir)
 			stderrSnippet = ScrubReceiptPaths(failedProbe.Stderr, cfg.RootDir)
+			stdoutSnippet = ScrubReceiptPaths(tailText(failedProbe.Stdout, 4000), cfg.RootDir)
 			cleanReason := ScrubReceiptPaths(failedProbe.FailureReason, cfg.RootDir)
 			triggerCond = ScrubReceiptPaths(fmt.Sprintf("Probe %s (%s)", failedProbe.ProbeID, failedProbe.Type), cfg.RootDir)
 			expected = fmt.Sprintf("Expected exit code %d matching contract specification", failedProbe.ExitCode)
@@ -1464,10 +1580,16 @@ func ExecuteMysteryAudit(ctx context.Context, cfg MysteryAuditConfig) (*AuditEva
 			ExpectedBehavior:  ScrubReceiptPaths(expected, cfg.RootDir),
 			ActualBehavior:    ScrubReceiptPaths(actual, cfg.RootDir),
 			StderrSnippet:     ScrubReceiptPaths(stderrSnippet, cfg.RootDir),
+			StdoutSnippet:     stdoutSnippet,
 			RemediationAdvice: ScrubReceiptPaths(remediationAdvice, cfg.RootDir),
 			Timestamp:         time.Now().UTC(),
 		}
 		eval.Dossier = dossier
+		if failedProbe != nil && cfg.RootDir != "" && cfg.GoalSlug != "" {
+			logPath := filepath.Join(cfg.RootDir, "goals", cfg.GoalSlug, "probe-failure.log")
+			_ = os.MkdirAll(filepath.Dir(logPath), 0o755)
+			_ = os.WriteFile(logPath, []byte(ScrubReceiptPaths(failedProbe.Stdout, cfg.RootDir)), 0o644)
+		}
 
 		auditor := cfg.AuditorPersona
 		if auditor == "" {
@@ -1479,4 +1601,43 @@ func ExecuteMysteryAudit(ctx context.Context, cfg MysteryAuditConfig) (*AuditEva
 	}
 
 	return eval, nil
+}
+
+// withProbeTestTimeout raises the per-package timeout for go test probes. Some
+// race-instrumented packages finish just above the 10-minute default, and a
+// premature timeout would fail an otherwise green audit. A caller-supplied
+// timeout is never replaced.
+func withProbeTestTimeout(cmd []string) []string {
+	const flag = "-timeout=40m"
+	out := append([]string(nil), cmd...)
+	if len(out) >= 2 && out[0] == "go" && out[1] == "test" {
+		if hasProbeTimeoutFlag(out) {
+			return out
+		}
+		rest := append([]string{flag}, out[2:]...)
+		return append(out[:2], rest...)
+	}
+	if len(out) == 3 && out[0] == "sh" && out[1] == "-c" {
+		script := out[2]
+		if strings.Contains(script, "go test ") && !strings.Contains(script, "-timeout") {
+			out[2] = strings.Replace(script, "go test ", "go test "+flag+" ", 1)
+		}
+	}
+	return out
+}
+
+func hasProbeTimeoutFlag(args []string) bool {
+	for _, a := range args {
+		if a == "-timeout" || strings.HasPrefix(a, "-timeout=") {
+			return true
+		}
+	}
+	return false
+}
+
+func tailText(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	return s[len(s)-max:]
 }

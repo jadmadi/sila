@@ -95,6 +95,7 @@ func runHookSessionStart(ui render.UI, st *store.Store, project, cwd, sessionID,
 		ClaimID:         id.ClaimID,
 		Cwd:             cwd,
 		PID:             os.Getpid(),
+		PIDStartTicks:   id.PIDStartTicks,
 		Source:          id.Source,
 		Branch:          gitCtx.Branch,
 		Head:            gitCtx.Head,
@@ -141,6 +142,11 @@ func runHookSessionStart(ui render.UI, st *store.Store, project, cwd, sessionID,
 	receipt.BriefBytes = brief.Bytes
 	if receipt.BriefBytes <= 0 {
 		receipt.BriefBytes = len(brief.Markdown)
+	}
+
+	if block := dream.LoadStateBlock(context.Background(), st, project, cwd, time.Now().UTC(), stateBlockWindow(), 1200); block != "" {
+		brief.Markdown = block + "\n" + brief.Markdown
+		brief.Bytes = len(brief.Markdown)
 	}
 
 	if jsonOut {
@@ -278,6 +284,11 @@ func runHookSessionEndWithOptions(ui render.UI, st *store.Store, project, cwd, s
 		res.HandoffWritten = auto.Written
 		res.HandoffExisting = auto.Existing
 	}
+	if auto != nil && auto.HandoffID != "" && !dryRun {
+		if err := saveSessionCardFromHandoff(st, res.ProjectID, cwd, sessionID, agent, auto.HandoffID); err != nil {
+			fmt.Fprintf(os.Stderr, "sila hook: session card: %v\n", err)
+		}
+	}
 
 	event, policy := "session-end", "warn"
 	if opts.Event != "" {
@@ -364,10 +375,10 @@ func runHookSessionEndWithOptions(ui render.UI, st *store.Store, project, cwd, s
 }
 
 // runHookFailureNudge emits prior resolutions for a failed tool call.
-// runHookPreToolUse emits one bounded warning when a web search starts without
-// a recall marker in the current session, and records the audit entry. It never
-// blocks the tool call.
-func runHookPreToolUse(ui render.UI, st *store.Store, env *loaders.HookEnvelope, jsonOut bool) {
+// runHookPreToolUse records the pre-tool audit entry, preserves the web-search
+// advisory, and evaluates the opt-in recall gate. It returns true when it
+// emitted a harness-native decision, so the caller must not emit an allow.
+func runHookPreToolUse(ui render.UI, st *store.Store, env *loaders.HookEnvelope, opts hookOptions, jsonOut bool) bool {
 	started := time.Now()
 	detail := ""
 	for _, key := range []string{"tool_name", "tool", "name", "command", "query"} {
@@ -383,12 +394,23 @@ func runHookPreToolUse(ui render.UI, st *store.Store, env *loaders.HookEnvelope,
 			fmt.Fprintln(os.Stderr, "sila hook: web search before recall — run `sila recall \"<query>\"` for local prior art first (advisory, not blocking)")
 		}
 	}
+
+	policy := resolveRecallGatePolicyForHook(opts, env.Cwd)
+	decision := applyRecallGate(env, policy)
+	if decision.Decision != "allow" || decision.FailOpen || decision.ReasonCode == "RETRY" {
+		appendRecallGateAudit(env, decision)
+		if emitRecallGateDecision(env, decision) {
+			return true
+		}
+		return false
+	}
 	_ = loaders.AppendHookAudit(env.Cwd, loaders.HookAuditEntry{
 		Event: "pre-tool-use", DurationMS: time.Since(started).Milliseconds(), ExitCode: 0,
 		SessionID: env.SessionID, Agent: env.Agent, Summary: summary,
 	})
 	_ = st
 	_ = ui
+	return false
 }
 
 func runHookFailureNudge(ui render.UI, st *store.Store, env *loaders.HookEnvelope, jsonOut bool) bool {

@@ -32,10 +32,7 @@ func (s *Server) recordToolEvent(name string, args json.RawMessage, start time.T
 	if session == "" {
 		session = os.Getenv("SILA_SESSION")
 	}
-	agent := os.Getenv("SILA_AGENT")
-	if agent == "" {
-		agent = "mcp"
-	}
+	agent := s.ledgerAgent()
 	shape := ""
 	if mode == "full" {
 		shape = store.BuildArgsShape(args)

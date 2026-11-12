@@ -25,6 +25,41 @@ func omniSince(t time.Time) string {
 }
 
 func runSearch(ui render.UI, dbPath, project, tool, role string, sinceTime time.Time, omni, semantic, twoPass bool, window, occurrence int, refsExistOnly, staleOnly, factsOnly, jsonOut, toonOut, verbose bool, top int, terms []string) {
+	runSearchFiltered(ui, dbPath, project, tool, role, sinceTime, omni, semantic, twoPass, window, occurrence, refsExistOnly, staleOnly, factsOnly, jsonOut, toonOut, verbose, top, false, false, terms)
+}
+
+// resolveACLRequesterProject identifies the project that owns the current
+// working directory. An explicit search project is only a fallback: a user
+// standing in project beta must not gain project alpha's records merely by
+// passing --project=alpha.
+func resolveACLRequesterProject(st *store.Store, fallback string) string {
+	if cwd, err := os.Getwd(); err == nil {
+		if p, resolveErr := st.ResolveScope("", cwd); resolveErr == nil && p.ID != "" {
+			return p.ID
+		}
+	}
+	return fallback
+}
+
+func runSearchFiltered(ui render.UI, dbPath, project, tool, role string, sinceTime time.Time, omni, semantic, twoPass bool, window, occurrence int, refsExistOnly, staleOnly, factsOnly, jsonOut, toonOut, verbose bool, top int, includeArchived, aclScoped bool, terms []string) {
+	if asOfEnabled() {
+		runAsOfOutput(ui, dbPath, project, jsonOut, false)
+		return
+	}
+	if len(terms) > 0 && strings.EqualFold(terms[0], "inspect") {
+		runSearchInspect(ui, dbPath, project, jsonOut, terms[1:])
+		return
+	}
+	cleanTerms := terms[:0]
+	for _, term := range terms {
+		switch term {
+		case "--include-unverified", "--include-stale", "--include-disputed", "--include-expired":
+			continue
+		default:
+			cleanTerms = append(cleanTerms, term)
+		}
+	}
+	terms = cleanTerms
 	if len(terms) == 0 {
 		fmt.Fprintln(os.Stderr, "sila search: specify search terms (e.g. sila search sqlite, sila search expand <id>, or sila search --omni <terms>)")
 		os.Exit(2)
@@ -211,13 +246,23 @@ func runSearch(ui render.UI, dbPath, project, tool, role string, sinceTime time.
 		}
 		// Forward the filters the CLI already accepted: silently dropping them
 		// made an unsupported combination look like "no such evidence".
+		requesterProject := ""
+		if aclScoped {
+			requesterProject = resolveACLRequesterProject(st, project)
+			if requesterProject == "" {
+				fmt.Fprintln(os.Stderr, "sila search: --acl-scoped could not resolve a requester project; results are unfiltered")
+			}
+		}
 		res, err := dream.OmniSearchFiltered(st, query, dream.OmniOptions{
-			Project:  project,
-			Limit:    top,
-			Tool:     tool,
-			Role:     role,
-			Since:    omniSince(sinceTime),
-			Semantic: semantic,
+			Project:          project,
+			Limit:            top,
+			Tool:             tool,
+			Role:             role,
+			Since:            omniSince(sinceTime),
+			Semantic:         semantic,
+			IncludeArchived:  includeArchived,
+			ACLScoped:        aclScoped,
+			RequesterProject: requesterProject,
 		})
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "sila search: %v\n", err)

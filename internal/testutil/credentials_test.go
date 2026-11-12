@@ -29,7 +29,7 @@ func TestMockToken(t *testing.T) {
 		{"ghp", "ghp_mocktest"},
 		{"github_oauth", "gho_mocktest"},
 		{"gitlab", "glpat-mocktest"},
-		{"slack", "xoxb-mocktest"},
+		{"slack", "xoxb-inert"},
 		{"openai", "sk-mocktest"},
 		{"random", "mock_sec_"},
 		{"custom", "mock_custom_token_"},

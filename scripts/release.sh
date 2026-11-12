@@ -2,12 +2,8 @@
 #
 # release.sh creates a verified, tag-derived Sila release: it tags HEAD, builds
 # every platform asset from that tag, and verifies them. It never contacts the
-# network unless --push or --publish is explicitly given. CI may also publish a
-# tagged release; this script is the local, reproducible publisher.
-#
-# The script refuses to publish from the private archive remote. Set
-# SILA_RELEASE_REPO and SILA_RELEASE_REMOTE explicitly when the working copy has
-# both private and public remotes.
+# network unless --push or --publish is explicitly given. There is no CI release
+# workflow; this script is the sole publisher.
 #
 # The workflow is re-enterable, so preparing and publishing can be separate
 # commands over the same immutable tag:
@@ -33,8 +29,6 @@ fi
 cd "$ROOT"
 SKIP_BUILD="${SILA_RELEASE_SKIP_BUILD:-0}"
 DIST="${SILA_RELEASE_DIST:-dist}"
-RELEASE_REPO="${SILA_RELEASE_REPO:-jadmadi/sila}"
-RELEASE_REMOTE="${SILA_RELEASE_REMOTE:-origin}"
 
 usage() {
   cat <<'EOF'
@@ -53,8 +47,8 @@ Options:
   --dry-run      Validate version, changelog, clean tree, and tests; do not tag or build.
   --verify-only  Validate the release identity and report the plan; no tag, no build.
   --skip-tests   Skip the full test suite when tests were already verified prior to release.
-  --push         Push the validated annotated tag to SILA_RELEASE_REMOTE (default: origin).
-  --publish      Push the tag and create a GitHub Release in SILA_RELEASE_REPO. Implies --push.
+  --push         Push the validated annotated tag to origin after assets are built.
+  --publish      Push the tag and create a GitHub Release with gh. Implies --push.
 
 The script does not commit working-tree changes. Commit and review the release
 content first. A failed release removes only a tag that has not been pushed; a
@@ -194,28 +188,20 @@ publish_release() {
   if [[ "$PUSH" != true ]]; then
     return 0
   fi
-  remote_url="$(git remote get-url "$RELEASE_REMOTE" 2>/dev/null || true)"
-  case "$remote_url" in
-    *sila-private*)
-      echo "Refusing to publish from the private archive remote: $remote_url" >&2
-      echo "Set SILA_RELEASE_REMOTE to the public remote." >&2
-      exit 1
-      ;;
-  esac
-  if git ls-remote --tags "$RELEASE_REMOTE" "refs/tags/$VERSION" 2>/dev/null | grep -q "refs/tags/$VERSION"; then
+  if git ls-remote --tags origin "refs/tags/$VERSION" 2>/dev/null | grep -q "refs/tags/$VERSION"; then
     echo "==> Tag $VERSION already published; not pushing again"
   else
-    echo "==> Pushing annotated tag $VERSION to $RELEASE_REMOTE"
-    git push "$RELEASE_REMOTE" "$VERSION"
+    echo "==> Pushing annotated tag $VERSION"
+    git push origin "$VERSION"
     pushed_tag=true
   fi
   if [[ "$PUBLISH" == true ]]; then
     command -v gh >/dev/null 2>&1 || { echo "--publish requires GitHub CLI (gh)." >&2; exit 1; }
-    if gh release view "$VERSION" --repo "$RELEASE_REPO" >/dev/null 2>&1; then
-      echo "==> GitHub Release $VERSION already exists in $RELEASE_REPO; leaving it in place"
+    if gh release view "$VERSION" >/dev/null 2>&1; then
+      echo "==> GitHub Release $VERSION already exists; leaving it in place"
     else
-      echo "==> Publishing GitHub Release $VERSION in $RELEASE_REPO"
-      gh release create "$VERSION" "$DIST"/sila-* "$DIST"/checksums.txt "$DIST"/mcp-contract.json "$DIST"/release-metadata.json --repo "$RELEASE_REPO" --generate-notes
+      echo "==> Publishing GitHub Release $VERSION"
+      gh release create "$VERSION" "$DIST"/sila-* "$DIST"/checksums.txt "$DIST"/mcp-contract.json "$DIST"/release-metadata.json --generate-notes
     fi
   fi
 }

@@ -310,3 +310,15 @@ func TestRegistryParityWithDispatchAndFlags(t *testing.T) {
 		}
 	}
 }
+
+func TestMCPHelpDocumentsProfiles(t *testing.T) {
+	var buf bytes.Buffer
+	subcommandUsageTo("mcp", render.New(os.Stdout, true), &buf)
+	out := buf.String()
+	if !strings.Contains(out, "--profile=continuity|graph|full") {
+		t.Fatalf("mcp help is missing the profile values:\n%s", out)
+	}
+	if !strings.Contains(out, "graph adds the three graph tools") {
+		t.Fatalf("mcp help is missing the graph profile description:\n%s", out)
+	}
+}

@@ -29,13 +29,13 @@ func TestGoalsTierCLI(t *testing.T) {
 	ui := render.New(os.Stdout, true)
 
 	// 1. Create immediate goal via CLI
-	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "CLI Immediate Goal", "Immediate description", "", "", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"create", "imm-cli", "--tier=immediate"})
+	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "CLI Immediate Goal", "Immediate description", "", "internal/tier/immediate.go", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"create", "imm-cli", "--tier=immediate"})
 
 	// 2. Create roadmap goal (default)
-	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "CLI Roadmap Goal", "Roadmap description", "", "", 2, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"create", "road-cli"})
+	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "CLI Roadmap Goal", "Roadmap description", "", "internal/tier/roadmap.go", 2, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"create", "road-cli"})
 
 	// 3. Create nice-to-have goal
-	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "CLI Nice-to-Have Goal", "Nice description", "", "", 3, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"create", "nth-cli", "--tier=nice-to-have"})
+	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "CLI Nice-to-Have Goal", "Nice description", "", "internal/tier/nice.go", 3, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"create", "nth-cli", "--tier=nice-to-have"})
 
 	// Verify scanned goals on disk
 	audit, err := goals.ScanGoals(tmp)
@@ -93,7 +93,7 @@ func TestGoalsCreateTierCLI(t *testing.T) {
 
 	ui := render.New(os.Stdout, true)
 	out := captureStdout(t, func() {
-		runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "", "", "", "", 1, false, false, false, false, false, false, false, false, false, false, false, false, false, "", "", "", false, []string{"create", "space-tier-goal", "--tier", "immediate", "--title=Space Tier Goal", "--desc=Space tier desc", "--independent"})
+		runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "", "", "", "internal/tier/space.go", 1, false, false, false, false, false, false, false, false, false, false, false, false, false, "", "", "", false, []string{"create", "space-tier-goal", "--tier", "immediate", "--title=Space Tier Goal", "--desc=Space tier desc", "--independent"})
 	})
 	if !strings.Contains(out, "closure requires feat:/fix:/refactor:/perf:/chore:") {
 		t.Errorf("expected closure commit prefix hint in output, got:\n%s", out)

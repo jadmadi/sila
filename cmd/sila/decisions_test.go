@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -110,5 +111,94 @@ func TestCLIDecisions_EndToEnd(t *testing.T) {
 	}
 	if !strings.Contains(memoFact.Claim, "[decision: D1]") {
 		t.Fatalf("expected claim to reference [decision: D1], got: %s", memoFact.Claim)
+	}
+}
+
+func TestDecisionCLIDeferAndQuoteResolve(t *testing.T) {
+	dbPath := filepath.Join(t.TempDir(), "cli_defer.db")
+	ui := render.New(os.Stdout, true)
+	project := "proj-cli-defer"
+
+	outCreate := captureStdout(t, func() {
+		runDecision(ui, dbPath, project, "developer", "", true, []string{
+			"create", "Worker mode", "-o", "A: Enable", "-o", "B: Disable", "-r", "A",
+		})
+	})
+	var created store.Decision
+	if err := json.Unmarshal([]byte(outCreate), &created); err != nil {
+		t.Fatalf("unmarshal create: %v (%s)", err, outCreate)
+	}
+
+	outDefer := captureStdout(t, func() {
+		runDecision(ui, dbPath, project, "developer", "", true, []string{
+			"defer", created.Address, "--notes", "waiting on user", "--by", "user",
+		})
+	})
+	var deferred store.Decision
+	if err := json.Unmarshal([]byte(outDefer), &deferred); err != nil {
+		t.Fatalf("unmarshal defer: %v (%s)", err, outDefer)
+	}
+	if deferred.Status != "deferred" || deferred.Resolution != "" {
+		t.Fatalf("deferred = %#v", deferred)
+	}
+
+	outResolve := captureStdout(t, func() {
+		runDecision(ui, dbPath, project, "developer", "", true, []string{
+			"resolve", created.Address, "--choice", "A", "--user-quote", "choose A", "--route-note", "via worker",
+		})
+	})
+	var resolved store.Decision
+	if err := json.Unmarshal([]byte(outResolve), &resolved); err != nil {
+		t.Fatalf("unmarshal resolve: %v (%s)", err, outResolve)
+	}
+	if resolved.Status != "resolved" || resolved.UserQuote != "choose A" || resolved.RouteNote != "via worker" {
+		t.Fatalf("resolved = %#v", resolved)
+	}
+
+	outView := captureStdout(t, func() {
+		runDecision(ui, dbPath, project, "developer", "", false, []string{"view", created.Address})
+	})
+	if !strings.Contains(outView, "User Quote") || !strings.Contains(outView, "choose A") {
+		t.Fatalf("view missing user quote: %s", outView)
+	}
+	if !strings.Contains(outView, "Route Note") || !strings.Contains(outView, "via worker") {
+		t.Fatalf("view missing route note: %s", outView)
+	}
+}
+
+func TestDecisionCLIRequireQuoteExit(t *testing.T) {
+	if os.Getenv("DECISION_REQUIRE_QUOTE_HELPER") == "1" {
+		ui := render.New(os.Stdout, true)
+		runDecision(ui, os.Getenv("DECISION_DB"), os.Getenv("DECISION_PROJECT"), "developer", "", false, []string{
+			"resolve", "D1", "--choice", "A", "--require-quote",
+		})
+		return
+	}
+	dbPath := filepath.Join(t.TempDir(), "cli_require_quote.db")
+	ui := render.New(os.Stdout, true)
+	project := "proj-cli-require-quote"
+	_ = captureStdout(t, func() {
+		runDecision(ui, dbPath, project, "developer", "", true, []string{
+			"create", "Worker mode", "-o", "A: Enable", "-o", "B: Disable", "-r", "A",
+		})
+	})
+
+	cmd := exec.Command(os.Args[0], "-test.run=TestDecisionCLIRequireQuoteExit")
+	cmd.Env = append(os.Environ(), "DECISION_REQUIRE_QUOTE_HELPER=1", "DECISION_DB="+dbPath, "DECISION_PROJECT="+project)
+	if err := cmd.Run(); err == nil {
+		t.Fatal("expected non-zero exit for --require-quote without --user-quote")
+	}
+
+	st, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	current, err := st.GetDecision(project, "D1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if current.Status != "open" {
+		t.Fatalf("decision mutated to %q after rejected resolve", current.Status)
 	}
 }

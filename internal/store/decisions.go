@@ -31,6 +31,8 @@ type Decision struct {
 	Status          string           `json:"status"`               // "open", "resolved", "superseded", "abandoned"
 	Resolution      string           `json:"resolution,omitempty"` // Selected letter (e.g. "A") or resolution summary
 	ResolutionNotes string           `json:"resolution_notes,omitempty"`
+	UserQuote       string           `json:"user_quote,omitempty"`
+	RouteNote       string           `json:"route_note,omitempty"`
 	ResolvedBy      string           `json:"resolved_by,omitempty"`
 	ResolvedAt      string           `json:"resolved_at,omitempty"`
 	CreatedBy       string           `json:"created_by"`
@@ -110,9 +112,9 @@ func (s *Store) CreateDecision(d *Decision) (*Decision, error) {
 	}
 	d.Status = strings.ToLower(strings.TrimSpace(d.Status))
 	switch d.Status {
-	case "open", "resolved", "superseded", "abandoned":
+	case "open", "deferred", "resolved", "superseded", "abandoned":
 	default:
-		return nil, fmt.Errorf("invalid decision status %q (allowed: open, resolved, superseded, abandoned)", d.Status)
+		return nil, fmt.Errorf("invalid decision status %q (allowed: open, deferred, resolved, superseded, abandoned)", d.Status)
 	}
 
 	optionsJSON, err := json.Marshal(d.Options)
@@ -174,13 +176,13 @@ func (s *Store) CreateDecision(d *Decision) (*Decision, error) {
 		INSERT INTO decisions (
 			id, project_id, address, seq_number, title, context, options,
 			recommendation, rationale, status, resolution, resolution_notes,
-			resolved_by, resolved_at, created_by, session_id, goal_slug,
+			resolved_by, resolved_at, created_by, session_id, goal_slug, user_quote, route_note,
 			created_at, updated_at
-		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 	`,
 		d.ID, d.ProjectID, d.Address, d.SeqNumber, d.Title, d.Context, string(optionsJSON),
 		d.Recommendation, d.Rationale, d.Status, d.Resolution, d.ResolutionNotes,
-		d.ResolvedBy, d.ResolvedAt, d.CreatedBy, d.SessionID, d.GoalSlug,
+		d.ResolvedBy, d.ResolvedAt, d.CreatedBy, d.SessionID, d.GoalSlug, d.UserQuote, d.RouteNote,
 		d.CreatedAt, d.UpdatedAt,
 	)
 	if err != nil {
@@ -199,9 +201,19 @@ func (s *Store) CreateDecision(d *Decision) (*Decision, error) {
 
 // ResolveDecision records an in-place resolution for an open addressed decision.
 func (s *Store) ResolveDecision(projectID, address, choice, notes, resolvedBy string) (*Decision, error) {
+	return s.ResolveDecisionWithOptions(projectID, address, choice, notes, resolvedBy, "", "", false)
+}
+
+// ResolveDecisionWithOptions resolves an open or deferred decision, optionally
+// requiring a verbatim user quote and recording a routing note.
+func (s *Store) ResolveDecisionWithOptions(projectID, address, choice, notes, resolvedBy, userQuote, routeNote string, requireQuote bool) (*Decision, error) {
 	_, canonicalAddr, err := ParseAddress(address)
 	if err != nil {
 		return nil, err
+	}
+	userQuote = strings.TrimSpace(userQuote)
+	if requireQuote && userQuote == "" {
+		return nil, fmt.Errorf("decision %s requires a verbatim user quote", canonicalAddr)
 	}
 
 	choice = strings.TrimSpace(choice)
@@ -220,14 +232,14 @@ func (s *Store) ResolveDecision(projectID, address, choice, notes, resolvedBy st
 	err = tx.QueryRow(`
 		SELECT id, project_id, address, seq_number, title, context, options,
 		       recommendation, rationale, status, resolution, resolution_notes,
-		       resolved_by, resolved_at, created_by, session_id, goal_slug,
+		       resolved_by, resolved_at, created_by, session_id, goal_slug, user_quote, route_note,
 		       created_at, updated_at
 		FROM decisions
 		WHERE project_id = ? AND address = ?
 	`, projectID, canonicalAddr).Scan(
 		&d.ID, &d.ProjectID, &d.Address, &d.SeqNumber, &d.Title, &d.Context, &optionsRaw,
 		&d.Recommendation, &d.Rationale, &d.Status, &d.Resolution, &d.ResolutionNotes,
-		&d.ResolvedBy, &d.ResolvedAt, &d.CreatedBy, &d.SessionID, &d.GoalSlug,
+		&d.ResolvedBy, &d.ResolvedAt, &d.CreatedBy, &d.SessionID, &d.GoalSlug, &d.UserQuote, &d.RouteNote,
 		&d.CreatedAt, &d.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -237,7 +249,7 @@ func (s *Store) ResolveDecision(projectID, address, choice, notes, resolvedBy st
 		return nil, fmt.Errorf("query decision: %w", err)
 	}
 
-	if d.Status != "open" {
+	if d.Status != "open" && d.Status != "deferred" {
 		return nil, fmt.Errorf("decision %s is already %s (resolved at %s by %s)", canonicalAddr, d.Status, d.ResolvedAt, d.ResolvedBy)
 	}
 
@@ -258,13 +270,17 @@ func (s *Store) ResolveDecision(projectID, address, choice, notes, resolvedBy st
 	d.ResolutionNotes = strings.TrimSpace(notes)
 	d.ResolvedBy = strings.TrimSpace(resolvedBy)
 	d.ResolvedAt = now
+	d.UserQuote = userQuote
+	d.RouteNote = strings.TrimSpace(routeNote)
 	d.UpdatedAt = now
 
 	_, err = tx.Exec(`
 		UPDATE decisions
-		SET status = ?, resolution = ?, resolution_notes = ?, resolved_by = ?, resolved_at = ?, updated_at = ?
+		SET status = ?, resolution = ?, resolution_notes = ?, resolved_by = ?, resolved_at = ?,
+		    user_quote = ?, route_note = ?, updated_at = ?
 		WHERE project_id = ? AND address = ?
-	`, d.Status, d.Resolution, d.ResolutionNotes, d.ResolvedBy, d.ResolvedAt, d.UpdatedAt, projectID, canonicalAddr)
+	`, d.Status, d.Resolution, d.ResolutionNotes, d.ResolvedBy, d.ResolvedAt,
+		d.UserQuote, d.RouteNote, d.UpdatedAt, projectID, canonicalAddr)
 	if err != nil {
 		return nil, fmt.Errorf("update decision: %w", err)
 	}
@@ -276,6 +292,35 @@ func (s *Store) ResolveDecision(projectID, address, choice, notes, resolvedBy st
 	return &d, nil
 }
 
+// DeferDecision parks an open decision without resolving it.
+func (s *Store) DeferDecision(projectID, address, notes, deferredBy string) (*Decision, error) {
+	_, canonicalAddr, err := ParseAddress(address)
+	if err != nil {
+		return nil, err
+	}
+	d, err := s.GetDecision(projectID, canonicalAddr)
+	if err != nil {
+		return nil, err
+	}
+	if d.Status != "open" && d.Status != "deferred" {
+		return nil, fmt.Errorf("decision %s is already %s", canonicalAddr, d.Status)
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	res, err := s.DB.Exec(`
+		UPDATE decisions
+		SET status = 'deferred', resolution = '', resolution_notes = ?, resolved_by = ?,
+		    resolved_at = '', updated_at = ?
+		WHERE project_id = ? AND address = ? AND status IN ('open', 'deferred')
+	`, strings.TrimSpace(notes), strings.TrimSpace(deferredBy), now, projectID, canonicalAddr)
+	if err != nil {
+		return nil, fmt.Errorf("defer decision: %w", err)
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return nil, fmt.Errorf("decision %s changed concurrently", canonicalAddr)
+	}
+	return s.GetDecision(projectID, canonicalAddr)
+}
+
 // GetDecision retrieves a decision by its address (e.g. "D1") or unique ID.
 func (s *Store) GetDecision(projectID, addressOrID string) (*Decision, error) {
 	trimmed := strings.TrimSpace(addressOrID)
@@ -284,14 +329,14 @@ func (s *Store) GetDecision(projectID, addressOrID string) (*Decision, error) {
 	if _, canonical, err := ParseAddress(trimmed); err == nil {
 		query = `SELECT id, project_id, address, seq_number, title, context, options,
 		       recommendation, rationale, status, resolution, resolution_notes,
-		       resolved_by, resolved_at, created_by, session_id, goal_slug,
+		       resolved_by, resolved_at, created_by, session_id, goal_slug, user_quote, route_note,
 		       created_at, updated_at
 		FROM decisions WHERE project_id = ? AND address = ?`
 		arg = canonical
 	} else {
 		query = `SELECT id, project_id, address, seq_number, title, context, options,
 		       recommendation, rationale, status, resolution, resolution_notes,
-		       resolved_by, resolved_at, created_by, session_id, goal_slug,
+		       resolved_by, resolved_at, created_by, session_id, goal_slug, user_quote, route_note,
 		       created_at, updated_at
 		FROM decisions WHERE project_id = ? AND id = ?`
 		arg = trimmed
@@ -302,7 +347,7 @@ func (s *Store) GetDecision(projectID, addressOrID string) (*Decision, error) {
 	err := s.DB.QueryRow(query, projectID, arg).Scan(
 		&d.ID, &d.ProjectID, &d.Address, &d.SeqNumber, &d.Title, &d.Context, &optionsRaw,
 		&d.Recommendation, &d.Rationale, &d.Status, &d.Resolution, &d.ResolutionNotes,
-		&d.ResolvedBy, &d.ResolvedAt, &d.CreatedBy, &d.SessionID, &d.GoalSlug,
+		&d.ResolvedBy, &d.ResolvedAt, &d.CreatedBy, &d.SessionID, &d.GoalSlug, &d.UserQuote, &d.RouteNote,
 		&d.CreatedAt, &d.UpdatedAt,
 	)
 	if err == sql.ErrNoRows {
@@ -319,7 +364,7 @@ func (s *Store) GetDecision(projectID, addressOrID string) (*Decision, error) {
 func (s *Store) ListDecisions(filter DecisionFilter) ([]*Decision, error) {
 	query := `SELECT id, project_id, address, seq_number, title, context, options,
 	                 recommendation, rationale, status, resolution, resolution_notes,
-	                 resolved_by, resolved_at, created_by, session_id, goal_slug,
+	                 resolved_by, resolved_at, created_by, session_id, goal_slug, user_quote, route_note,
 	                 created_at, updated_at
 	          FROM decisions WHERE 1=1`
 	var args []any
@@ -353,7 +398,7 @@ func (s *Store) ListDecisions(filter DecisionFilter) ([]*Decision, error) {
 		err := rows.Scan(
 			&d.ID, &d.ProjectID, &d.Address, &d.SeqNumber, &d.Title, &d.Context, &optionsRaw,
 			&d.Recommendation, &d.Rationale, &d.Status, &d.Resolution, &d.ResolutionNotes,
-			&d.ResolvedBy, &d.ResolvedAt, &d.CreatedBy, &d.SessionID, &d.GoalSlug,
+			&d.ResolvedBy, &d.ResolvedAt, &d.CreatedBy, &d.SessionID, &d.GoalSlug, &d.UserQuote, &d.RouteNote,
 			&d.CreatedAt, &d.UpdatedAt,
 		)
 		if err != nil {
@@ -420,7 +465,41 @@ func (s *Store) CheckDecisionCollisions(projectID string) ([]string, error) {
 		if d.Status == "resolved" && d.Resolution == "" {
 			anomalies = append(anomalies, fmt.Sprintf("decision %s is marked resolved but missing resolution", d.Address))
 		}
+		if d.Status == "deferred" && d.Resolution != "" {
+			anomalies = append(anomalies, fmt.Sprintf("decision %s is deferred but has resolution %q", d.Address, d.Resolution))
+		}
 	}
 
 	return anomalies, nil
+}
+
+func init() {
+	migrations = append(migrations, migration{
+		version: 54,
+		name:    "decision_verbatim_quotes_and_route_notes",
+		up: func(tx *sql.Tx) error {
+			return ensureDecisionQuoteColumns(tx)
+		},
+	})
+}
+
+// ensureDecisionQuoteColumns adds the verbatim quote and routing note columns.
+// The pragma guard keeps the migration idempotent for out-of-order databases.
+func ensureDecisionQuoteColumns(tx *sql.Tx) error {
+	columns := []struct{ name, ddl string }{
+		{"user_quote", `ALTER TABLE decisions ADD COLUMN user_quote TEXT NOT NULL DEFAULT ''`},
+		{"route_note", `ALTER TABLE decisions ADD COLUMN route_note TEXT NOT NULL DEFAULT ''`},
+	}
+	for _, column := range columns {
+		var count int
+		if err := tx.QueryRow(fmt.Sprintf("SELECT count(*) FROM pragma_table_info('decisions') WHERE name='%s'", column.name)).Scan(&count); err != nil {
+			return err
+		}
+		if count == 0 {
+			if _, err := tx.Exec(column.ddl); err != nil {
+				return fmt.Errorf("migration 54 add %s: %w", column.name, err)
+			}
+		}
+	}
+	return nil
 }

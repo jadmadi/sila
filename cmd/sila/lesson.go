@@ -79,9 +79,24 @@ func runLesson(ui render.UI, dbPath, project, agent, files, cause, fix, tags, si
 		}
 	}
 
+	visibility := writeVisibility
 	filteredArgs := args[:0]
-	for _, a := range args {
+	for i := 0; i < len(args); i++ {
+		a := args[i]
 		if strings.HasPrefix(a, "--charter=") {
+			continue
+		}
+		if strings.HasPrefix(a, "--visibility=") {
+			visibility = strings.TrimSpace(strings.TrimPrefix(a, "--visibility="))
+			continue
+		}
+		if a == "--visibility" {
+			if i+1 >= len(args) {
+				fmt.Fprintln(os.Stderr, "sila lesson: --visibility requires project or global")
+				os.Exit(2)
+			}
+			i++
+			visibility = strings.TrimSpace(args[i])
 			continue
 		}
 		if strings.HasPrefix(a, "-") {
@@ -277,11 +292,13 @@ func runLesson(ui render.UI, dbPath, project, agent, files, cause, fix, tags, si
 			}
 		}
 		project, agent = charter.ProjectID, charter.OriginRole()
-		fact, err = st.InsertLessonWithOrigin(project, content, agent, cwd, fileList, charter.ParentSessionID, charter.OriginRole())
+		fact, err = st.InsertMemoWithProvenanceAndVisibility(project, content, agent, cwd, fileList, "lesson", visibility, store.Provenance{
+			SessionRef: charter.ParentSessionID, OriginRole: charter.OriginRole(),
+		})
 	} else if sessionRef := resolveWriteSession(project); sessionRef != "" {
-		fact, err = st.InsertLessonWithSession(project, content, agent, cwd, fileList, sessionRef)
+		fact, err = st.InsertMemoWithProvenanceAndVisibility(project, content, agent, cwd, fileList, "lesson", visibility, store.Provenance{SessionRef: sessionRef})
 	} else {
-		fact, err = st.InsertLesson(project, content, agent, cwd, fileList)
+		fact, err = st.InsertMemoWithProvenanceAndVisibility(project, content, agent, cwd, fileList, "lesson", visibility, store.Provenance{})
 	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sila: %v\n", err)

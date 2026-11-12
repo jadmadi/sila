@@ -14,6 +14,8 @@ func (gc *goalsContext) handleCheckpoint(targetDir string, args []string) {
 	fromFile := ""
 	agentOpt := ""
 	sessionOpt := ""
+	stopAt := ""
+	clearStop := false
 
 	for _, a := range args {
 		if a == "--json" || a == "-json" {
@@ -30,6 +32,12 @@ func (gc *goalsContext) handleCheckpoint(targetDir string, args []string) {
 			sessionOpt = after
 		} else if after, ok := strings.CutPrefix(a, "-session="); ok {
 			sessionOpt = after
+		} else if after, ok := strings.CutPrefix(a, "--stop-at="); ok {
+			stopAt = strings.TrimSpace(after)
+		} else if after, ok := strings.CutPrefix(a, "-stop-at="); ok {
+			stopAt = strings.TrimSpace(after)
+		} else if a == "--clear-stop" || a == "-clear-stop" {
+			clearStop = true
 		} else if strings.HasPrefix(a, "-") {
 			fmt.Fprintf(os.Stderr, "unknown flag: %s\nUsage: sila goals checkpoint <slug> <task-id> --from=<file> [--json]\n", a)
 			os.Exit(2)
@@ -38,13 +46,16 @@ func (gc *goalsContext) handleCheckpoint(targetDir string, args []string) {
 		}
 	}
 
-	if len(positional) < 2 || fromFile == "" {
-		fmt.Fprintln(os.Stderr, "Usage: sila goals checkpoint <slug> <task-id> --from=<file> [--json]")
+	if len(positional) < 1 || (fromFile == "" && stopAt == "" && !clearStop) {
+		fmt.Fprintln(os.Stderr, "Usage: sila goals checkpoint <slug> <task-id> --from=<file> [--stop-at=<task-id>|--clear-stop] [--json]")
 		os.Exit(2)
 	}
 
 	slug := positional[0]
-	taskID := positional[1]
+	taskID := ""
+	if len(positional) > 1 {
+		taskID = positional[1]
+	}
 
 	if targetDir == "" {
 		targetDir = goals.ResolveGoalsRootDir(".")
@@ -128,6 +139,40 @@ func (gc *goalsContext) handleCheckpoint(targetDir string, args []string) {
 			fmt.Fprintf(os.Stderr, "Error: %s\n", errStr)
 		}
 		os.Exit(1)
+	}
+
+	if stopAt != "" || clearStop {
+		newStop := stopAt
+		if clearStop {
+			newStop = ""
+		}
+		updated, stopErr := goals.SetGoalStopAtTask(targetDir, slug, newStop)
+		if stopErr != nil {
+			if jsonOut {
+				emitJSON(map[string]any{"error": stopErr.Error(), "goal_slug": slug, "status": "error"})
+			} else {
+				fmt.Fprintf(os.Stderr, "Error setting stop lease: %v\n", stopErr)
+			}
+			os.Exit(1)
+		}
+		if fromFile == "" {
+			if jsonOut {
+				emitJSON(map[string]any{
+					"goal_slug":       slug,
+					"stop_at_task_id": updated.StopAtTaskID,
+					"saved":           true,
+				})
+			} else {
+				fmt.Fprintf(os.Stdout, "%s Stop lease updated for %s (stop-at: %q)\n",
+					gc.ui.Green("✔"), slug, updated.StopAtTaskID)
+			}
+			os.Exit(0)
+		}
+	}
+
+	if taskID == "" {
+		fmt.Fprintln(os.Stderr, "Usage: sila goals checkpoint <slug> <task-id> --from=<file> [--json]")
+		os.Exit(2)
 	}
 
 	data, err := os.ReadFile(fromFile)

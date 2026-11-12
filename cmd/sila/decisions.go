@@ -15,7 +15,7 @@ func runDecision(ui render.UI, dbPath, project, agent, goalSlug string, jsonOut 
 	preActionCreate := false
 	if len(args) > 0 {
 		sub := args[0]
-		if sub == "create" || sub == "new" || sub == "add" || sub == "resolve" || sub == "close" {
+		if sub == "create" || sub == "new" || sub == "add" || sub == "resolve" || sub == "close" || sub == "defer" {
 			isWrite = true
 		}
 		if strings.HasPrefix(sub, "-") {
@@ -86,6 +86,8 @@ func runDecision(ui render.UI, dbPath, project, agent, goalSlug string, jsonOut 
 	switch sub {
 	case "create", "new", "add":
 		createDecisionCmd(ui, st, project, agent, goalSlug, jsonOut, subArgs)
+	case "defer":
+		deferDecisionCmd(ui, st, project, agent, jsonOut, subArgs)
 	case "resolve", "close":
 		resolveDecisionCmd(ui, st, project, agent, jsonOut, subArgs)
 	case "list", "ls":
@@ -238,13 +240,11 @@ func createDecisionCmd(ui render.UI, st *store.Store, project, agent, goalSlug s
 	}
 }
 
-func resolveDecisionCmd(ui render.UI, st *store.Store, project, agent string, jsonOut bool, args []string) {
-	fs := flag.NewFlagSet("sila decision resolve", flag.ContinueOnError)
-	choiceFlag := fs.String("choice", "", "Chosen option letter (e.g. 'A') or resolution summary")
-	fs.StringVar(choiceFlag, "c", "", "Shorthand for -choice")
-	notesFlag := fs.String("notes", "", "Resolution notes")
+func deferDecisionCmd(ui render.UI, st *store.Store, project, agent string, jsonOut bool, args []string) {
+	fs := flag.NewFlagSet("sila decision defer", flag.ContinueOnError)
+	notesFlag := fs.String("notes", "", "Deferral notes")
 	fs.StringVar(notesFlag, "m", "", "Shorthand for -notes")
-	byFlag := fs.String("by", agent, "Resolver identifier")
+	byFlag := fs.String("by", agent, "Deferring actor")
 
 	var flagArgs []string
 	var posArgs []string
@@ -254,7 +254,64 @@ func resolveDecisionCmd(ui render.UI, st *store.Store, project, agent string, js
 			flagArgs = append(flagArgs, a)
 			if !strings.Contains(a, "=") && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
 				switch strings.TrimLeft(a, "-") {
-				case "c", "choice", "m", "notes", "by":
+				case "m", "notes", "by":
+					i++
+					flagArgs = append(flagArgs, args[i])
+				}
+			}
+		} else {
+			posArgs = append(posArgs, a)
+		}
+	}
+	if err := fs.Parse(flagArgs); err != nil {
+		os.Exit(2)
+	}
+	extra := append(posArgs, fs.Args()...)
+	if len(extra) == 0 {
+		fmt.Fprintln(os.Stderr, "Usage: sila decision defer <D#> [--notes='...'] [--by=<actor>]")
+		os.Exit(2)
+	}
+	actor := *byFlag
+	if actor == "" {
+		actor = "user"
+	}
+	d, err := st.DeferDecision(project, extra[0], *notesFlag, actor)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sila decision defer error: %v\n", err)
+		os.Exit(1)
+	}
+	if jsonOut {
+		emitJSON(d)
+		return
+	}
+	fmt.Fprintf(os.Stdout, "%s Deferred decision %s (%s)\n", ui.Yellow("·"), ui.Bold(d.Address), d.Title)
+	if d.ResolutionNotes != "" {
+		fmt.Fprintf(os.Stdout, "  Notes: %s\n", d.ResolutionNotes)
+	}
+	fmt.Fprintf(os.Stdout, "  Deferred by %s\n", d.ResolvedBy)
+}
+
+func resolveDecisionCmd(ui render.UI, st *store.Store, project, agent string, jsonOut bool, args []string) {
+	fs := flag.NewFlagSet("sila decision resolve", flag.ContinueOnError)
+	choiceFlag := fs.String("choice", "", "Chosen option letter (e.g. 'A') or resolution summary")
+	fs.StringVar(choiceFlag, "c", "", "Shorthand for -choice")
+	notesFlag := fs.String("notes", "", "Resolution notes")
+	fs.StringVar(notesFlag, "m", "", "Shorthand for -notes")
+	byFlag := fs.String("by", agent, "Resolver identifier")
+	userQuoteFlag := fs.String("user-quote", "", "Verbatim user quote authorizing the resolution")
+	fs.StringVar(userQuoteFlag, "q", "", "Shorthand for -user-quote")
+	routeNoteFlag := fs.String("route-note", "", "Routing note recorded with the resolution")
+	requireQuoteFlag := fs.Bool("require-quote", false, "Reject resolution without a verbatim user quote")
+
+	var flagArgs []string
+	var posArgs []string
+	for i := 0; i < len(args); i++ {
+		a := args[i]
+		if strings.HasPrefix(a, "-") {
+			flagArgs = append(flagArgs, a)
+			if !strings.Contains(a, "=") && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+				switch strings.TrimLeft(a, "-") {
+				case "c", "choice", "m", "notes", "by", "q", "user-quote", "route-note":
 					i++
 					flagArgs = append(flagArgs, args[i])
 				}
@@ -294,7 +351,7 @@ func resolveDecisionCmd(ui render.UI, st *store.Store, project, agent string, js
 		resolvedBy = "user"
 	}
 
-	d, err := st.ResolveDecision(project, address, choice, notes, resolvedBy)
+	d, err := st.ResolveDecisionWithOptions(project, address, choice, notes, resolvedBy, *userQuoteFlag, *routeNoteFlag, *requireQuoteFlag)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sila decision resolve error: %v\n", err)
 		os.Exit(1)
@@ -308,6 +365,12 @@ func resolveDecisionCmd(ui render.UI, st *store.Store, project, agent string, js
 	fmt.Fprintf(os.Stdout, "%s Resolved decision %s (%s): selected %s\n", ui.Green("✔"), ui.Bold(d.Address), d.Title, ui.Bold(d.Resolution))
 	if d.ResolutionNotes != "" {
 		fmt.Fprintf(os.Stdout, "  Notes: %s\n", d.ResolutionNotes)
+	}
+	if d.UserQuote != "" {
+		fmt.Fprintf(os.Stdout, "  User Quote: %s\n", d.UserQuote)
+	}
+	if d.RouteNote != "" {
+		fmt.Fprintf(os.Stdout, "  Route Note: %s\n", d.RouteNote)
 	}
 	fmt.Fprintf(os.Stdout, "  Resolved by %s at %s\n", d.ResolvedBy, d.ResolvedAt)
 }
@@ -391,6 +454,8 @@ func viewDecision(ui render.UI, st *store.Store, project, address string, jsonOu
 	statusStr := d.Status
 	if d.Status == "open" {
 		statusStr = ui.Yellow("open")
+	} else if d.Status == "deferred" {
+		statusStr = ui.Yellow("deferred")
 	} else if d.Status == "resolved" {
 		statusStr = ui.Green("resolved")
 	}
@@ -423,6 +488,13 @@ func viewDecision(ui render.UI, st *store.Store, project, address string, jsonOu
 		fmt.Fprintf(os.Stdout, "    %s [%s] %s%s\n", marker, opt.Letter, opt.Title, tradeOff)
 	}
 
+	if d.UserQuote != "" {
+		fmt.Fprintf(os.Stdout, "\n  User Quote:\n    %s\n", d.UserQuote)
+	}
+	if d.RouteNote != "" {
+		fmt.Fprintf(os.Stdout, "  Route Note: %s\n", d.RouteNote)
+	}
+
 	if d.Status == "resolved" {
 		fmt.Fprintln(os.Stdout, "\n  Resolution:")
 		fmt.Fprintf(os.Stdout, "    Selected:    %s\n", ui.Bold(d.Resolution))
@@ -438,6 +510,7 @@ func viewDecision(ui render.UI, st *store.Store, project, address string, jsonOu
 func checkDecisionsCmd(ui render.UI, st *store.Store, project string, jsonOut bool, args []string) {
 	fs := flag.NewFlagSet("sila decision check", flag.ContinueOnError)
 	failOnOpen := fs.Bool("fail-on-open", false, "Exit non-zero if any open decisions remain")
+	failOnDeferred := fs.Bool("fail-on-deferred", false, "Exit non-zero if any deferred decisions remain")
 	if err := fs.Parse(args); err != nil {
 		os.Exit(2)
 	}
@@ -455,23 +528,29 @@ func checkDecisionsCmd(ui render.UI, st *store.Store, project string, jsonOut bo
 	}
 
 	openCount := 0
+	deferredCount := 0
 	for _, d := range decisions {
 		if d.Status == "open" {
 			openCount++
 		}
+		if d.Status == "deferred" {
+			deferredCount++
+		}
 	}
+	failDeferred := *failOnDeferred || *failOnOpen
 
 	res := map[string]any{
 		"project":   project,
 		"total":     len(decisions),
 		"open":      openCount,
+		"deferred":  deferredCount,
 		"anomalies": anomalies,
-		"clean":     len(anomalies) == 0 && (!*failOnOpen || openCount == 0),
+		"clean":     len(anomalies) == 0 && (!*failOnOpen || openCount == 0) && (!failDeferred || deferredCount == 0),
 	}
 
 	if jsonOut {
 		emitJSON(res)
-		if len(anomalies) > 0 || (*failOnOpen && openCount > 0) {
+		if len(anomalies) > 0 || (*failOnOpen && openCount > 0) || (failDeferred && deferredCount > 0) {
 			os.Exit(1)
 		}
 		return
@@ -485,9 +564,13 @@ func checkDecisionsCmd(ui render.UI, st *store.Store, project string, jsonOut bo
 		os.Exit(1)
 	}
 
-	fmt.Fprintf(os.Stdout, "%s Decision log integrity verified (%d decisions, 0 collisions, %d open)\n", ui.Green("✔"), len(decisions), openCount)
+	fmt.Fprintf(os.Stdout, "%s Decision log integrity verified (%d decisions, 0 collisions, %d open, %d deferred)\n", ui.Green("✔"), len(decisions), openCount, deferredCount)
 	if *failOnOpen && openCount > 0 {
 		fmt.Fprintf(os.Stderr, "failed: %d open decision(s) pending resolution\n", openCount)
+		os.Exit(1)
+	}
+	if failDeferred && deferredCount > 0 {
+		fmt.Fprintf(os.Stderr, "failed: %d deferred decision(s) pending resolution\n", deferredCount)
 		os.Exit(1)
 	}
 }
@@ -516,10 +599,11 @@ func printDecisionHelp(ui render.UI) {
 	fmt.Fprintln(os.Stdout, ui.Bold(ui.Cyan("sila decision"))+" — Addressed Epistemic Decision Log & Dispute Resolution Engine")
 	fmt.Fprintln(os.Stdout, "\nUsage:")
 	fmt.Fprintln(os.Stdout, "  sila decision create <title> -o 'A: Opt 1' -o 'B: Opt 2' -r A [--rationale='...'] [--context='...'] [--goal=<slug>]")
-	fmt.Fprintln(os.Stdout, "  sila decision resolve <D#> --choice=A [--notes='...']")
-	fmt.Fprintln(os.Stdout, "  sila decision list [--status=open|resolved|all] [--goal=<slug>]")
+	fmt.Fprintln(os.Stdout, "  sila decision resolve <D#> --choice=A [--notes='...'] [--user-quote='...'] [--route-note='...'] [--require-quote]")
+	fmt.Fprintln(os.Stdout, "  sila decision defer <D#> [--notes='...'] [--by=<actor>]")
+	fmt.Fprintln(os.Stdout, "  sila decision list [--status=open|deferred|resolved|all] [--goal=<slug>]")
 	fmt.Fprintln(os.Stdout, "  sila decision view <D#>")
-	fmt.Fprintln(os.Stdout, "  sila decision check [--fail-on-open]")
+	fmt.Fprintln(os.Stdout, "  sila decision check [--fail-on-open] [--fail-on-deferred]")
 }
 
 func parseOptionString(s string) *store.DecisionOption {

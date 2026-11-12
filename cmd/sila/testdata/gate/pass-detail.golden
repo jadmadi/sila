@@ -1,0 +1,8 @@
+sila · gate (pre-commit)
+  ✔ PASS tests
+    go test ./cmd/sila passed in 1.2s
+  ✔ PASS format
+    all files are gofmt clean
+  ✔ PASS changelog
+    CHANGELOG.md has an [Unreleased] entry
+✔ all pre-commit checks pass (<3s fast path). Full race/SLSA checks deferred to pre-push.

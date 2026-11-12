@@ -3,7 +3,11 @@ package loaders
 import (
 	"database/sql"
 	"encoding/json"
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	_ "modernc.org/sqlite"
 )
@@ -354,4 +358,76 @@ func mustSchema(t *testing.T) *sql.DB {
 	mustExec(t, db, `CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, data TEXT, time_created INTEGER)`)
 	mustExec(t, db, `CREATE TABLE part (id TEXT PRIMARY KEY, message_id TEXT, session_id TEXT, data TEXT)`)
 	return db
+}
+
+func seedOpenCodeStore(t *testing.T, path, text string, ts int64) {
+	t.Helper()
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	db, err := sql.Open("sqlite", path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	queries := []string{
+		`CREATE TABLE session (id TEXT PRIMARY KEY, directory TEXT)`,
+		`CREATE TABLE message (id TEXT PRIMARY KEY, session_id TEXT, time_created INTEGER, data TEXT)`,
+		`CREATE TABLE part (message_id TEXT, data TEXT)`,
+		`INSERT INTO session (id, directory) VALUES ('s1', '/work/proj')`,
+		fmt.Sprintf(`INSERT INTO message (id, session_id, time_created, data) VALUES ('m1', 's1', %d, '{"role":"user"}')`, ts),
+		fmt.Sprintf(`INSERT INTO part (message_id, data) VALUES ('m1', '{"type":"text","text":"%s"}')`, text),
+	}
+	for _, query := range queries {
+		if _, err := db.Exec(query); err != nil {
+			t.Fatalf("%s: %v", query, err)
+		}
+	}
+}
+
+func TestOpenCodeFlatpakXDGAndWALDiscovery(t *testing.T) {
+	home := t.TempDir()
+	xdg := t.TempDir()
+	native := filepath.Join(home, ".local", "share", "opencode", "opencode.db")
+	flatpak := filepath.Join(home, ".var", "app", "ai.opencode.opencode", "data", "opencode", "opencode.db")
+	xdgDB := filepath.Join(xdg, "opencode", "opencode.db")
+	seedOpenCodeStore(t, native, "native", 1000)
+	seedOpenCodeStore(t, flatpak, "flatpak", 2000)
+	seedOpenCodeStore(t, xdgDB, "xdg", 3000)
+	t.Setenv("HOME", home)
+	t.Setenv("XDG_DATA_HOME", xdg)
+
+	paths := OpenCodeDBPaths(home)
+	if len(paths) != 3 {
+		t.Fatalf("OpenCodeDBPaths = %v, want native, Flatpak, and XDG", paths)
+	}
+
+	wal := flatpak + "-wal"
+	if err := os.WriteFile(wal, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	future := time.Now().Add(time.Hour)
+	if err := os.Chtimes(wal, future, future); err != nil {
+		t.Fatal(err)
+	}
+	paths = OpenCodeDBPaths(home)
+	if len(paths) == 0 || paths[0] != flatpak {
+		t.Fatalf("WAL mtime did not win: %v", paths)
+	}
+
+	loader := NewOpenCodeLoader("")
+	msgs, _, err := loader.Load("", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(msgs) != 3 {
+		t.Fatalf("Load returned %d messages, want 3", len(msgs))
+	}
+	count, err := loader.Count(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 3 {
+		t.Fatalf("Count = %d, want 3", count)
+	}
 }

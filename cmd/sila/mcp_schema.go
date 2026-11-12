@@ -5,15 +5,22 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"github.com/jadmadi/sila/internal/mcp"
 )
 
 // runMCPSchema prints the canonical MCP tool registry, optionally limited to
 // one tool. It does not open the store or start a server.
-func runMCPSchema(toolName string, jsonOut bool) int {
-	tools := mcp.ToolDefinitions()
-	sort.Slice(tools, func(i, j int) bool { return tools[i].Name < tools[j].Name })
+func runMCPSchema(toolName, profile string, jsonOut bool) int {
+	profile = strings.TrimSpace(profile)
+	if profile == "" {
+		profile = mcp.ProfileContinuity
+	}
+	tools := mcp.FilterToolsByProfile(mcp.ToolDefinitions(), profile)
+	if !strings.EqualFold(profile, mcp.ProfileContinuity) || toolName != "" {
+		sort.Slice(tools, func(i, j int) bool { return tools[i].Name < tools[j].Name })
+	}
 	if toolName != "" {
 		filtered := tools[:0]
 		for _, tool := range tools {

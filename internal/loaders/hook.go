@@ -35,8 +35,11 @@ const (
 // MaxHookPayloadBytes is the hard ceiling on individual hook payloads (16 KiB).
 const MaxHookPayloadBytes = 16 * 1024
 
-// ErrPayloadTooLarge is returned when inbound hook payload exceeds 16 KiB.
-var ErrPayloadTooLarge = errors.New("hook payload exceeds 16 KiB limit")
+// MaxToolHookPayloadBytes is the ceiling for CLI tool envelopes (4 MiB).
+const MaxToolHookPayloadBytes = 4 * 1024 * 1024
+
+// ErrPayloadTooLarge is returned when inbound hook payload exceeds its limit.
+var ErrPayloadTooLarge = errors.New("hook payload exceeds size limit")
 
 var (
 	homeUnixRE    = regexp.MustCompile(`/(?:home|Users)/[a-zA-Z0-9_\.\-]+`)
@@ -108,7 +111,22 @@ func ParseHookEnvelope(data []byte) (*HookEnvelope, error) {
 	if len(data) > MaxHookPayloadBytes {
 		return nil, ErrPayloadTooLarge
 	}
+	return parseHookEnvelope(data)
+}
 
+// ParseHookEnvelopeWithLimit parses a tool envelope up to maxBytes. It exists
+// for CLI stdin, where file writes legitimately exceed the HTTP 16 KiB ceiling.
+func ParseHookEnvelopeWithLimit(data []byte, maxBytes int) (*HookEnvelope, error) {
+	if maxBytes <= 0 {
+		maxBytes = MaxToolHookPayloadBytes
+	}
+	if len(data) > maxBytes {
+		return nil, ErrPayloadTooLarge
+	}
+	return parseHookEnvelope(data)
+}
+
+func parseHookEnvelope(data []byte) (*HookEnvelope, error) {
 	var raw map[string]interface{}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return nil, fmt.Errorf("parse hook json: %w", err)
@@ -306,6 +324,63 @@ func scrubMap(m map[string]interface{}) map[string]interface{} {
 		}
 	}
 	return out
+}
+
+// TruncateToolHookEnvelope reduces a large tool envelope to its routing keys
+// so a background spool copy stays within maxBytes. The full envelope is still
+// parsed and scanned before this runs.
+func TruncateToolHookEnvelope(data []byte, maxBytes int) []byte {
+	if len(data) <= maxBytes {
+		return data
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return []byte(`{"truncated":true}`)
+	}
+	keep := []string{
+		"session_id", "sessionId", "transcript_path", "cwd",
+		"hook_event_name", "hookEventName", "tool_name", "toolName",
+	}
+	out := make(map[string]json.RawMessage, len(keep)+1)
+	for _, key := range keep {
+		if value, ok := raw[key]; ok {
+			out[key] = value
+		}
+	}
+	out["truncated"] = json.RawMessage(`true`)
+	encoded, err := json.Marshal(out)
+	if err != nil || len(encoded) > maxBytes {
+		return []byte(`{"truncated":true}`)
+	}
+	return encoded
+}
+
+// IsUnparsedToolInputWrapper reports whether tool arguments are a replayed
+// {raw, len} or __unparsedToolInput wrapper instead of documented arguments.
+func IsUnparsedToolInputWrapper(toolInput map[string]any) bool {
+	if toolInput == nil {
+		return false
+	}
+	if _, ok := toolInput["__unparsedToolInput"]; ok {
+		return true
+	}
+	if len(toolInput) != 2 {
+		return false
+	}
+	_, hasRaw := toolInput["raw"]
+	_, hasLen := toolInput["len"]
+	return hasRaw && hasLen
+}
+
+// ContainsSecret reports whether text carries a recognizable credential.
+func ContainsSecret(text string) bool {
+	if text == "" {
+		return false
+	}
+	return pemKeyRE.MatchString(text) || ghTokenRE.MatchString(text) ||
+		bearerRE.MatchString(text) || apiKeyRE.MatchString(text) ||
+		paramSecretRE.MatchString(text) || awsKeyRE.MatchString(text) ||
+		jwtRE.MatchString(text)
 }
 
 func generateRandomID(prefix string) string {

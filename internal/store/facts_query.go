@@ -281,7 +281,7 @@ func (s *Store) ListFactsByKind(kind, projectSel string, since time.Time, limit 
 			return nil, nil
 		}
 	}
-	q := `SELECT ` + selectFactsFields + ` FROM facts WHERE `
+	q := `SELECT ` + selectFactsFields + ` FROM facts WHERE COALESCE(review_status, '') != 'archived' AND `
 	var args []any
 	switch kind {
 	case "memo":
@@ -389,6 +389,9 @@ func (s *Store) TopFactsForProject(projectSel string, limit int) ([]Fact, error)
 	now := time.Now().UTC()
 	params := DefaultDecayParams()
 	sort.SliceStable(authority, func(i, j int) bool {
+		if ri, rj := MaturityRank(authority[i].MaturityTier), MaturityRank(authority[j].MaturityTier); ri != rj {
+			return ri < rj
+		}
 		ri := CalculateFactRetention(authority[i], now, params)
 		rj := CalculateFactRetention(authority[j], now, params)
 		if math.Abs(ri-rj) > 1e-4 {
@@ -397,6 +400,9 @@ func (s *Store) TopFactsForProject(projectSel string, limit int) ([]Fact, error)
 		return authority[i].FirstSeen > authority[j].FirstSeen
 	})
 	sort.SliceStable(claims, func(i, j int) bool {
+		if ri, rj := MaturityRank(claims[i].MaturityTier), MaturityRank(claims[j].MaturityTier); ri != rj {
+			return ri < rj
+		}
 		ri := CalculateFactRetention(claims[i], now, params)
 		rj := CalculateFactRetention(claims[j], now, params)
 		if math.Abs(ri-rj) > 1e-4 {

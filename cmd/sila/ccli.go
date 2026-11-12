@@ -77,6 +77,9 @@ func applyCCLIDispatch(osArgs []string) []string {
 		return osArgs
 	}
 	rest := osArgs[1:]
+	if len(rest) >= 2 && rest[0] == "goals" && rest[1] == "merge-slot" {
+		return osArgs
+	}
 	firstPosIdx := -1
 	hasLeadingNoCCLI, hasLeadingNoColor := false, false
 	for i := 0; i < len(rest); i++ {

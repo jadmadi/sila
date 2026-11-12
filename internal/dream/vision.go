@@ -297,7 +297,7 @@ func hasSemanticConflict(prop, nonGoal string) bool {
 		propKeywords    []string
 		nonGoalKeywords []string
 	}{
-		{[]string{"postgres", "postgresql", "mysql", "cockroach", "cloud db", "mongo"}, []string{"pure-go", "sqlite only", "no cloud db", "no external db"}},
+		{[]string{"postgres", "postgresql", "mysql", "cockroach", "cloud db", "mongo"}, []string{"pure-go", "sqlite only", "no cloud db", "no external db", "cloud database", "cloud dependency", "no cloud"}},
 		{[]string{"cgo", "c library", "node-gyp", "native c"}, []string{"pure-go", "cgo_enabled=0", "no cgo", "zero cgo"}},
 		{[]string{"telemetry", "tracking", "phone home", "analytics"}, []string{"reads content, not telemetry", "no telemetry", "privacy", "local only"}},
 		{[]string{"daemon", "background service", "systemd", "server process"}, []string{"standalone binary", "cli tool", "no daemon", "ephemeral"}},
@@ -321,17 +321,150 @@ func hasSemanticConflict(prop, nonGoal string) bool {
 		}
 	}
 
-	// Lexical token check
-	nonGoalTokens := strings.FieldsSeq(nonGoal)
-	for tok := range nonGoalTokens {
-		tok = strings.Trim(tok, "(),.:;\"'")
-		if len(tok) > 4 && !isStopWord(tok) {
-			if strings.Contains(prop, tok) && (strings.Contains(nonGoal, "no ") || strings.Contains(nonGoal, "never") || strings.Contains(nonGoal, "not ")) {
-				return true
+	// Negation-aware concept matching. A non-goal that forbids a concept is
+	// violated only when the proposal shares the concept, carries an action
+	// that introduces it, and names the same location the non-goal scopes.
+	// This catches "raw SQL ... in the checkout handler" without rejecting a
+	// compliant "parameterized SQL through the repository layer".
+	if sharesForbiddenConcept(prop, nonGoal) {
+		return true
+	}
+
+	return false
+}
+
+var (
+	negationWords  = []string{"no", "not", "never", "avoid", "forbid", "without", "zero"}
+	violationVerbs = []string{
+		"add", "introduce", "implement", "support", "enable", "allow",
+		"raw", "inline", "hardcoded", "hardcode", "manual", "direct",
+		"bypass", "skip", "disable", "remove", "replace", "unparameterized",
+		"concatenate", "concatenation", "adhoc", "ad-hoc",
+		"require", "depend", "rely", "force", "mandate",
+		"store", "persist", "save", "send", "write", "host", "deploy", "migrate",
+	}
+	locationWords = []string{
+		"handler", "route", "controller", "endpoint", "frontend", "ui",
+		"service", "daemon", "binary", "cli", "shell",
+	}
+)
+
+// sharesForbiddenConcept reports whether a proposal violates a negated
+// non-goal by sharing its concept, adding an action that introduces it, and
+// naming the same scoped location.
+func sharesForbiddenConcept(prop, nonGoal string) bool {
+	if !hasNegation(nonGoal) {
+		return false
+	}
+	propTokens := contentTokens(prop)
+	goalTokens := contentTokens(nonGoal)
+	if len(propTokens) == 0 || len(goalTokens) == 0 {
+		return false
+	}
+	shared := 0
+	for tok := range propTokens {
+		if goalTokens[tok] {
+			shared++
+		}
+	}
+	if shared < 2 {
+		return false
+	}
+	if !containsToken(rawTokens(prop), violationVerbs) {
+		return false
+	}
+	// If the non-goal scopes the ban to a location, the proposal must name the
+	// same location. This keeps a migration in the repository layer clear of a
+	// ban on raw SQL in route handlers.
+	goalScoped, propScoped := false, false
+	for _, loc := range locationWords {
+		if goalTokens[loc] {
+			goalScoped = true
+			if propTokens[loc] {
+				propScoped = true
 			}
 		}
 	}
+	if goalScoped && !propScoped {
+		return false
+	}
+	return true
+}
 
+// hasNegation reports whether the text carries an explicit negative marker.
+func hasNegation(s string) bool {
+	for _, word := range negationWords {
+		if strings.Contains(" "+s+" ", " "+word+" ") {
+			return true
+		}
+	}
+	return false
+}
+
+// rawTokens keeps stop words so an action verb such as "store" still counts
+// as a violation signal.
+func rawTokens(s string) map[string]bool {
+	out := map[string]bool{}
+	for _, raw := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && r != '-' && r != '_'
+	}) {
+		raw = strings.Trim(raw, "-_")
+		if raw == "" {
+			continue
+		}
+		out[singularize(raw)] = true
+	}
+	return out
+}
+
+// contentTokens lowercases, splits, drops stop words, and singularizes words so
+// "handlers" matches "handler" and "dependencies" matches "dependency".
+func contentTokens(s string) map[string]bool {
+	out := map[string]bool{}
+	for _, raw := range strings.FieldsFunc(strings.ToLower(s), func(r rune) bool {
+		return !(r >= 'a' && r <= 'z') && !(r >= '0' && r <= '9') && r != '-' && r != '_'
+	}) {
+		raw = strings.Trim(raw, "-_")
+		if len(raw) < 3 || isStopWord(raw) || isNegationWord(raw) {
+			continue
+		}
+		out[singularize(raw)] = true
+	}
+	return out
+}
+
+func isNegationWord(w string) bool {
+	for _, n := range negationWords {
+		if w == n {
+			return true
+		}
+	}
+	return false
+}
+
+func singularize(w string) string {
+	switch {
+	case strings.HasSuffix(w, "ies") && len(w) > 4:
+		return w[:len(w)-3] + "y"
+	case strings.HasSuffix(w, "sses") && len(w) > 4:
+		return w[:len(w)-2]
+	case strings.HasSuffix(w, "ches"), strings.HasSuffix(w, "shes"),
+		strings.HasSuffix(w, "xes"), strings.HasSuffix(w, "zes"):
+		return w[:len(w)-2]
+	case strings.HasSuffix(w, "s") && !strings.HasSuffix(w, "ss") &&
+		!strings.HasSuffix(w, "us") && !strings.HasSuffix(w, "is") && len(w) > 3:
+		return w[:len(w)-1]
+	default:
+		return w
+	}
+}
+
+func containsToken(tokens map[string]bool, words []string) bool {
+	for _, w := range words {
+		if tokens[singularize(w)] {
+			return true
+		}
+	}
 	return false
 }
 

@@ -417,7 +417,7 @@ func TestConsolidateFactsKeepsIdAlignedWithClaim(t *testing.T) {
 
 func TestIsDirectiveRecallDecorated(t *testing.T) {
 	directives := []string{
-		"- **Decision:** recommend example.com as the primary domain due to alignment with the brand",
+		"- **Decision:** recommend example.org as the primary domain due to alignment with the brand",
 		"Architecture decision: the Sector Layout Engine uses a config-driven LayoutProfile and migration 0063",
 		"### Key Decision: convert magic-link-request.ts to a constant conversion",
 		"Decision: store each project's full settings, logframe, okr, and mou payload as JSONB",

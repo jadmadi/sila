@@ -635,3 +635,33 @@ func TestReportGoalCheckpoint(t *testing.T) {
 		t.Errorf("checkpoint was unexpectedly modified by note update: %+v", finalCP)
 	}
 }
+
+func TestGoalStopAtTask(t *testing.T) {
+	slug := "test-stop-at-cli"
+	agent := "antigravity"
+	dir, _ := setupCLIResumeFixture(t, slug, agent)
+
+	out, stderr, code := runResumeCLI(t, dir, agent, true, "checkpoint", slug, "--stop-at=T-001")
+	if code != 0 {
+		t.Fatalf("stop-at exit %d stderr=%s out=%s", code, stderr, out)
+	}
+	claim, err := goals.LoadGoalClaim(dir, slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claim.StopAtTaskID != "T-001" {
+		t.Fatalf("stop_at_task_id = %q, want T-001", claim.StopAtTaskID)
+	}
+
+	out, stderr, code = runResumeCLI(t, dir, agent, true, "checkpoint", slug, "--clear-stop")
+	if code != 0 {
+		t.Fatalf("clear-stop exit %d stderr=%s out=%s", code, stderr, out)
+	}
+	claim, err = goals.LoadGoalClaim(dir, slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if claim.StopAtTaskID != "" {
+		t.Fatalf("stop_at_task_id = %q after clear, want empty", claim.StopAtTaskID)
+	}
+}

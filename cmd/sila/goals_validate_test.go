@@ -69,6 +69,7 @@ func TestCLICreateAndUpdateSpecReview(t *testing.T) {
 	stdout, stderr, code := runGoalsClosureCLI(t, dir,
 		"goals", "--project="+dir, "create", slug,
 		"--work-package=work-package.json",
+		"--files=README.md",
 		"--spec-review=spec-review.json",
 		"--json",
 	)

@@ -1,0 +1,36 @@
+postgres://user:pw01@db.local/app
+postgres://user:pw02@db.local/app
+postgres://user:pw03@db.local/app
+postgres://user:pw04@db.local/app
+postgres://user:pw05@db.local/app
+postgres://user:pw06@db.local/app
+postgres://user:pw07@db.local/app
+postgres://user:pw08@db.local/app
+postgres://user:pw09@db.local/app
+postgres://user:pw10@db.local/app
+postgres://user:pw11@db.local/app
+postgres://user:pw12@db.local/app
+password=pw01
+password=pw02
+password=pw03
+password=pw04
+password=pw05
+password=pw06
+password=pw07
+password=pw08
+password=pw09
+password=pw10
+password=pw11
+password=pw12
+echo $KEY01 | wrangler secret put
+echo $KEY02 | wrangler secret put
+echo $KEY03 | wrangler secret put
+echo $KEY04 | wrangler secret put
+echo $KEY05 | wrangler secret put
+echo $KEY06 | wrangler secret put
+API_KEY=value01
+API_KEY=value02
+API_KEY=value03
+API_KEY=value04
+API_KEY=value05
+API_KEY=value06

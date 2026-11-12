@@ -52,7 +52,7 @@ func PathRefs(text, dir string) []string {
 			continue
 		}
 
-		// P4: Fix absolute path prefixes mangled with leading chars (e.g. n/workspace/sila/... -> /workspace/sila/...)
+		// P4: Fix absolute path prefixes mangled with leading chars (e.g. n/workspace/... -> /workspace/...)
 		if idx := strings.Index(tok, "/mnt/"); idx > 0 {
 			tok = tok[idx:]
 		} else if idx := strings.Index(tok, "/home/"); idx > 0 {

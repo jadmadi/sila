@@ -2,8 +2,13 @@
   "source": "conformance-marker",
   "reason": "Pinned public MCP contract; update deliberately when the schema or continuity surface changes.",
   "schema": "sila/mcp-schema/v1",
-  "schema_digest": "sha256:90680696d9b4666599cd1163e6506d49c724087d02c0c25ac6e33f9266073937",
-  "tool_count": 76,
-  "continuity_tool_count": 36,
-  "request": {"jsonrpc": "2.0", "id": 9, "method": "tools/list", "params": {}}
+  "schema_digest": "sha256:c37f3a1ee656f777f98a3279e91534677a4ddd9725a82f15a21f00272abafb83",
+  "tool_count": 90,
+  "continuity_tool_count": 10,
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 9,
+    "method": "tools/list",
+    "params": {}
+  }
 }

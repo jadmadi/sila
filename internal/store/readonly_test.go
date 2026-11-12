@@ -186,8 +186,8 @@ func TestOpenRO_ReadOnlyFilesystem(t *testing.T) {
 	if err := roSt.DB.QueryRow("PRAGMA user_version").Scan(&uv); err != nil {
 		t.Fatalf("PRAGMA user_version failed: %v", err)
 	}
-	if uv != len(migrations) {
-		t.Fatalf("expected user_version=%d, got %d", len(migrations), uv)
+	if uv != CurrentSchemaVersion() {
+		t.Fatalf("expected user_version=%d, got %d", CurrentSchemaVersion(), uv)
 	}
 }
 
@@ -674,8 +674,8 @@ func TestOpenRO_AllInspectionQueriesOnReadOnlyStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SchemaVersion failed: %v", err)
 	}
-	if v != len(migrations) {
-		t.Errorf("expected schema version %d, got %d", len(migrations), v)
+	if v != CurrentSchemaVersion() {
+		t.Errorf("expected schema version %d, got %d", CurrentSchemaVersion(), v)
 	}
 
 	// 5. Query Stats

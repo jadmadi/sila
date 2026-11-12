@@ -5,6 +5,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/jadmadi/sila/internal/config"
 	"github.com/jadmadi/sila/internal/store"
 )
 
@@ -27,6 +28,10 @@ func NewServer(st *store.Store, in io.Reader, out io.Writer) *Server {
 	if sessionID == "" {
 		sessionID = GenerateSessionID()
 		source = "mcp-process"
+	}
+	if cfg, err := config.Load(""); err == nil && cfg != nil {
+		idfVeto, _, _ := cfg.RetrievalSettings()
+		store.SetIDFVetoEnabled(idfVeto)
 	}
 	return &Server{store: st, in: in, out: out, sessionID: sessionID, sessionSource: source}
 }

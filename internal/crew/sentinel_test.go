@@ -78,6 +78,9 @@ func TestSentinelOrchestrator_ApprovedVictory(t *testing.T) {
 }
 
 func TestSentinelOrchestrator_SelfCertificationRejectionAndBoundedRetries(t *testing.T) {
+	if !tmuxAvailable() {
+		t.Skip("tmux required for this spawn behavior")
+	}
 	dir := setupCrewRepo(t)
 	mgr, err := NewCrewManager(dir)
 	if err != nil {

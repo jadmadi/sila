@@ -206,3 +206,72 @@ func (m *Manager) InstallGateRemote(remoteName string) (string, error) {
 	}
 	return remoteName, nil
 }
+
+// InstallPostCommitHook installs a managed post-commit hook that records a
+// commit receipt. A foreign hook is preserved and reported as ErrForeignHook.
+func (m *Manager) InstallPostCommitHook() (string, error) {
+	hooksDir := filepath.Join(m.repoRoot, ".git", "hooks")
+	if err := os.MkdirAll(hooksDir, 0755); err != nil {
+		return "", fmt.Errorf("mkdir hooks: %w", err)
+	}
+	hookPath := filepath.Join(hooksDir, "post-commit")
+	if data, err := os.ReadFile(hookPath); err == nil && !strings.Contains(string(data), "Installed by sila") {
+		return "", ErrForeignHook
+	}
+	script := `#!/bin/sh
+# Installed by sila gate install --post-commit
+# Records a local commit-to-session receipt; never mutates the commit.
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+if [ -n "$REPO_ROOT" ] && [ -d "$REPO_ROOT" ]; then
+    cd "$REPO_ROOT"
+fi
+unset GIT_DIR GIT_WORK_TREE GIT_INDEX_FILE GIT_PREFIX
+export PATH="$HOME/.local/bin:/usr/local/bin:$PATH"
+if command -v sila >/dev/null 2>&1; then
+    SILABIN="sila"
+elif [ -x "./.bin/sila" ]; then
+    SILABIN="./.bin/sila"
+elif [ -x "./sila" ]; then
+    SILABIN="./sila"
+elif command -v go >/dev/null 2>&1 && [ -f "./cmd/sila/main.go" ]; then
+    SILABIN="go run ./cmd/sila"
+else
+    SILABIN="sila"
+fi
+$SILABIN hook commit >/dev/null 2>&1 || true
+`
+	if err := os.WriteFile(hookPath, []byte(script), 0755); err != nil {
+		return "", fmt.Errorf("write post-commit hook: %w", err)
+	}
+	return hookPath, nil
+}
+
+// HookStatus describes one managed hook.
+type HookStatus struct {
+	Name      string `json:"name"`
+	Path      string `json:"path"`
+	Installed bool   `json:"installed"`
+	Current   bool   `json:"current"`
+	Owned     bool   `json:"owned"`
+}
+
+// ManagedHookStatus inspects a hook without changing it.
+func (m *Manager) ManagedHookStatus(name string) HookStatus {
+	status := HookStatus{Name: name, Path: filepath.Join(m.repoRoot, ".git", "hooks", name)}
+	data, err := os.ReadFile(status.Path)
+	if err != nil {
+		return status
+	}
+	status.Installed = true
+	text := string(data)
+	status.Owned = strings.Contains(text, "Installed by sila")
+	switch name {
+	case "post-commit":
+		status.Current = status.Owned && strings.Contains(text, "hook commit")
+	case "pre-commit":
+		status.Current = status.Owned && strings.Contains(text, "gate --pre-commit")
+	case "pre-push":
+		status.Current = status.Owned && strings.Contains(text, "gate pipeline")
+	}
+	return status
+}

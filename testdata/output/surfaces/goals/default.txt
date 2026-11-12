@@ -27,4 +27,4 @@ sila · goals · repo — Goals Audit & Roadmap Matrix
 Legend: 🚢 ship · 🗺️ roadmap · 🎯 immediate · ⚡ independent · 🔗 dependent · 🔒 claimed · ▶ ready
 ---------------------------------------------------------------
 
-✨ Auto-synced goals/README.md (0 implemented [0 verified, 0 unverified], 0 claimed, 1 pending)
+✨ Auto-synced goals/README.md (0 implemented [0 verified, 0 unbound, 0 unverified], 0 claimed, 1 pending)

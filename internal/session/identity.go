@@ -11,6 +11,8 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/jadmadi/sila/internal/proclive"
 )
 
 // Identity is the local, non-telemetry identity attached to writes and hooks.
@@ -25,6 +27,7 @@ type Identity struct {
 	Source          string `json:"source"` // flag|env|current-file|global-current|none
 	Cwd             string `json:"cwd"`
 	PID             int    `json:"pid"`
+	PIDStartTicks   int64  `json:"pid_start_ticks,omitempty"`
 }
 
 const currentValidity = 24 * time.Hour
@@ -155,6 +158,9 @@ func ResolveIdentity(explicitSession, projectID, cwd string) (Identity, error) {
 		Cwd:        abs,
 		PID:        os.Getpid(),
 		Source:     "none",
+	}
+	if chain, chainErr := proclive.Ancestry(id.PID, 1); chainErr == nil && len(chain) > 0 {
+		id.PIDStartTicks = chain[0].StartTicks
 	}
 	if explicitSession = strings.TrimSpace(explicitSession); explicitSession != "" {
 		id.SessionID = explicitSession

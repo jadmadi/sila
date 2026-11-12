@@ -161,6 +161,7 @@ type AuditReceipt struct {
 	ProbesExecuted     int       `json:"probes_executed"`
 	ProbesPassed       int       `json:"probes_passed"`
 	ProbeManifestHash  string    `json:"probe_manifest_hash"`
+	WaiverSummary      string    `json:"waiver_summary,omitempty"`
 	AuditorPubKey      string    `json:"auditor_pub_key"`
 	AuditorSignature   string    `json:"auditor_signature"`
 	CertifiedAt        time.Time `json:"certified_at"`
@@ -176,6 +177,7 @@ type DefectDossier struct {
 	ExpectedBehavior  string    `json:"expected_behavior"`
 	ActualBehavior    string    `json:"actual_behavior"`
 	StderrSnippet     string    `json:"stderr_snippet"`
+	StdoutSnippet     string    `json:"stdout_snippet,omitempty"`
 	RemediationAdvice string    `json:"remediation_advice"`
 	Timestamp         time.Time `json:"timestamp"`
 }

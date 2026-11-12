@@ -127,6 +127,8 @@ func BuildScrubbedEnvironment(homeDir, cacheDir string) []string {
 		"LC_ALL=C",
 		"SILA_INTEGRITY_MODE=benchmark",
 		"SILA_BLINDFOLD_AUDIT=1",
+		"GOFLAGS=-p=2",
+		"SILA_NO_TMUX=1",
 		"SILA_STORE_PATH=:memory:",
 	}
 	hostModCache := os.Getenv("GOMODCACHE")

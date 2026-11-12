@@ -41,11 +41,11 @@ func TestCLIDoctorAndSearch(t *testing.T) {
 	st.Close()
 
 	// Test Doctor
-	runDoctor(ui, dbPath, p.ID, false, true, false, false, false, false, false, false)
-	runDoctor(ui, dbPath, p.ID, true, true, false, false, false, false, false, false)
-	runDoctor(ui, dbPath, p.ID, false, true, false, true, false, false, false, false)
-	runDoctor(ui, dbPath, p.ID, false, true, false, false, true, false, false, false)
-	runDoctor(ui, dbPath, p.ID, false, true, false, false, false, true, false, false)
+	runDoctor(ui, dbPath, p.ID, false, false, true, false, false, false, false, false, false)
+	runDoctor(ui, dbPath, p.ID, true, false, true, false, false, false, false, false, false)
+	runDoctor(ui, dbPath, p.ID, false, false, true, false, true, false, false, false, false)
+	runDoctor(ui, dbPath, p.ID, false, false, true, false, false, true, false, false, false)
+	runDoctor(ui, dbPath, p.ID, false, false, true, false, false, false, true, false, false)
 
 	// Test Omni search
 	runSearch(ui, dbPath, p.ID, "", "", time.Time{}, true, false, true, 3, 0, false, false, false, true, false, false, 10, []string{"sqlite"})
@@ -91,7 +91,7 @@ func TestCLIDoctorAndSearch(t *testing.T) {
 	runFeedback(ui, dbPath, p.ID, "antigravity", "tip", "", "", "", "", true, 10, false, true, false, false, false, false, []string{"closed"})
 
 	// Test Goals lifecycle: create, claim, touch, report, update, depend, ready, independent, release, pending
-	runGoals(ui, dbPath, tmp, "antigravity", "", "", "", false, false, "", "CLI Goal", "Testing CLI goals", "", "", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"create", "cli-goal"})
+	runGoals(ui, dbPath, tmp, "antigravity", "", "", "", false, false, "", "CLI Goal", "Testing CLI goals", "", "internal/cli/cli_goal.go", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"create", "cli-goal"})
 	runGoals(ui, dbPath, tmp, "antigravity", "starting goal", "", "", false, false, "", "", "", "", "", 0, false, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"claim", "cli-goal"})
 	runGoals(ui, dbPath, tmp, "antigravity", "", "", "", false, false, "", "", "", "", "", 0, false, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"touch", "cli-goal"})
 	runGoals(ui, dbPath, tmp, "antigravity", "50% done", "evaluating", "", false, false, "", "", "", "", "", 0, false, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{"report", "cli-goal"})
@@ -194,7 +194,7 @@ func TestScopedGoalsCLICommands(t *testing.T) {
 	st.Close()
 
 	// 1. Scoped create: sila goals <project> create scoped-goal
-	runGoals(ui, dbPath, "", "antigravity", "", "", "", false, false, "", "Scoped Goal", "Testing scoped goals", "", "", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{p.ID, "create", "scoped-goal"})
+	runGoals(ui, dbPath, "", "antigravity", "", "", "", false, false, "", "Scoped Goal", "Testing scoped goals", "", "internal/scoped/scoped_goal.go", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{p.ID, "create", "scoped-goal"})
 
 	// 2. Scoped claim: sila goals <project> claim scoped-goal
 	runGoals(ui, dbPath, "", "antigravity", "claiming scoped", "", "", false, false, "", "", "", "", "", 0, false, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{p.ID, "claim", "scoped-goal"})
@@ -344,8 +344,8 @@ func TestChallenger_ScopedGoalsCLIErrorAndBlockerHandling(t *testing.T) {
 	st.Close()
 
 	// Create root and dependent goals
-	runGoals(ui, dbPath, "", "antigravity", "", "", "", false, false, "", "Root Goal", "Root", "", "", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{p.ID, "create", "cli-root"})
-	runGoals(ui, dbPath, "", "antigravity", "", "", "", false, false, "", "Dep Goal", "Dep", "cli-root", "", 2, false, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{p.ID, "create", "cli-dep"})
+	runGoals(ui, dbPath, "", "antigravity", "", "", "", false, false, "", "Root Goal", "Root", "", "internal/root/root_goal.go", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{p.ID, "create", "cli-root"})
+	runGoals(ui, dbPath, "", "antigravity", "", "", "", false, false, "", "Dep Goal", "Dep", "cli-root", "internal/dep/dep_goal.go", 2, false, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{p.ID, "create", "cli-dep"})
 
 	// Claim root
 	runGoals(ui, dbPath, "", "antigravity", "starting root", "", "", false, false, "", "", "", "", "", 0, false, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false, []string{p.ID, "claim", "cli-root"})

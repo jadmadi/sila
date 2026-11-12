@@ -14,9 +14,11 @@ import (
 	"github.com/jadmadi/sila/internal/assess"
 	"github.com/jadmadi/sila/internal/assist"
 	"github.com/jadmadi/sila/internal/clean"
+	"github.com/jadmadi/sila/internal/daemon"
 	"github.com/jadmadi/sila/internal/debt"
 	silagate "github.com/jadmadi/sila/internal/gate"
 	"github.com/jadmadi/sila/internal/heal"
+	"github.com/jadmadi/sila/internal/importmem"
 	"github.com/jadmadi/sila/internal/mcp"
 	"github.com/jadmadi/sila/internal/memory"
 	"github.com/jadmadi/sila/internal/render"
@@ -27,7 +29,7 @@ import (
 var doctorMemory bool
 var doctorAdoption bool
 
-func runDoctor(ui render.UI, dbPath, project string, repair, jsonOut, toonOut, skills, covenant, edge, debtFlag, mcpOnly bool) {
+func runDoctor(ui render.UI, dbPath, project string, repair, dryRun, jsonOut, toonOut, skills, covenant, edge, debtFlag, mcpOnly bool) {
 	if doctorAdoption {
 		st, _, err := openReadStore(dbPath)
 		if err != nil {
@@ -87,12 +89,17 @@ func runDoctor(ui render.UI, dbPath, project string, repair, jsonOut, toonOut, s
 		rep := &store.DoctorReport{Timestamp: time.Now().UTC()}
 		appendMCPFreshnessCheck(rep)
 		bridge := buildMCPBridgeDiagnostic(os.Getenv("HOME"))
+		daemonReport := daemon.RunMCPDoctor(daemon.MCPDoctorOptions{Repair: repair, DryRun: dryRun})
 		if jsonOut || toonOut {
 			emitJSON(map[string]any{
 				"freshness": rep.MCP,
 				"bridge":    bridge,
 				"checks":    rep.Checks,
+				"mcp":       daemonReport,
 			})
+			if !daemonReport.Healthy && !repair {
+				os.Exit(1)
+			}
 			return
 		}
 		fmt.Fprintf(os.Stdout, "%s\n", ui.Cyan(ui.Bold("sila · doctor (MCP)")))
@@ -103,6 +110,17 @@ func runDoctor(ui render.UI, dbPath, project string, repair, jsonOut, toonOut, s
 		fmt.Fprintf(os.Stdout, "  Schema digest:    %s\n", bridge.SchemaDigest)
 		fmt.Fprintf(os.Stdout, "  Expected envelope: %s\n", bridge.ExpectedEnvelope)
 		fmt.Fprintf(os.Stdout, "  Last proxy error:  %s\n", bridge.LastProxyError)
+		rows := make([][]string, 0, len(daemonReport.Checks))
+		for _, check := range daemonReport.Checks {
+			rows = append(rows, []string{check.Name, check.Status, check.Detail})
+		}
+		fmt.Fprint(os.Stdout, ui.Table([]string{"check", "status", "detail"}, rows, []string{"left", "left", "left"}))
+		for _, action := range daemonReport.Actions {
+			fmt.Fprintf(os.Stdout, "  action: %s\n", action)
+		}
+		if !daemonReport.Healthy && !repair {
+			os.Exit(1)
+		}
 		return
 	}
 	cwd, _ := os.Getwd()
@@ -170,6 +188,8 @@ func runDoctor(ui render.UI, dbPath, project string, repair, jsonOut, toonOut, s
 	appendRulesBudgetDoctorCheck(rep, cwd, repair)
 	appendDebtDoctorCheck(rep, cwd)
 	appendNegativeSignalsDoctorCheck(rep, st, project, cwd)
+	recallGateDoctorCheck(rep, targetDir)
+	appendImportManifestDoctorCheck(rep, cwd)
 
 	if jsonOut {
 		emitJSON(rep)
@@ -231,6 +251,37 @@ func runDoctor(ui render.UI, dbPath, project string, repair, jsonOut, toonOut, s
 }
 
 // runDoctorSkills executes the skill and MCP bloat audit and renders formatted tables and token estimates.
+func appendImportManifestDoctorCheck(rep *store.DoctorReport, cwd string) {
+	for _, c := range rep.Checks {
+		if c.Name == "Agent Memory Import Cache" {
+			return
+		}
+	}
+	if cwd == "" {
+		cwd, _ = os.Getwd()
+	}
+	status := importmem.ReadManifestStatus(cwd, time.Now().UTC())
+	switch {
+	case !status.Exists:
+		rep.AddCheck("Import", "Agent Memory Import Cache", store.StatusPass,
+			"No agent-memory import cache exists (optional).", "", "")
+	case status.Error != "":
+		rep.AddCheck("Import", "Agent Memory Import Cache", store.StatusWarn,
+			"The agent-memory import cache cannot be read.", status.Error,
+			"Remove .sila/state/import/manifest.json and re-run `sila import --yes`.")
+	case status.Stale:
+		rep.AddCheck("Import", "Agent Memory Import Cache", store.StatusWarn,
+			fmt.Sprintf("The agent-memory import cache is stale (%d entries).", status.Entries),
+			fmt.Sprintf("updated_at=%s", status.UpdatedAt),
+			"Re-run `sila import --yes` to refresh the cache.")
+	default:
+		rep.AddCheck("Import", "Agent Memory Import Cache", store.StatusPass,
+			fmt.Sprintf("Agent-memory import cache is current (%d entries).", status.Entries),
+			"", "")
+	}
+	rep.Finalize()
+}
+
 func runDoctorSkills(ui render.UI, st *store.Store, project string, jsonOut, toonOut bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()

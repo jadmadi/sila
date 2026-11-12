@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jadmadi/sila/internal/loaders"
 	"github.com/jadmadi/sila/internal/store"
 )
 
@@ -20,6 +21,14 @@ const SoakRequiredHours = 72.0
 // SoakRequiredActiveDays is the minimum number of distinct local dogfooding
 // calendar days with live telemetry required during the soak window.
 const SoakRequiredActiveDays = 3
+
+// SoakMinUsage is the minimum number of live telemetry events required during
+// the soak window. Days alone prove calendar time, not real exercise.
+const SoakMinUsage = 20
+
+// SoakMinHarnesses is the minimum number of distinct harnesses that must
+// exercise the build during the soak window.
+const SoakMinHarnesses = 2
 
 // SoakState represents the lifecycle state of the 3-day local dogfood soak.
 type SoakState string
@@ -55,6 +64,7 @@ type SoakToolFailure struct {
 type SoakOptions struct {
 	RepoDir       string
 	BaseTag       string
+	BaseTime      time.Time
 	DBPath        string
 	Now           time.Time
 	RequiredHours float64
@@ -78,12 +88,20 @@ type SoakReport struct {
 	ToolEventsTotal    int                            `json:"tool_events_total"`
 	ToolErrorCount     int                            `json:"tool_error_count"`
 	PrimeEventsTotal   int                            `json:"prime_events_total"`
+	HarnessCount       int                            `json:"harness_count"`
+	Harnesses          []string                       `json:"harnesses,omitempty"`
+	RequiredUsage      int                            `json:"required_usage"`
+	RequiredHarnesses  int                            `json:"required_harnesses"`
 	PrimeErrorCount    int                            `json:"prime_error_count"`
 	DiagnosticClusters int                            `json:"diagnostic_clusters"`
 	FailedTools        []SoakToolFailure              `json:"failed_tools,omitempty"`
 	PrimeErrors        []string                       `json:"prime_errors,omitempty"`
 	ClusterSummaries   []string                       `json:"cluster_summaries,omitempty"`
 	FeatureLedger      []store.FeatureSoakRecord      `json:"feature_ledger,omitempty"`
+	ReadyFeatures      int                            `json:"ready_features"`
+	SoakingFeatures    int                            `json:"soaking_features"`
+	DebugFeatures      int                            `json:"debug_features"`
+	ReadyThroughCommit string                         `json:"ready_through_commit,omitempty"`
 	DailyReports       []store.FeatureSoakDailyReport `json:"daily_reports,omitempty"`
 	Summary            string                         `json:"summary"`
 	DailyChecklist     []string                       `json:"daily_checklist,omitempty"`
@@ -91,12 +109,13 @@ type SoakReport struct {
 
 // EvaluateSoak inspects post-tag goal certifications, feature commits, and local
 // sila.db telemetry (tool_events, prime_events, diagnostic_clusters) to verify
-// the 3-day (72-hour) local dogfooding soak period.
+// independent 3-day (72-hour) per-feature local dogfooding soak timers.
 func EvaluateSoak(opts SoakOptions) SoakReport {
 	repoDir := opts.RepoDir
 	if repoDir == "" {
 		repoDir = ResolveGitRepoDir("")
 	}
+	repoDir = soakReleaseScope(repoDir)
 	now := opts.Now
 	if now.IsZero() {
 		now = time.Now().UTC()
@@ -114,38 +133,90 @@ func EvaluateSoak(opts SoakOptions) SoakReport {
 
 	baseTag := opts.BaseTag
 	if baseTag == "" {
-		baseTag = latestLocalTag(repoDir)
+		baseTag = latestPublishedTag(repoDir)
 	}
 	tagTime := tagCommitTime(repoDir, baseTag)
-
-	certGoals, newestGoalTime, newestGoalSlug := scanPostTagCertifications(repoDir, tagTime, now, reqHours)
-	newestCommitTime, newestCommitSubj := latestFeatureCommitTime(repoDir, baseTag)
-
-	var soakStart time.Time
-	var soakTrigger string
-
-	if !newestGoalTime.IsZero() && (newestCommitTime.IsZero() || !newestGoalTime.Before(newestCommitTime)) {
-		soakStart = newestGoalTime
-		soakTrigger = fmt.Sprintf("goal certification (%s)", newestGoalSlug)
-	} else if !newestCommitTime.IsZero() {
-		soakStart = newestCommitTime
-		soakTrigger = fmt.Sprintf("commit (%s)", newestCommitSubj)
+	if tagTime.IsZero() && !opts.BaseTime.IsZero() {
+		tagTime = opts.BaseTime
 	}
+	baseRef := ""
+	if refExists(repoDir, baseTag) {
+		baseRef = baseTag
+	}
+
+	certGoals, _, _ := scanPostTagCertifications(repoDir, tagTime, now, reqHours)
 
 	report := SoakReport{
 		State:              SoakUpToDate,
 		BaseTag:            baseTag,
 		RequiredHours:      reqHours,
 		RequiredActiveDays: reqDays,
+		RequiredUsage:      SoakMinUsage,
+		RequiredHarnesses:  SoakMinHarnesses,
 		CertifiedGoals:     certGoals,
 	}
 
-	if soakStart.IsZero() {
+	dbPath := opts.DBPath
+	if dbPath == "" {
+		dbPath = store.DefaultDBPath()
+	}
+	drainSpoolBeforeSoak(repoDir, dbPath)
+	syncFeatureSoakLedger(&report, repoDir, dbPath, baseTag, baseRef, tagTime, now, reqHours, reqDays)
+
+	if len(report.FeatureLedger) == 0 {
 		report.Summary = fmt.Sprintf("No unreleased feature commits or goal certifications since %s.", nonEmptyTag(baseTag))
 		return report
 	}
 
-	elapsed := now.Sub(soakStart).Hours()
+	var earliestStart time.Time
+	var oldestReady *store.FeatureSoakRecord
+	oldestFeature := report.FeatureLedger[len(report.FeatureLedger)-1]
+	contiguousReady := true
+
+	for i := len(report.FeatureLedger) - 1; i >= 0; i-- {
+		rec := report.FeatureLedger[i]
+		if t, err := time.Parse(time.RFC3339, rec.StartedAt); err == nil {
+			t = t.UTC()
+			if earliestStart.IsZero() || t.Before(earliestStart) {
+				earliestStart = t
+			}
+		}
+		switch rec.Status {
+		case "ready":
+			report.ReadyFeatures++
+			if oldestReady == nil {
+				rCopy := rec
+				oldestReady = &rCopy
+			}
+			if contiguousReady && rec.CommitSHA != "" {
+				report.ReadyThroughCommit = rec.CommitSHA
+			}
+		case "needs_debug":
+			report.DebugFeatures++
+			contiguousReady = false
+		default:
+			report.SoakingFeatures++
+			contiguousReady = false
+		}
+	}
+
+	anchor := oldestFeature
+	if oldestReady != nil {
+		anchor = *oldestReady
+	}
+	soakStart, err := time.Parse(time.RFC3339, anchor.StartedAt)
+	if err != nil || soakStart.IsZero() {
+		soakStart = earliestStart
+	}
+	soakStart = soakStart.UTC()
+	if earliestStart.IsZero() {
+		earliestStart = soakStart
+	}
+
+	elapsed := anchor.ElapsedHours
+	if elapsed <= 0 && !soakStart.IsZero() {
+		elapsed = now.Sub(soakStart).Hours()
+	}
 	if elapsed < 0 {
 		elapsed = 0
 	}
@@ -162,21 +233,19 @@ func EvaluateSoak(opts SoakOptions) SoakReport {
 	}
 
 	report.SoakStartAt = soakStart.UTC().Format(time.RFC3339)
-	report.SoakTrigger = soakTrigger
+	report.SoakTrigger = formatFeatureTrigger(anchor)
 	report.ElapsedHours = elapsed
 	report.RemainingHours = rem
 	report.CurrentDay = curDay
 
-	dbPath := opts.DBPath
-	if dbPath == "" {
-		dbPath = store.DefaultDBPath()
-	}
-	populateSoakTelemetry(&report, repoDir, dbPath, soakStart)
-	syncFeatureSoakLedger(&report, repoDir, dbPath, baseTag, tagTime, now, reqHours, reqDays)
+	projectIDs := populateSoakTelemetry(&report, repoDir, dbPath, earliestStart)
+	report.FeatureLedger = filterFeatureLedger(report.FeatureLedger, projectIDs, tagTime)
 
-	hasErrors := report.ToolErrorCount > 0 || report.PrimeErrorCount > 0 || report.DiagnosticClusters > 0
-	durationMet := report.ElapsedHours >= reqHours
-	daysMet := report.ActiveDays >= reqDays
+	hasErrors := report.DebugFeatures > 0 || report.ToolErrorCount > 0 || report.PrimeErrorCount > 0 || report.DiagnosticClusters > 0
+	durationMet := (report.ReadyFeatures > 0 && elapsed >= reqHours) || report.ElapsedHours >= reqHours
+	daysMet := report.ReadyFeatures > 0 || report.ActiveDays >= reqDays
+	usageMet := report.ToolEventsTotal+report.PrimeEventsTotal >= SoakMinUsage
+	harnessMet := report.HarnessCount >= SoakMinHarnesses
 
 	switch {
 	case hasErrors:
@@ -188,21 +257,31 @@ func EvaluateSoak(opts SoakOptions) SoakReport {
 			soakStart.Format("2006-01-02 15:04 UTC"),
 		)
 		report.DailyChecklist = buildDebugChecklist(report)
-	case !durationMet || !daysMet:
+	case report.ReadyFeatures == 0 || !durationMet || !daysMet || !usageMet || !harnessMet:
 		report.State = SoakInProgress
 		report.Summary = fmt.Sprintf(
-			"Soak Day %d/%d in progress: %.1fh/%.0fh elapsed (%.1fh remaining), %d/%d active dogfood day(s), %d tool + %d prime events, 0 errors.",
+			"Soak Day %d/%d in progress: %.1fh/%.0fh elapsed (%.1fh remaining), %d/%d active dogfood day(s), %d/%d harness(es), %d events (floor %d), 0 errors.",
 			report.CurrentDay, reqDays, report.ElapsedHours, reqHours, report.RemainingHours,
-			report.ActiveDays, reqDays, report.ToolEventsTotal, report.PrimeEventsTotal,
+			report.ActiveDays, reqDays, report.HarnessCount, SoakMinHarnesses,
+			report.ToolEventsTotal+report.PrimeEventsTotal, SoakMinUsage,
 		)
 		report.DailyChecklist = buildSoakingChecklist(report)
 	default:
 		report.State = SoakReady
-		report.Summary = fmt.Sprintf(
-			"3-day local soak verified: %.1fh/%.0fh elapsed across %d/%d active dogfood days (%d tool + %d prime events, 0 errors).",
-			report.ElapsedHours, reqHours, report.ActiveDays, reqDays,
-			report.ToolEventsTotal, report.PrimeEventsTotal,
-		)
+		if report.SoakingFeatures > 0 {
+			report.Summary = fmt.Sprintf(
+				"3-day local soak verified: %d ready feature(s) (through %s), %d soaking on own timer (%.1fh/%.0fh elapsed across %d/%d active dogfood days, %d harness(es), %d events, 0 errors).",
+				report.ReadyFeatures, nonEmptyCommit(report.ReadyThroughCommit), report.SoakingFeatures,
+				report.ElapsedHours, reqHours, report.ActiveDays, reqDays,
+				report.HarnessCount, report.ToolEventsTotal+report.PrimeEventsTotal,
+			)
+		} else {
+			report.Summary = fmt.Sprintf(
+				"3-day local soak verified: %.1fh/%.0fh elapsed across %d/%d active dogfood days, %d harness(es), %d events, 0 errors.",
+				report.ElapsedHours, reqHours, report.ActiveDays, reqDays,
+				report.HarnessCount, report.ToolEventsTotal+report.PrimeEventsTotal,
+			)
+		}
 		report.DailyChecklist = []string{
 			"3-day local dogfood soak complete with zero unresolved telemetry errors",
 			"Ready to run 'sila release preflight --strict' and cut annotated release tag",
@@ -210,6 +289,59 @@ func EvaluateSoak(opts SoakOptions) SoakReport {
 	}
 
 	return report
+}
+
+func formatFeatureTrigger(rec store.FeatureSoakRecord) string {
+	if rec.SourceKind == "commit" || rec.CommitSHA != "" {
+		return fmt.Sprintf("commit (%s)", rec.Title)
+	}
+	return fmt.Sprintf("goal certification (%s)", rec.FeatureID)
+}
+
+func nonEmptyCommit(sha string) string {
+	if sha == "" {
+		return "HEAD"
+	}
+	return sha
+}
+
+func harnessIdentity(agent, source string) string {
+	name := strings.TrimSpace(agent)
+	if name == "" {
+		name = strings.TrimSpace(source)
+	}
+	switch strings.ToLower(name) {
+	case "", "cli", "mcp", "system", "unknown", "anonymous":
+		return ""
+	}
+	return name
+}
+
+func latestPublishedTag(repoDir string) string {
+	candidates := []string{
+		filepath.Join(filepath.Dir(repoDir), "public-export"),
+		filepath.Join(repoDir, "public-export"),
+	}
+	for _, dir := range candidates {
+		if tag := latestTagIn(dir); tag != "" {
+			return tag
+		}
+	}
+	return latestLocalTag(repoDir)
+}
+
+func latestTagIn(repoDir string) string {
+	cmd := exec.Command("git", "-C", repoDir, "tag", "-l", "v*", "--sort=-v:refname")
+	out, err := cmd.Output()
+	if err != nil {
+		return ""
+	}
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			return line
+		}
+	}
+	return ""
 }
 
 func nonEmptyTag(tag string) string {
@@ -237,52 +369,22 @@ func tagCommitTime(repoDir, tag string) time.Time {
 	if tag == "" || tag == "v0.0.0" {
 		return time.Time{}
 	}
-	cmd := exec.Command("git", "log", "-1", "--format=%cI", tag)
-	cmd.Dir = repoDir
-	out, err := cmd.Output()
-	if err != nil {
-		return time.Time{}
+	dirs := []string{
+		repoDir,
+		filepath.Join(filepath.Dir(repoDir), "public-export"),
+		filepath.Join(repoDir, "public-export"),
 	}
-	t, err := time.Parse(time.RFC3339, strings.TrimSpace(string(out)))
-	if err != nil {
-		return time.Time{}
-	}
-	return t.UTC()
-}
-
-func latestFeatureCommitTime(repoDir, baseTag string) (time.Time, string) {
-	args := []string{"log", "--pretty=format:%cI%x1f%s"}
-	if baseTag != "" && baseTag != "v0.0.0" {
-		args = append(args, baseTag+"..HEAD")
-	} else {
-		args = append(args, "-n", "50")
-	}
-	cmd := exec.Command("git", args...)
-	cmd.Dir = repoDir
-	out, err := cmd.Output()
-	if err != nil {
-		return time.Time{}, ""
-	}
-	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
-	for _, line := range lines {
-		parts := strings.SplitN(strings.TrimSpace(line), "\x1f", 2)
-		if len(parts) != 2 {
+	for _, dir := range dirs {
+		cmd := exec.Command("git", "-C", dir, "log", "-1", "--format=%cI", tag)
+		out, err := cmd.Output()
+		if err != nil {
 			continue
 		}
-		subj := strings.TrimSpace(parts[1])
-		m := convCommitRE.FindStringSubmatch(subj)
-		if len(m) == 0 {
-			continue
-		}
-		cType := strings.ToLower(m[1])
-		isBreaking := m[3] == "!"
-		if isBreaking || cType == "feat" || cType == "fix" || cType == "perf" {
-			if t, err := time.Parse(time.RFC3339, strings.TrimSpace(parts[0])); err == nil {
-				return t.UTC(), subj
-			}
+		if t, err := time.Parse(time.RFC3339, strings.TrimSpace(string(out))); err == nil {
+			return t.UTC()
 		}
 	}
-	return time.Time{}, ""
+	return time.Time{}
 }
 
 type rawCertRecord struct {
@@ -355,25 +457,49 @@ func scanPostTagCertifications(repoDir string, tagTime, now time.Time, reqHours 
 	return results, newestTime, newestSlug
 }
 
-func populateSoakTelemetry(report *SoakReport, repoDir, dbPath string, soakStart time.Time) {
-	st, exists, err := store.OpenInspection(dbPath)
-	if err != nil || !exists || st == nil {
+// drainSpoolBeforeSoak persists queued lifecycle events so a delayed hook
+// spool cannot hide harnesses or active days from the soak evaluation.
+func drainSpoolBeforeSoak(repoDir, dbPath string) {
+	if dbPath == "" {
+		dbPath = store.DefaultDBPath()
+	}
+	spooler, err := loaders.NewSpooler(loaders.DefaultSpoolDir())
+	if err != nil {
+		return
+	}
+	st, err := store.Open(dbPath)
+	if err != nil {
 		return
 	}
 	defer st.Close()
+	proj := store.ProjectID(repoDir)
+	if proj == "" {
+		return
+	}
+	_, _ = spooler.Drain(st, &proj)
+}
+
+func populateSoakTelemetry(report *SoakReport, repoDir, dbPath string, soakStart time.Time) []string {
+	st, exists, err := store.OpenInspection(dbPath)
+	if err != nil || !exists || st == nil {
+		return nil
+	}
+	defer st.Close()
+	projectIDs := soakProjectIDs(st, repoDir)
 
 	activeDatesSet := make(map[string]struct{})
 	failedToolsMap := make(map[string]*SoakToolFailure)
+	harnessSet := make(map[string]struct{})
 
-	toolEvents, err := st.ListToolEvents(store.ToolEventFilter{
-		Since: soakStart,
-		Limit: 10000,
-	})
+	toolEvents := soakToolEvents(st, projectIDs, soakStart)
 	if err == nil {
 		report.ToolEventsTotal = len(toolEvents)
 		for _, ev := range toolEvents {
 			if !ev.CreatedAt.IsZero() {
 				activeDatesSet[ev.CreatedAt.UTC().Format("2006-01-02")] = struct{}{}
+			}
+			if harness := harnessIdentity(ev.Agent, ev.Source); harness != "" {
+				harnessSet[harness] = struct{}{}
 			}
 			outcome := strings.ToLower(strings.TrimSpace(ev.Outcome))
 			if outcome != "" && outcome != "ok" {
@@ -392,15 +518,15 @@ func populateSoakTelemetry(report *SoakReport, repoDir, dbPath string, soakStart
 		}
 	}
 
-	primeEvents, err := st.ListPrimeEvents(store.PrimeEventFilter{
-		Since: soakStart,
-		Limit: 5000,
-	})
+	primeEvents := soakPrimeEvents(st, projectIDs, soakStart)
 	if err == nil {
 		report.PrimeEventsTotal = len(primeEvents)
 		for _, pev := range primeEvents {
 			if !pev.CreatedAt.IsZero() {
 				activeDatesSet[pev.CreatedAt.UTC().Format("2006-01-02")] = struct{}{}
+			}
+			if h := strings.TrimSpace(pev.Harness); h != "" {
+				harnessSet[h] = struct{}{}
 			}
 			status := strings.ToLower(strings.TrimSpace(pev.Status))
 			if status == "failed" || status == "error" {
@@ -420,14 +546,22 @@ func populateSoakTelemetry(report *SoakReport, repoDir, dbPath string, soakStart
 	}
 
 	sinceISO := soakStart.UTC().Format(time.RFC3339)
-	rows, qErr := st.DB.Query(`
+	clusterQuery := `
 		SELECT dc.category, dc.template, dc.target_file, dc.occurrence_count, dc.last_seen
 		FROM diagnostic_clusters dc
 		LEFT JOIN silence_overrides so
 			ON dc.project_id = so.project_id AND dc.signature = so.signature
-		WHERE dc.last_seen >= ? AND so.signature IS NULL
-		ORDER BY dc.occurrence_count DESC, dc.last_seen DESC
-		LIMIT 25`, sinceISO)
+		WHERE dc.last_seen >= ? AND so.signature IS NULL`
+	clusterArgs := []any{sinceISO}
+	if len(projectIDs) > 0 {
+		placeholders := strings.TrimSuffix(strings.Repeat("?,", len(projectIDs)), ",")
+		clusterQuery += " AND dc.project_id IN (" + placeholders + ")"
+		for _, id := range projectIDs {
+			clusterArgs = append(clusterArgs, id)
+		}
+	}
+	clusterQuery += " ORDER BY dc.occurrence_count DESC, dc.last_seen DESC LIMIT 25"
+	rows, qErr := st.DB.Query(clusterQuery, clusterArgs...)
 	if qErr == nil {
 		defer rows.Close()
 		for rows.Next() {
@@ -453,6 +587,11 @@ func populateSoakTelemetry(report *SoakReport, repoDir, dbPath string, soakStart
 	}
 	sort.Strings(report.ActiveDates)
 	report.ActiveDays = len(report.ActiveDates)
+	report.HarnessCount = len(harnessSet)
+	for harness := range harnessSet {
+		report.Harnesses = append(report.Harnesses, harness)
+	}
+	sort.Strings(report.Harnesses)
 
 	for _, tf := range failedToolsMap {
 		report.FailedTools = append(report.FailedTools, *tf)
@@ -463,6 +602,139 @@ func populateSoakTelemetry(report *SoakReport, repoDir, dbPath string, soakStart
 		}
 		return report.FailedTools[i].ToolName < report.FailedTools[j].ToolName
 	})
+	return projectIDs
+}
+
+func soakProjectIDs(st *store.Store, repoDir string) []string {
+	clean := filepath.Clean(soakReleaseScope(repoDir))
+	projects, err := st.Projects()
+	if err != nil {
+		return nil
+	}
+	var ids []string
+	parentID := ""
+	parentLen := -1
+	for _, project := range projects {
+		path := filepath.Clean(project.Path)
+		if path == clean {
+			ids = append(ids, project.ID)
+			continue
+		}
+		if strings.HasPrefix(clean, path+string(os.PathSeparator)) && len(path) > parentLen {
+			parentID = project.ID
+			parentLen = len(path)
+		}
+	}
+	if parentID != "" {
+		ids = append(ids, parentID)
+	}
+	sort.Strings(ids)
+	return ids
+}
+
+func soakReleaseScope(dir string) string {
+	if isSilaModule(dir) {
+		return dir
+	}
+	if found := findSilaModule(dir, 2); found != "" {
+		return found
+	}
+	return dir
+}
+
+func findSilaModule(dir string, depth int) string {
+	if depth <= 0 {
+		return ""
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return ""
+	}
+	for _, entry := range entries {
+		if !entry.IsDir() || strings.HasPrefix(entry.Name(), ".") || entry.Name() == "node_modules" || entry.Name() == "vendor" {
+			continue
+		}
+		child := filepath.Join(dir, entry.Name())
+		if isSilaModule(child) {
+			return child
+		}
+		if found := findSilaModule(child, depth-1); found != "" {
+			return found
+		}
+	}
+	return ""
+}
+
+func isSilaModule(dir string) bool {
+	data, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "module ") {
+			return strings.TrimSpace(strings.TrimPrefix(line, "module ")) == "github.com/jadmadi/sila"
+		}
+	}
+	return false
+}
+
+func soakToolEvents(st *store.Store, projectIDs []string, since time.Time) []store.ToolEvent {
+	if len(projectIDs) == 0 {
+		events, err := st.ListToolEvents(store.ToolEventFilter{Since: since, Limit: 10000})
+		if err != nil {
+			return nil
+		}
+		return events
+	}
+	var out []store.ToolEvent
+	for _, id := range projectIDs {
+		events, err := st.ListToolEvents(store.ToolEventFilter{ProjectID: id, Since: since, Limit: 10000})
+		if err != nil {
+			continue
+		}
+		out = append(out, events...)
+	}
+	return out
+}
+
+func soakPrimeEvents(st *store.Store, projectIDs []string, since time.Time) []store.PrimeEvent {
+	if len(projectIDs) == 0 {
+		events, err := st.ListPrimeEvents(store.PrimeEventFilter{Since: since, Limit: 5000})
+		if err != nil {
+			return nil
+		}
+		return events
+	}
+	var out []store.PrimeEvent
+	for _, id := range projectIDs {
+		events, err := st.ListPrimeEvents(store.PrimeEventFilter{ProjectID: id, Since: since, Limit: 5000})
+		if err != nil {
+			continue
+		}
+		out = append(out, events...)
+	}
+	return out
+}
+
+func filterFeatureLedger(ledger []store.FeatureSoakRecord, projectIDs []string, tagTime time.Time) []store.FeatureSoakRecord {
+	allowed := make(map[string]bool, len(projectIDs))
+	for _, id := range projectIDs {
+		allowed[id] = true
+	}
+	filtered := make([]store.FeatureSoakRecord, 0, len(ledger))
+	for _, feature := range ledger {
+		if len(allowed) > 0 && feature.ProjectID != "" && !allowed[feature.ProjectID] {
+			continue
+		}
+		if !tagTime.IsZero() && feature.StartedAt != "" {
+			if started, err := time.Parse(time.RFC3339, feature.StartedAt); err == nil && !started.After(tagTime) {
+				continue
+			}
+		}
+		filtered = append(filtered, feature)
+	}
+	return filtered
 }
 
 func buildDebugChecklist(report SoakReport) []string {

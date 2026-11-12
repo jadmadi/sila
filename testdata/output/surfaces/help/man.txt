@@ -1,0 +1,9 @@
+# surface: help__man
+# argv: sila man --help
+# mode: help
+# exit: 0
+--- stdout ---
+sila man  -  Read the embedded manual pages
+
+Usage
+  sila man [topic] [--search=<term>] [--json]

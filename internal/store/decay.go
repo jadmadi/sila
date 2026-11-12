@@ -258,7 +258,8 @@ func (s *Store) bumpFactAccessTx(ctx context.Context, factID, toolName string, n
 		UPDATE facts SET
 			access_count = access_count + 1,
 			last_accessed_at = ?,
-			distinct_tools = (SELECT count(DISTINCT tool) FROM fact_tool_access WHERE fact_id = ?)
+			distinct_tools = (SELECT count(DISTINCT tool) FROM fact_tool_access WHERE fact_id = ?),
+			maturity_score = MIN(100, maturity_score + 3)
 		WHERE id = ?
 	`, nowStr, factID, factID)
 	if err != nil {
@@ -267,6 +268,13 @@ func (s *Store) bumpFactAccessTx(ctx context.Context, factID, toolName string, n
 	n, _ := res.RowsAffected()
 	if n == 0 {
 		return sql.ErrNoRows
+	}
+	var maturityTier string
+	var maturityScore float64
+	if err := tx.QueryRowContext(ctx, `SELECT maturity_tier, maturity_score FROM facts WHERE id = ?`, factID).Scan(&maturityTier, &maturityScore); err == nil {
+		if _, err := tx.ExecContext(ctx, `UPDATE facts SET maturity_tier = ? WHERE id = ?`, AdvanceMaturity(maturityTier, maturityScore), factID); err != nil {
+			return err
+		}
 	}
 
 	return tx.Commit()

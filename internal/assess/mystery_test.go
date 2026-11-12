@@ -6,6 +6,7 @@ import (
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -739,7 +740,6 @@ func TestExecuteMysteryAudit_DeliverableFailureRejects(t *testing.T) {
 		t.Fatalf("mkdir: %v", err)
 	}
 	goalMd := filepath.Join(goalDir, "goal.md")
-	secretPath := filepath.Join(tempDir, "secret", "broken-deliverable-goal failed")
 	goalContent := `# Goal: Broken Deliverable Goal
 
 ## Goal Description
@@ -751,7 +751,7 @@ Prove that a broken deliverable command in Verification Commands causes REJECT e
 3. Boundary probe check.
 
 ## Verification Commands
-` + "```bash\nsh -c \"echo '" + secretPath + "' >&2; exit 1\"\n```\n"
+` + "```bash\nsh -c \"echo '/workspace/secret/goals/broken-deliverable-goal failed' >&2; exit 1\"\n```\n"
 
 	if err := os.WriteFile(goalMd, []byte(goalContent), 0644); err != nil {
 		t.Fatalf("write goal.md: %v", err)
@@ -771,7 +771,62 @@ Prove that a broken deliverable command in Verification Commands causes REJECT e
 	if eval.Dossier == nil {
 		t.Fatalf("expected non-nil DefectDossier on REJECT")
 	}
-	if strings.Contains(eval.Dossier.StderrSnippet, "/workspace/sila/") || strings.Contains(eval.Dossier.StderrSnippet, tempDir) {
+	if strings.Contains(eval.Dossier.StderrSnippet, "/workspace/") || strings.Contains(eval.Dossier.StderrSnippet, tempDir) {
 		t.Errorf("expected DefectDossier.StderrSnippet to scrub host/temp paths, got %q", eval.Dossier.StderrSnippet)
+	}
+}
+
+func TestClassifyCanary(t *testing.T) {
+	discrimination := fmt.Errorf("%w: mutant passed", ErrCanaryDiscrimination)
+	unavailable := fmt.Errorf("%w: candidate binary missing", ErrCanaryUnavailable)
+	generic := errors.New("sandbox exploded")
+
+	cases := []struct {
+		name       string
+		passed     bool
+		err        error
+		wantStatus string
+		wantPart   string
+	}{
+		{"passed", true, nil, CanaryStatusPassed, ""},
+		{"discrimination", false, discrimination, CanaryStatusDiscrimination, "mutant passed"},
+		{"unavailable", false, unavailable, CanaryStatusUnavailable, "candidate binary missing"},
+		{"error", false, generic, CanaryStatusError, "sandbox exploded"},
+		{"false without error", false, nil, CanaryStatusError, "without an error"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			status, detail := classifyCanary(c.passed, c.err)
+			if status != c.wantStatus {
+				t.Fatalf("status = %q, want %q", status, c.wantStatus)
+			}
+			if c.wantPart != "" && !strings.Contains(detail, c.wantPart) {
+				t.Fatalf("detail %q does not contain %q", detail, c.wantPart)
+			}
+		})
+	}
+}
+
+func TestAuditOutcomeHonesty(t *testing.T) {
+	cases := []struct {
+		name         string
+		ccdsiPassed  bool
+		canaryStatus string
+		probeFailed  bool
+		want         string
+	}{
+		{"probe failure rejects", true, CanaryStatusPassed, true, VerdictReject},
+		{"threshold failure rejects", false, CanaryStatusPassed, false, VerdictReject},
+		{"canary discrimination rejects", true, CanaryStatusDiscrimination, false, VerdictReject},
+		{"canary unavailable is inconclusive", true, CanaryStatusUnavailable, false, VerdictInconclusive},
+		{"canary error is inconclusive", true, CanaryStatusError, false, VerdictInconclusive},
+		{"probe failure beats unavailable", true, CanaryStatusUnavailable, true, VerdictReject},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			if got := auditOutcome(c.ccdsiPassed, c.canaryStatus, c.probeFailed); got != c.want {
+				t.Fatalf("auditOutcome = %q, want %q", got, c.want)
+			}
+		})
 	}
 }

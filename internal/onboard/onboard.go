@@ -605,10 +605,19 @@ func mcpConfigured(repoRoot string) bool {
 	}
 	if home, err := os.UserHomeDir(); err == nil {
 		candidates = append(candidates,
+			filepath.Join(home, ".cursor", "mcp.json"),
 			filepath.Join(home, ".gemini", "config", "mcp_config.json"),
 			filepath.Join(home, ".config", "opencode", "opencode.json"),
 			filepath.Join(home, ".config", "opencode", "opencode.jsonc"),
+			filepath.Join(home, ".var", "app", "ai.opencode.opencode", "config", "opencode", "opencode.json"),
+			filepath.Join(home, ".var", "app", "ai.opencode.opencode", "config", "opencode", "opencode.jsonc"),
 		)
+		if xdg := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); xdg != "" {
+			candidates = append(candidates,
+				filepath.Join(xdg, "opencode", "opencode.json"),
+				filepath.Join(xdg, "opencode", "opencode.jsonc"),
+			)
+		}
 	}
 	for _, path := range candidates {
 		data, err := os.ReadFile(path)

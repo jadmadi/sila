@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/jadmadi/sila/internal/render"
@@ -22,6 +23,7 @@ type skillCreateOptions struct {
 	exclude     string
 	yes         bool
 	compact     bool
+	candidate   bool
 }
 
 func runSkills(ui render.UI, dbPath string, jsonOut, toonOut bool, opts skillCreateOptions, args []string, invokedAs string) {
@@ -45,6 +47,8 @@ func runSkills(ui render.UI, dbPath string, jsonOut, toonOut bool, opts skillCre
 			opts.yes = true
 		case a == "--compact" || a == "-compact":
 			opts.compact = true
+		case a == "--candidate":
+			opts.candidate = true
 		case a == "--dry-run" || a == "-n" || a == "--preview":
 			opts.dryRun = true
 		case strings.HasPrefix(a, "--out="):
@@ -112,6 +116,13 @@ func runSkills(ui render.UI, dbPath string, jsonOut, toonOut bool, opts skillCre
 		case "sync":
 			runSkillSync(ui, jsonOut, toonOut, targetDir, cleanArgs[1:], args)
 			return
+		case "promote":
+			if len(cleanArgs) < 2 {
+				fmt.Fprintln(os.Stderr, "Usage: sila skills promote <name>")
+				os.Exit(1)
+			}
+			runSkillPromote(ui, jsonOut, toonOut, targetDir, cleanArgs[1])
+			return
 		}
 		// If single argument matches an existing skill slug, show it
 		if len(cleanArgs) == 1 {
@@ -147,6 +158,13 @@ func runSkills(ui render.UI, dbPath string, jsonOut, toonOut bool, opts skillCre
 			return
 		case "sync":
 			runSkillSync(ui, jsonOut, toonOut, targetDir, cleanArgs[1:], args)
+			return
+		case "promote":
+			if len(cleanArgs) < 2 {
+				fmt.Fprintln(os.Stderr, "Usage: sila skill promote <name>")
+				os.Exit(1)
+			}
+			runSkillPromote(ui, jsonOut, toonOut, targetDir, cleanArgs[1])
 			return
 		case "list", "ls":
 			runSkillsList(ui, jsonOut, toonOut, opts.compact, targetDir)
@@ -355,6 +373,7 @@ func printSkillUsage(ui render.UI, jsonOut bool, projectDir string) {
 	fmt.Fprintln(os.Stdout, "  sila skill list                      List all project skills")
 	fmt.Fprintln(os.Stdout, "  sila skill show <name>               Inspect a project skill (singular)")
 	fmt.Fprintln(os.Stdout, "  sila skill create <topic...>         Craft a bespoke project skill (singular)")
+	fmt.Fprintln(os.Stdout, "  sila skill promote <name>            Validate and activate a staged candidate skill")
 	fmt.Fprintln(os.Stdout, "  sila skill assess                    Assess project skill recommendations")
 	fmt.Fprintln(os.Stdout, "  sila skill search <query>            Search unified skill catalog")
 	fmt.Fprintln(os.Stdout, "  sila skill preview [--dry-run]       Preview planned harness configuration diff")
@@ -382,6 +401,7 @@ func printSkillUsage(ui render.UI, jsonOut bool, projectDir string) {
 	fmt.Fprintln(os.Stdout, "  --prompt-only     Generate turnkey master grilling prompt for LLM agent chat")
 	fmt.Fprintln(os.Stdout, "  --interactive, -i Conduct 4-question interactive terminal interview in CLI")
 	fmt.Fprintln(os.Stdout, "  --force           Overwrite existing skill package if already present")
+	fmt.Fprintln(os.Stdout, "  --candidate       Stage under .sila/candidates/skills/ without activating")
 	fmt.Fprintln(os.Stdout, "  --out=<dir>       Custom root directory (defaults to project root)")
 	fmt.Fprintln(os.Stdout, "  --json            Emit machine-readable JSON output")
 	fmt.Fprintln(os.Stdout, "  --toon            Emit Token-Oriented Object Notation (TOON)")
@@ -414,6 +434,8 @@ func runSkillCreate(ui render.UI, dbPath string, jsonOut, toonOut bool, opts ski
 			opts.interactive = true
 		} else if a == "--force" || a == "-f" {
 			opts.force = true
+		} else if a == "--candidate" {
+			opts.candidate = true
 		} else if strings.HasPrefix(a, "--out=") {
 			opts.outDir = strings.TrimPrefix(a, "--out=")
 		} else if !strings.HasPrefix(a, "-") {
@@ -461,21 +483,31 @@ func runSkillCreate(ui render.UI, dbPath string, jsonOut, toonOut bool, opts ski
 		draft = skillcreator.DefaultSkillDraft(grounding, topic)
 	}
 
-	res, err := skillcreator.ScaffoldSkill(targetDir, draft, opts.force)
+	var res *skillcreator.ScaffoldResult
+	if opts.candidate {
+		res, err = scaffoldCandidateSkill(targetDir, draft, opts.force)
+	} else {
+		res, err = skillcreator.ScaffoldSkill(targetDir, draft, opts.force)
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sila skill-create: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Record skill creation into Sila store for self-improvement and provenance tracking
-	lessonBody := fmt.Sprintf("Created project-tailored agent skill '%s' (%s) under .agents/skills/%s/",
-		draft.Name, topic.RawInput, draft.Slug)
+	destination := ".agents/skills/" + draft.Slug + "/"
+	if opts.candidate {
+		destination = ".sila/candidates/skills/" + draft.Slug + "/"
+	}
+	lessonBody := fmt.Sprintf("Created project-tailored agent skill '%s' (%s) under %s",
+		draft.Name, topic.RawInput, destination)
 	_, _ = st.SaveLesson(grounding.ProjectID, "agent skill authoring", "sila skill create", lessonBody, "skills,skill-creator,agents", "sila", targetDir, []string{res.SkillMDPath})
 
 	if jsonOut {
 		emitJSON(map[string]interface{}{
-			"scaffold": res,
-			"draft":    draft,
+			"scaffold":  res,
+			"draft":     draft,
+			"candidate": opts.candidate,
 			"grounding": map[string]interface{}{
 				"tech_stack":  grounding.TechStack,
 				"project_dir": grounding.ProjectDir,
@@ -491,7 +523,11 @@ func runSkillCreate(ui render.UI, dbPath string, jsonOut, toonOut bool, opts ski
 		return
 	}
 
-	fmt.Fprintf(os.Stdout, "%s sila · tailored agent skill created successfully\n\n", ui.Green("✔"))
+	if opts.candidate {
+		fmt.Fprintf(os.Stdout, "%s sila · candidate agent skill staged (not active yet)\n\n", ui.Green("✔"))
+	} else {
+		fmt.Fprintf(os.Stdout, "%s sila · tailored agent skill created successfully\n\n", ui.Green("✔"))
+	}
 	fmt.Fprintf(os.Stdout, "  Skill Name:   %s\n", ui.Bold(draft.Name))
 	fmt.Fprintf(os.Stdout, "  Slug:         %s\n", ui.Cyan(draft.Slug))
 	fmt.Fprintf(os.Stdout, "  Destination:  %s\n", ui.Bold(res.SkillMDPath))
@@ -513,8 +549,193 @@ func runSkillCreate(ui render.UI, dbPath string, jsonOut, toonOut bool, opts ski
 	fmt.Fprintln(os.Stdout)
 
 	fmt.Fprintf(os.Stdout, "%s\n", ui.Bold("Next Actions:"))
+	if opts.candidate {
+		fmt.Fprintf(os.Stdout, "  1. Review file:      %s\n", res.SkillMDPath)
+		fmt.Fprintf(os.Stdout, "  2. Promote:          sila skill promote %s\n", draft.Slug)
+		fmt.Fprintf(os.Stdout, "  3. Discard:          rm -rf .sila/candidates/skills/%s\n\n", draft.Slug)
+		return
+	}
 	fmt.Fprintf(os.Stdout, "  1. Inspect skill:    sila skill show %s\n", draft.Slug)
 	fmt.Fprintf(os.Stdout, "  2. View all skills:  sila skills\n")
 	fmt.Fprintf(os.Stdout, "  3. Further refine:   sila skill create %s --interactive\n", topic.RawInput)
 	fmt.Fprintf(os.Stdout, "  4. Prompt AI agent:  sila skill create %s --prompt-only\n\n", topic.RawInput)
+}
+
+// maxCandidateSkillBytes bounds the SKILL.md a promote will read.
+const maxCandidateSkillBytes = 1 << 20
+
+// candidateSkillsDir is the isolated trial area for staged skills. Nothing here
+// is active until an explicit promote moves it into .agents/skills/.
+func candidateSkillsDir(projectDir string) string {
+	return filepath.Join(projectDir, ".sila", "candidates", "skills")
+}
+
+// scaffoldCandidateSkill writes a skill package under .sila/candidates/skills/
+// without touching the active .agents/skills/ tree. It reuses the canonical
+// scaffolder in a staging directory, then moves the result into place.
+func scaffoldCandidateSkill(projectDir string, draft skillcreator.SkillDraft, force bool) (*skillcreator.ScaffoldResult, error) {
+	root := candidateSkillsDir(projectDir)
+	if err := os.MkdirAll(root, 0o755); err != nil {
+		return nil, fmt.Errorf("create candidate skills directory %s: %w", root, err)
+	}
+	staging, err := os.MkdirTemp(filepath.Join(projectDir, ".sila", "candidates"), ".staging-")
+	if err != nil {
+		return nil, fmt.Errorf("create candidate staging directory: %w", err)
+	}
+	defer os.RemoveAll(staging)
+
+	res, err := skillcreator.ScaffoldSkill(staging, draft, true)
+	if err != nil {
+		return nil, err
+	}
+	finalDir := filepath.Join(root, draft.Slug)
+	if _, statErr := os.Stat(finalDir); statErr == nil {
+		if !force {
+			return nil, fmt.Errorf("candidate skill already exists at %s (use --force to overwrite)", finalDir)
+		}
+		if err := os.RemoveAll(finalDir); err != nil {
+			return nil, fmt.Errorf("replace candidate skill %s: %w", finalDir, err)
+		}
+	}
+	if err := os.Rename(res.SkillDir, finalDir); err != nil {
+		return nil, fmt.Errorf("move candidate skill into %s: %w", finalDir, err)
+	}
+	files := make([]string, 0, len(res.FilesWritten))
+	for _, written := range res.FilesWritten {
+		rel, relErr := filepath.Rel(res.SkillDir, written)
+		if relErr != nil {
+			return nil, fmt.Errorf("map candidate file %s: %w", written, relErr)
+		}
+		files = append(files, filepath.Join(finalDir, rel))
+	}
+	return &skillcreator.ScaffoldResult{
+		SkillDir:     finalDir,
+		SkillMDPath:  filepath.Join(finalDir, "SKILL.md"),
+		FilesWritten: files,
+		BytesWritten: res.BytesWritten,
+	}, nil
+}
+
+// validateCandidateSkill enforces the SKILL.md frontmatter contract before a
+// candidate can become active: a closed frontmatter block with non-empty name
+// and description, no unquoted colons, and a name matching the directory.
+func validateCandidateSkill(name string, content []byte) error {
+	text := strings.ReplaceAll(string(content), "\r\n", "\n")
+	lines := strings.Split(text, "\n")
+	if len(lines) == 0 || strings.TrimSpace(lines[0]) != "---" {
+		return fmt.Errorf("SKILL.md must start with YAML frontmatter")
+	}
+	fields := map[string]string{}
+	closed := false
+	for _, line := range lines[1:] {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "---" {
+			closed = true
+			break
+		}
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		idx := strings.Index(line, ":")
+		if idx < 0 {
+			continue
+		}
+		key := strings.ToLower(strings.TrimSpace(line[:idx]))
+		if key != "name" && key != "description" {
+			continue
+		}
+		val := strings.TrimSpace(line[idx+1:])
+		if val == "" {
+			return fmt.Errorf("frontmatter %s is empty", key)
+		}
+		if !isQuotedScalar(val) && (strings.Contains(val, ": ") || strings.HasSuffix(val, ":")) {
+			return fmt.Errorf("frontmatter %s contains an unquoted colon: %q", key, val)
+		}
+		fields[key] = val
+	}
+	if !closed {
+		return fmt.Errorf("SKILL.md frontmatter is not closed")
+	}
+	if strings.TrimSpace(fields["name"]) == "" {
+		return fmt.Errorf("frontmatter name is required")
+	}
+	if strings.TrimSpace(fields["description"]) == "" {
+		return fmt.Errorf("frontmatter description is required")
+	}
+	if strings.Trim(fields["name"], `"'`) != name {
+		return fmt.Errorf("frontmatter name %q does not match %q", fields["name"], name)
+	}
+	return nil
+}
+
+func isQuotedScalar(val string) bool {
+	if len(val) < 2 {
+		return false
+	}
+	return (val[0] == '"' && val[len(val)-1] == '"') || (val[0] == '\'' && val[len(val)-1] == '\'')
+}
+
+// promoteCandidateSkill validates a staged skill and moves it into the active
+// .agents/skills/ tree. It returns the active SKILL.md path.
+func promoteCandidateSkill(projectDir, name string) (string, error) {
+	name = strings.TrimSpace(name)
+	if name == "" || filepath.Base(name) != name || strings.ContainsAny(name, `/\`) {
+		return "", fmt.Errorf("invalid skill name %q", name)
+	}
+	candidateDir := filepath.Join(candidateSkillsDir(projectDir), name)
+	dirInfo, err := os.Lstat(candidateDir)
+	if err != nil {
+		return "", fmt.Errorf("read candidate skill directory %s: %w", candidateDir, err)
+	}
+	if !dirInfo.IsDir() || dirInfo.Mode()&os.ModeSymlink != 0 {
+		return "", fmt.Errorf("candidate skill %s is not a regular directory", name)
+	}
+	skillMD := filepath.Join(candidateDir, "SKILL.md")
+	fileInfo, err := os.Lstat(skillMD)
+	if err != nil {
+		return "", fmt.Errorf("read candidate skill %s: %w", skillMD, err)
+	}
+	if !fileInfo.Mode().IsRegular() {
+		return "", fmt.Errorf("candidate skill %s is not a regular file", skillMD)
+	}
+	if fileInfo.Size() > maxCandidateSkillBytes {
+		return "", fmt.Errorf("candidate skill %s exceeds %d bytes", skillMD, maxCandidateSkillBytes)
+	}
+	content, err := os.ReadFile(skillMD)
+	if err != nil {
+		return "", fmt.Errorf("read candidate skill %s: %w", skillMD, err)
+	}
+	if err := validateCandidateSkill(name, content); err != nil {
+		return "", fmt.Errorf("candidate skill %s is invalid: %w", name, err)
+	}
+	destDir := filepath.Join(projectDir, ".agents", "skills", name)
+	if _, err := os.Stat(destDir); err == nil {
+		return "", fmt.Errorf("active skill already exists at %s; remove it before promoting", destDir)
+	}
+	if err := os.MkdirAll(filepath.Dir(destDir), 0o755); err != nil {
+		return "", fmt.Errorf("create active skills directory: %w", err)
+	}
+	if err := os.Rename(candidateDir, destDir); err != nil {
+		return "", fmt.Errorf("promote candidate skill: %w", err)
+	}
+	return filepath.Join(destDir, "SKILL.md"), nil
+}
+
+func runSkillPromote(ui render.UI, jsonOut, toonOut bool, projectDir, name string) {
+	dest, err := promoteCandidateSkill(projectDir, name)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sila skill promote: %v\n", err)
+		os.Exit(1)
+	}
+	if jsonOut {
+		emitJSON(map[string]interface{}{"promoted": name, "path": dest})
+		return
+	}
+	if toonOut {
+		fmt.Fprintf(os.Stdout, "promote{name,path}:\n  %s,%s\n\n", name, dest)
+		return
+	}
+	fmt.Fprintf(os.Stdout, "%s sila · candidate skill promoted\n\n", ui.Green("✔"))
+	fmt.Fprintf(os.Stdout, "  Skill:  %s\n", ui.Bold(name))
+	fmt.Fprintf(os.Stdout, "  Active: %s\n\n", dest)
 }

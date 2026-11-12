@@ -65,35 +65,56 @@ process.
 `sila mcp` defaults to a focused continuity profile (`--profile=continuity`) to
 eliminate tool bloat and save prompt context tokens.
 
-- `continuity` (default): Exposes the 36 agent-workflow tools across five groups:
-  - Orientation, routing, and guidebooks (5): `salam`, `prime_context`,
-    `route_workflow`, `get_status`, `get_operational_guidebook`.
-  - Archaeology, transcript unroll, and documentation (7): `omni_search`,
-    `search_knowledge`, `search_messages`, `get_message_context`, `search_docs`,
-    `get_doc`, `recall`.
-  - Active 9-verb memory writes, handoffs, and grounding (7): `save_memo`,
-    `save_lesson`, `save_case`, `save_handoff`, `get_latest_handoff`,
-    `get_project_facts`, `reconcile_drift`.
-  - Goal lifecycle, quality gates, audits, decisions, skills, and feedback (13):
-    `list_goals`, `claim_goal`, `touch_goal`, `report_goal`, `certify_goal`,
-    `audit_goals`, `audit_goal`, `run_gate_pipeline`, `list_skills`,
-    `skill_search`, `skill_load`, `list_decisions`, `record_feedback`.
-  - Temporal, specialist, domain-learning, and symbol parity (4):
-    `get_activity_digest`, `consult_personas`, `save_domain_learning`,
-    `check_symbol_blast_radius`.
-- `full`: Restores the complete 76-tool contract for administrative, destructive,
-  external-network, and swarm-spawning tasks.
+- `continuity` (default): Exposes the curated ten-tool continuity surface, in
+  this contract order: `prime_context`, `recall`, `omni_search`, `save_memo`,
+  `save_lesson`, `save_handoff`, `get_project_facts`, `list_goals`,
+  `reconcile_drift`, `get_status`. The marshaled schema is 11,541 bytes, under
+  the 12,288-byte budget. `SILA_MCP_EXTRA_TOOLS=save_case,salam` adds known
+  tools at startup; unknown names warn on stderr and are ignored.
+- `graph`: The continuity surface plus `query_graph`, `shortest_path`, and
+  `graph_report` (13 tools). Generated harness configs use this profile so agents
+  can navigate the code and memory graph without the full 90-tool surface.
+  Graph read tools never write `.sila/graph.json`; `graph_report`'s `rebuild`
+  rebuilds in memory. Graph results include `stale` and `graph_age` when the
+  source is newer. `query_graph` defaults to 200 nodes and 64 KiB;
+  `graph_report` defaults to a top-10 summary, with `full=true` for the complete
+  report. Run `sila graph build` to persist a graph. MCP builds time out after
+  30 seconds; `project_dir` must be the server's working directory unless
+  `SILA_GRAPH_ALLOW_ANY_PROJECT=1`; `SILA_GRAPH_MAX_BYTES` raises the 50 MiB cap.
+- `full`: Restores the complete 90-tool contract for administrative, destructive,
+  external-network, and swarm-spawning tasks. The 90 count is native; installed
+  plugins (for example Cloudflare or Drizzle) can add tools to the effective
+  `tools/list`, so a full session may expose more than 90.
+
+## Agent Identity
+
+The MCP server resolves the agent identity in this order: `SILA_AGENT`, then
+`agent.identity` in config, then the `clientInfo.name` from `initialize`. Names
+are lowercased, stripped to letters and digits, and truncated to 32 runes.
+`initialize` reports the resolved value under
+`capabilities.experimental.sila.agent`, or `anonymous` when empty.
+
+Writes to `save_memo`, `save_lesson`, `save_handoff`, `save_case`, and
+`save_memory` fail with JSON-RPC `-32602` and the message
+`agent identity required: set SILA_AGENT` when no identity is resolved.
+`SILA_ALLOW_ANONYMOUS=1` restores the write and records `anonymous`. Read tools
+never require an identity and record `anonymous` when none is set.
 
 Direct `tools/call` requests are never filtered by the active profile; only
 `tools/list` is. Existing automation can call any registered tool under
 `--profile=continuity`.
+
+To run the graph profile:
+```sh
+sila mcp --profile=graph
+```
 
 To run the full tool suite:
 ```sh
 sila mcp --profile=full
 ```
 
-## Exposed Tools (76)
+## Exposed Tools (90)
 
 `Category` is machine-readable metadata for clients that filter tools:
 `read` tools never mutate, `write` tools can mutate sila's store or project
@@ -107,23 +128,36 @@ and `opt-in` only writes when the caller passes the listed flag.
 | `get_operational_guidebook` | read | Retrieve curated cross-project operational learnings, battle-tested engineering patterns, and failure postmortems categorized by domain | no | `domain` (string), `format` (string: markdown, json, html, toon, summary), `project` (string), `search` (string, alias: `query`), `query` (string, alias: `search`) |
 | `route_workflow` | read | Advisory System-1 tool chain and workflow routing: recommends optimal multi-tool Sila sequences tailored to developer objectives | no | `objective` (string, required), `current_tool` (string), `project` (string) |
 | `request_approval` | collab | Synchronous human-in-the-loop steering: pauses agent execution until approved or rejected via Telegram, Discord, or CLI | yes (store state) | `prompt` (string, required), `project` (string), `risk_level` (string), `timeout_seconds` (integer) |
-| `search_knowledge` | read | FTS5 search across distilled facts, claims, and architectural decisions | no | `query` (string, required), `project` (string), `tool` (string), `refs_exist_only` (boolean), `verified_only` (boolean), `facts_only` (boolean), `limit` (integer), `offset` (integer) |
+| `search_knowledge` | read | FTS5 search across distilled facts, claims, and architectural decisions | no | `query` (string, required), `project` (string), `tool` (string), `refs_exist_only` (boolean), `verified_only` (boolean), `facts_only` (boolean), `limit` (integer), `offset` (integer), `include_unverified` (boolean), `include_stale` (boolean), `include_disputed` (boolean), `as_of` (string), `include_archived` (boolean) |
 | `list_projects` | read | List indexed repositories with message and claim counts | no | `query` (string), `limit` (integer) |
-| `get_project_facts` | read | Get distilled facts for a project with pagination | no | `project` (string), `refs_exist_only` (boolean), `verified_only` (boolean), `facts_only` (boolean), `limit` (integer), `offset` (integer) |
+| `get_project_facts` | read | Get distilled facts for a project with pagination | no | `project` (string), `refs_exist_only` (boolean), `verified_only` (boolean), `facts_only` (boolean), `limit` (integer), `include_unverified` (boolean), `include_stale` (boolean), `include_disputed` (boolean), `as_of` (string), `offset` (integer) |
 | `get_status` | read | Knowledge store health and sync summary | no | none |
 | `get_subagent_charter` | write | Create a signed subagent continuity charter with parent, goal, lane, paths, and handoff policy | yes (local charter file) | `parent_session_id` (string, required), `subagent_id` (string, required), `goal` (string), `lane` (string), `allow_paths` (array), `handoff_policy` (string) |
 | `search_messages` | read | FTS5 search across raw conversation transcripts | no | `query` (string, required), `project` (string), `tool` (string), `role` (string), `since` (string), `limit` (integer), `offset` (integer), `two_pass` (boolean), `window` (integer), `max_tokens` (integer) |
 | `reconcile_drift` | write | Re-verify referenced repository files on disk | yes (store state; no when dry_run=true) | `project` (string), `dry_run` (boolean), `semantic` (boolean) |
-| `prime_context` | read | Build a concise session briefing for agent startup with bounded goal projection, envelope budgeting, and canonical representation | no | `project` (string), `max_facts` (integer), `budget` (integer), `max_tokens` (integer), `cache_pinned` (boolean), `include_markdown` (boolean), `all_goals` (boolean), `disable_codebase_map` (boolean), `codebase_map_chars` (integer) |
-| `save_handoff` | write | Persist a structured session handoff (extracts candidate architectural memos) | yes | `summary` (string, required), `project` (string), `open_items` (array), `decisions` (array), `branch` (string), `agent` (string), `repo_files` (array, alias: `files`), `files` (array, alias: `repo_files`), `tool_name` (string), `client_kind` (string), `origin_entity` (string) |
-| `get_latest_handoff` | read | Retrieve the active handoff for a project | no | `project` (string) |
+| `prime_context` | read | Build a concise session briefing for agent startup with bounded goal projection, envelope budgeting, and canonical representation | no | `project` (string), `max_facts` (integer), `budget` (integer), `max_tokens` (integer), `cache_pinned` (boolean), `include_markdown` (boolean), `all_goals` (boolean), `disable_codebase_map` (boolean), `codebase_map_chars` (integer), `context` (object: `task`, `paths`, `branch`, `head`, `symbols`), `include_unverified` (boolean), `include_stale` (boolean), `include_disputed` (boolean), `include_archived` (boolean), `graph` (boolean) |
+| `save_handoff` | write | Persist a structured session handoff (extracts candidate architectural memos) | yes | `summary` (string, required), `project` (string), `open_items` (array), `decisions` (array), `branch` (string), `agent` (string), `repo_files` (array, alias: `files`), `files` (array, alias: `repo_files`), `tool_name` (string), `client_kind` (string), `origin_entity` (string), `expected_revision` (string) |
+| `get_latest_handoff` | read | Retrieve the active handoff for a project | no | `project` (string), `revision_hash` (string) |
 | `claim_handoff` | write | Atomically claim an open or pending session handoff via Compare-and-Set (CAS) | yes | `handoff_id` (string, required), `agent_name` (string), `session_id` (string) |
 | `pop_handoff` | write | Pop and atomically claim the newest eligible pending handoff for cwd and branch | yes | `project` (string), `branch` (string), `agent_name` (string), `session_id` (string) |
 | `save_memo` | write | Record an explicit architectural directive | yes | `content` (string, required), `project` (string), `repo_files` (array, alias: `files`), `files` (array, alias: `repo_files`), `agent` (string), `tool_name` (string), `client_kind` (string), `origin_entity` (string), `decision` (string) |
 | `save_lesson` | write | Record a solved problem (symptom, cause, fix, evidence) for cross-project recall | yes | `symptom` (string, required), `project` (string), `cause` (string), `fix` (string), `tags` (string), `files` (array, alias: `repo_files`), `repo_files` (array, alias: `files`), `agent` (string), `tool_name` (string), `client_kind` (string), `origin_entity` (string) |
 | `save_case` | write | Record an architectural procedural case (intent, approach, invariant, evidence) | yes | `intent` (string, required), `project` (string), `approach` (string), `invariant` (string), `tags` (string), `files` (array, alias: `repo_files`), `repo_files` (array, alias: `files`), `agent` (string), `tool_name` (string), `client_kind` (string), `origin_entity` (string) |
+| `save_memory` | write | Persist a strict sila/memory/v1 envelope with typed assertions, evidence, relations, and idempotency | yes | `memory` (object, required), `project` (string), `agent` (string), `tool_name` (string), `client_kind` (string), `origin_entity` (string) |
+| `get_memory` | read | Read one typed memory record by id | yes | `id` (string, required), `project` (string), `revision_hash` (string) |
+| `list_memories` | read | List typed memory records with kind, recency, and supersession filters | yes | `project` (string), `kind` (string), `since` (string), `limit` (integer), `include_superseded` (boolean) |
+| `validate_memory` | read | Validate a sila/memory/v1 envelope without writing | yes | `memory` (object, required), `project` (string) |
+| `memory_archive` | write | Archive a current memory with an explicit reason and authority; archived memories leave recall, prime, and default search but stay auditable and restorable | yes | `id` (string, required), `authority` (string, required), `reason` (string, required), `project` (string), `note` (string), `duplicate_of` (string), `actor` (string), `expected_revision` (string) |
+| `memory_restore` | write | Restore an archived memory by memory or archive event id; sensitive archives are never agent-restorable and must be restored from the TTY CLI; already-current memories are an idempotent no-op | yes | `id` (string, required), `project` (string), `authority` (string), `actor` (string), `expected_revision` (string) |
+| `list_archived_memories` | read | List archived and superseded memories with reason, authority, deadline, restorable flag, counts, and chain health | no | `project` (string) |
+| `memory_history` | read | Return and verify the append-only hash-linked lifecycle chain for one memory | no | `id` (string, required), `project` (string), `verify` (boolean) |
+| `memory_feedback` | collab | Report whether a memory returned by a specific recall pack helped, was verified, mattered less, was irrelevant, or was wrong; requires the pack `retrieval_id`, supersedes the same agent's earlier signal for that retrieval, and only adjusts ranking inside the memory's authority tier | yes (feedback rows) | `memory_id` (string, required), `retrieval_id` (string, required), `signal` (string, required), `note` (string), `agent` (string), `project` (string) |
+| `list_memory_feedback` | read | List memory relevance feedback with signal counts, accepted versus superseded rows, bound versus unbound rows, and the most adjusted memories | no | `project` (string), `memory_id` (string), `signal` (string), `since` (string), `limit` (integer) |
 | `save_doc` | write | Attach and index an external reference document | yes | `title` (string, required), `content` (string, required), `project` (string), `url` (string) |
 | `search_docs` | read | FTS5 search across attached documentation | no | `query` (string, required), `project` (string), `limit` (integer), `offset` (integer) |
+| `query_graph` | read | Rank and expand code + memory graph nodes for a question, or seed a slice from files, bounded by node and byte budgets | no | `question` (string), `project_dir` (string), `max_depth` (integer), `token_budget` (integer), `max_nodes` (integer), `max_bytes` (integer), `files` (array) |
+| `shortest_path` | read | Find the most reliable confidence-weighted path between two graph nodes; no path returns a structured `no_confident_path` payload, and invalid nodes return `-32602` | no | `source` (string, required), `target` (string, required), `project_dir` (string), `max_hops` (integer), `code_only` (boolean) |
+| `graph_report` | read | Audit the code + memory graph: communities, god nodes, surprising connections, and suggested questions | no | `project_dir` (string), `rebuild` (boolean), `top` (integer), `full` (boolean) |
 | `get_doc` | read | Retrieve a document by ID | no | `id` (string, required) |
 | `search_web_docs` | write | Search live web documentation | opt-in (`auto_save`) | `query` (string, required), `project` (string), `top` (integer), `auto_save` (boolean) |
 | `search_code` | write | Search public source code repositories | opt-in (`auto_save`) | `query` (string, required), `language` (string), `repo` (string), `extension` (string), `project` (string), `top` (integer), `auto_save` (boolean) |
@@ -139,10 +173,11 @@ and `opt-in` only writes when the caller passes the listed flag.
 | `vacuum_database` | write | Defragment the store and optimize the query planner | yes | `force` (boolean) |
 | `get_db_stats` | read | SQLite page, freelist, and fragmentation metrics | no | none |
 | `get_message_context` | read | Expand surrounding conversation turns for a message ID, staying inside its recorded source session | no | `id` (integer, required), `window` (integer, max 20), `occurrence` (integer, 1-based selection among recorded source occurrences) |
-| `omni_search` | read | One query across every knowledge tier: invariants, claims, candidates, transcripts, commits, docs, and session handoffs | no | `query` (string, required), `project` (string), `limit` (integer), `tool` (string), `role` (string), `since` (RFC3339 string), `semantic` (boolean) |
-| `recall` | read | Find prior resolutions before web search or workarounds: deliberate lessons first, then grounded claims and memos, then transcripts | no | `query` (string, required), `project` (string), `limit` (integer), `semantic` (boolean) |
+| `omni_search` | read | One query across every knowledge tier: invariants, claims, candidates, transcripts, commits, docs, and session handoffs | no | `query` (string, required), `project` (string), `limit` (integer), `tool` (string), `role` (string), `since` (RFC3339 string), `semantic` (boolean), `compact` (boolean, default false), `include_unverified` (boolean), `include_stale` (boolean), `include_disputed` (boolean), `include_archived` (boolean) |
+| `recall` | read | Find prior resolutions before web search or workarounds: deliberate lessons first, then grounded claims and memos, then transcripts; an optional context object returns a bounded task-scoped pack with a `retrieval_id` for `memory_feedback` | no | `query` (string, required), `project` (string), `limit` (integer), `semantic` (boolean), `max_tokens` (integer, 256-8192), `context` (object: `task`, `paths`, `branch`, `head`, `symbols`), `include_unverified` (boolean), `include_stale` (boolean), `include_disputed` (boolean), `compact` (boolean, default false), `ids` (array of strings), `anchor` (string), `before` (integer), `after` (integer), `retrieval_id` (string), `as_of` (string), `include_archived` (boolean) |
 | `diagnose_system` | write | Full integrity, index, and storage health audit | opt-in (`repair`) | `repair` (boolean) |
 | `list_goals` | read | List goal packages, project task acceptance status, conditional dependency blockers, or assemble a bounded task execution packet | no | `project` (string), `status` (string), `pending_only` (boolean), `tier` (string), `limit` (integer), `slug` (string), `task_id` (string) |
+| `manage_merge_slot` | write | Acquire, heartbeat, release, or inspect the exclusive project merge-slot lease; busy returns MERGE_SLOT_BUSY | yes | `operation` (string, required: acquire, heartbeat, release, status), `project` (string), `holder` (string), `token` (string), `lease_seconds` (integer, 60-14400), `force` (boolean) |
 | `audit_goals` | collab | Audit goals against git history and sync `goals/README.md` | yes (unless `no_sync`) | `project` (string), `no_sync` (boolean) |
 | `audit_goal` | collab | Run an epistemic blindfold mystery audit on a goal package to evaluate compliance and certify or reopen it | yes (receipt/dossier/status) | `slug` (string, required), `project` (string), `persona` (string), `url` (string), `binary` (string), `skip_canary` (boolean), `timeout` (string) |
 | `claim_goal` | collab | Claim and lock a goal package (strictly forbids --force from overriding structured decision gates) | yes | `slug` (string, required), `project` (string), `agent` (string), `note` (string), `force` (boolean), `session` (string), `allow_paths` (array), `deny_paths` (array), `duration` (string) |
@@ -164,7 +199,7 @@ and `opt-in` only writes when the caller passes the listed flag.
 | `touch_goal` | collab | Renew a goal claim heartbeat lease | yes | `slug` (string, required), `project` (string), `agent` (string) |
 | `compare_proposals` | read | Rank competing proposals against non-goals and invariants | no | `proposals` (array, required), `project` (string), `context_query` (string) |
 | `record_preference` | write | Record a pairwise preference decision | yes | `candidate_a` (string, required), `candidate_b` (string, required), `winner` (string, required), `rationale` (string), `context_query` (string), `project` (string), `agent` (string), `decision` (string) |
-| `run_gate_pipeline` | collab | Run the quality gate in a disposable Git worktree | yes (worktree) | `branch` (string), `forward_target` (string), `auto_forward` (boolean), `project` (string) |
+| `run_gate_pipeline` | collab | Run the quality gate in a disposable Git worktree | yes (worktree) | `branch` (string), `forward_target` (string), `auto_forward` (boolean), `project` (string), `verbose` (boolean) |
 | `run_preflight_eval` | collab | Run epistemic preflight evaluation or context ablation test suite before landing changes | yes (sandbox) | `eval_dir` (string), `case_name` (string), `tag` (string), `target_rule` (string), `harness` (string), `ablation` (boolean), `project` (string) |
 | `spawn_crewmate` | collab | Spawn a crewmate in a worktree and tmux session | yes | `harness` (string, required), `goal_slug` (string, required), `base_ref` (string), `project` (string) |
 | `list_crew` | read | List crewmates with zero-token liveness status | no | `project` (string) |
@@ -182,6 +217,51 @@ and `opt-in` only writes when the caller passes the listed flag.
 
 ---
 
+## Context-aware recall pack
+
+`recall` and `prime_context` accept one optional `context` object. The object
+is strict: unknown keys are rejected with `-32602` and the key name only. A
+JSON-encoded object string is unwrapped once by the schema-aware normalizer.
+
+```json
+{
+  "query": "deploy fails after migrations",
+  "project": "sila-cli",
+  "limit": 8,
+  "max_tokens": 1200,
+  "context": {
+    "task": "fix deploy ordering",
+    "paths": ["scripts/deploy.sh", "db/migrations/0004.sql"],
+    "branch": "main",
+    "head": "4f2a91c",
+    "symbols": ["runDeploy"]
+  }
+}
+```
+
+| Field | Limit | Behavior |
+|---|---|---|
+| `task` | 200 chars | Terms boost matching resolution text; never echoed |
+| `paths` | 32 | Repository-relative; absolute, home, `..`, duplicate and symlink-escaping entries are dropped with a count-only diagnostic |
+| `branch` | 255 chars | +25 when the hit records the same branch |
+| `head` | 7-64 hex | +15 when the hit records a matching commit prefix |
+| `symbols` | 16 | +20 per match in the source ref or resolution, capped at +40 |
+
+Boosts are additive and capped at +300, then clamped to the hit's own tier:
+a boosted fact stays at or below 999 and a boosted transcript at or below 499,
+so a lower tier never outranks a lesson. `max_tokens` bounds the pack
+(256-8192, default 1200) and `limit` bounds its item count (default 8).
+
+Both tools return `pack` with `items`, `tokens`, `omitted`, `empty_reason`,
+`ranking_version` (`recall-pack/v1`), and a privacy-safe `context` summary
+(`task_present`, `paths_count`, `symbols_count`). An empty pack is a success;
+`empty_reason` is `no_candidates`, `all_below_threshold`, or
+`budget_exhausted`. Text content always starts with the untrusted-data line,
+including when the pack is empty. `prime_context` places the pack after the
+handoff and goals and before the codebase map, and drops it before open items
+when the serialized budget is tight. `budget_metrics.fits_budget` reports any
+overrun.
+
 ## Worked Example: `omni_search`
 
 **Request (`JSON-RPC 2.0` via stdio):**
@@ -194,7 +274,7 @@ and `opt-in` only writes when the caller passes the listed flag.
     "name": "omni_search",
     "arguments": {
       "query": "D1 sqlite migration standard",
-      "project": "example.com",
+      "project": "example.org",
       "limit": 2
     }
   }
@@ -210,7 +290,7 @@ and `opt-in` only writes when the caller passes the listed flag.
     "content": [
       {
         "type": "text",
-        "text": "{\n  \"facts\": [\n    {\n      \"project\": \"example.com\",\n      \"claim\": \"All D1 database migrations must use Drizzle ORM via wrangler d1 migrations apply <db> [--local|--remote].\",\n      \"corroboration\": \"invariant\",\n      \"verified\": true,\n      \"repo_files\": [\"db/schema.ts\", \"drizzle.config.ts\"]\n    }\n  ],\n  \"transcripts\": [\n    {\n      \"project\": \"example.com\",\n      \"role\": \"assistant\",\n      \"content\": \"Generated Drizzle migration 0004_add_reserved_slugs.sql and verified locally.\",\n      \"tool\": \"opencode\"\n    }\n  ]\n}"
+        "text": "{\n  \"facts\": [\n    {\n      \"project\": \"example.org\",\n      \"claim\": \"All D1 database migrations must use Drizzle ORM via wrangler d1 migrations apply <db> [--local|--remote].\",\n      \"corroboration\": \"invariant\",\n      \"verified\": true,\n      \"repo_files\": [\"db/schema.ts\", \"drizzle.config.ts\"]\n    }\n  ],\n  \"transcripts\": [\n    {\n      \"project\": \"example.org\",\n      \"role\": \"assistant\",\n      \"content\": \"Generated Drizzle migration 0004_add_reserved_slugs.sql and verified locally.\",\n      \"tool\": \"opencode\"\n    }\n  ]\n}"
       }
     ]
   }
@@ -238,7 +318,7 @@ Global and per-server disable states are verified immediately before client acqu
 
 Upstream routing is governed by an **exact validated tool registry** rather than loose prefix or wildcard dispatch:
 1. **Exact Dispatch Only**: Only registered and discovered tools dispatch to upstream subprocesses or HTTP endpoints; unknown suffixes fail immediately before transport.
-2. **Core Tool Reservation**: Sila's 76 native core tools (e.g. `salam`, `search_knowledge`, `prime_context`) are strictly reserved. Attempted registrations or calls are denied with zero side effects. Native requests never touch upstream logic.
+2. **Core Tool Reservation**: Sila's 90 native core tools (e.g. `salam`, `search_knowledge`, `prime_context`) are strictly reserved. Attempted registrations or calls are denied with zero side effects. Native requests never touch upstream logic.
 3. **Collision & Ambiguity Guard**: Duplicate tool names across servers or ambiguous shared prefixes are quarantined into a denied registry upon startup.
 4. **Resurrection Safety**: Calling `mcp_upstream_toggle` or re-enabling a server rebuilds state cleanly without resurrecting quarantined or colliding tools.
 

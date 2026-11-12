@@ -3,6 +3,9 @@ package loaders
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -145,29 +148,57 @@ func loadMiMoOpenCode(db *sql.DB, tool string, project *string, watermark string
 // miMoOpenCodeLoader is the shared loader for MiMoCode and OpenCode, which
 // share the message/part/session schema.
 type miMoOpenCodeLoader struct {
-	tool string
-	path string
+	tool  string
+	paths []string
 }
 
 // NewMiMoCodeLoader returns a loader over the MiMoCode store.
 func NewMiMoCodeLoader(path string) Loader {
-	return miMoOpenCodeLoader{tool: "mimocode", path: path}
+	return miMoOpenCodeLoader{tool: "mimocode", paths: []string{path}}
 }
 
-// NewOpenCodeLoader returns a loader over the OpenCode store.
+// NewOpenCodeLoader returns a loader over the OpenCode store. The host default
+// aggregates every discovered native, XDG, and Flatpak store; an arbitrary
+// test path stays hermetic.
 func NewOpenCodeLoader(path string) Loader {
-	return miMoOpenCodeLoader{tool: "opencode", path: path}
+	paths := []string{path}
+	if path == "" || path == defaultOpenCodeDBPath(homeDir()) {
+		if discovered := OpenCodeDBPaths(homeDir()); len(discovered) > 0 {
+			paths = discovered
+		}
+	}
+	return miMoOpenCodeLoader{tool: "opencode", paths: paths}
 }
 
 // Name returns the loader identifier.
 func (l miMoOpenCodeLoader) Name() string { return l.tool }
 
-// Load reads messages from MiMo or OpenCode SQLite database newer than the watermark.
+// Load reads messages from every configured store newer than the watermark.
 func (l miMoOpenCodeLoader) Load(wm string, p *string) ([]Message, string, error) {
-	if l.path == "" {
+	if len(l.paths) == 0 || (len(l.paths) == 1 && l.paths[0] == "") {
 		return nil, "", errMissingDB
 	}
-	db, err := openReadOnly(l.path)
+	var all []Message
+	best := wm
+	for _, path := range l.paths {
+		msgs, next, err := l.loadOne(path, wm, p)
+		if err != nil {
+			if len(l.paths) > 1 && errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return nil, "", err
+		}
+		all = append(all, msgs...)
+		if watermarkNewer(next, best) {
+			best = next
+		}
+	}
+	sort.SliceStable(all, func(i, j int) bool { return all[i].TS.Before(all[j].TS) })
+	return all, best, nil
+}
+
+func (l miMoOpenCodeLoader) loadOne(path, wm string, p *string) ([]Message, string, error) {
+	db, err := openReadOnly(path)
 	if err != nil {
 		return nil, "", err
 	}
@@ -178,12 +209,27 @@ func (l miMoOpenCodeLoader) Load(wm string, p *string) ([]Message, string, error
 	return loadMiMoOpenCode(db, l.tool, p, wm)
 }
 
-// Count returns the number of candidate messages in the MiMo or OpenCode database.
+// Count returns the number of candidate messages across configured stores.
 func (l miMoOpenCodeLoader) Count(p *string) (int64, error) {
-	if l.path == "" {
+	if len(l.paths) == 0 || (len(l.paths) == 1 && l.paths[0] == "") {
 		return 0, errMissingDB
 	}
-	db, err := openReadOnly(l.path)
+	var total int64
+	for _, path := range l.paths {
+		n, err := l.countOne(path, p)
+		if err != nil {
+			if len(l.paths) > 1 && errors.Is(err, os.ErrNotExist) {
+				continue
+			}
+			return 0, err
+		}
+		total += n
+	}
+	return total, nil
+}
+
+func (l miMoOpenCodeLoader) countOne(path string, p *string) (int64, error) {
+	db, err := openReadOnly(path)
 	if err != nil {
 		return 0, err
 	}
@@ -192,6 +238,15 @@ func (l miMoOpenCodeLoader) Count(p *string) (int64, error) {
 		return countOpenCodeV2(db, p)
 	}
 	return countMiMoOpenCode(db, p, hasMiMoActorMarkers(db))
+}
+
+func watermarkNewer(candidate, current string) bool {
+	c, cErr := strconv.ParseInt(candidate, 10, 64)
+	b, bErr := strconv.ParseInt(current, 10, 64)
+	if cErr == nil && bErr == nil {
+		return c > b
+	}
+	return candidate != "" && current == ""
 }
 
 // countMiMoOpenCode counts the distinct curated messages loadMiMoOpenCode would

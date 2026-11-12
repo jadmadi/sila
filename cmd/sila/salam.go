@@ -135,6 +135,8 @@ func runSalam(ui render.UI, dbPath, project string, yes, jsonOut bool, args []st
 		return
 	}
 	printSalam(ui, brief)
+	cwd, _ := os.Getwd()
+	fmt.Fprintf(os.Stdout, "  capture: %s\n", captureLine(captureStateFor(st, store.ProjectID(cwd))))
 	if full {
 		printSalamFull(ui, brief)
 		if id, err := session.ResolveIdentity("", project, brief.RepoRoot); err == nil && id.SessionID == "" {

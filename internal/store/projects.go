@@ -243,8 +243,8 @@ func (s *Store) ProjectForDir(dir string) (Project, bool, error) {
 	// repository with its own identity, so it must not borrow a registered
 	// ancestor's. Without this boundary a container registration that spans
 	// many repositories silently absorbs every unregistered repository under
-	// it — the live case: /workspace/sila/github registered as a stale workspace slug
-	// while a distinct repository lived at projects/waqftech/MutmainKalp.com.
+	// it — the live case: /workspace/github registered as a stale workspace slug
+	// while a distinct repository lived at projects/waqftech/example-project.com.
 	if !isRepositoryRoot(canonDir) {
 		var bestMatch Project
 		bestLen := 0
@@ -293,7 +293,8 @@ func IsRepoOrWorkspaceDir(dir string) bool {
 		return false
 	}
 	if home, err := os.UserHomeDir(); err == nil && home != "" {
-		if clean == filepath.Clean(home) {
+		cleanHome := filepath.Clean(home)
+		if clean == cleanHome || isNonRepoHomeSubdir(cleanHome, clean) {
 			return false
 		}
 	}
@@ -311,6 +312,29 @@ func IsRepoOrWorkspaceDir(dir string) bool {
 			if !e.IsDir() && strings.HasSuffix(e.Name(), ".code-workspace") {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+var nonRepoHomePrefixes = []string{
+	".agents", ".gemini", ".claude", ".cursor", ".devin", ".zcode",
+	".config", ".local", ".cache", ".var", "Downloads", "Pictures", "Documents",
+	"Music", "Videos", "Desktop", "temp", "temp-agy", "temp-mise", "tmp",
+}
+
+func isNonRepoHomeSubdir(cleanHome, cleanDir string) bool {
+	rel, err := filepath.Rel(cleanHome, cleanDir)
+	if err != nil {
+		return false
+	}
+	relSlash := filepath.ToSlash(rel)
+	if relSlash == ".." || strings.HasPrefix(relSlash, "../") {
+		return false
+	}
+	for _, p := range nonRepoHomePrefixes {
+		if relSlash == p || strings.HasPrefix(relSlash, p+"/") {
+			return !isRepositoryRoot(cleanDir)
 		}
 	}
 	return false

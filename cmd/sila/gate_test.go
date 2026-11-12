@@ -137,7 +137,7 @@ func TestRunGateInstall(t *testing.T) {
 
 	ui := render.New(os.Stdout, true)
 	// Test installing hook and remote
-	runGateInstall(ui, true, false, false)
+	runGateInstall(ui, true, false, false, false, nil)
 
 	// Check hook file
 	hookPath := filepath.Join(dir, ".git", "hooks", "pre-push")
@@ -309,7 +309,7 @@ func TestDocsOnlyDiffAndExternalScope(t *testing.T) {
 		_ = exec.Command("git", "-C", tmp, "config", "user.email", "test@test.com").Run()
 		_ = exec.Command("git", "-C", tmp, "config", "user.name", "Test").Run()
 
-		// Write package.json with a failing test script (simulating red suite like example.com)
+		// Write package.json with a failing test script (simulating red suite like example.org)
 		pkgJSON := `{"name":"test-project","scripts":{"test":"exit 1"}}`
 		if err := os.WriteFile(filepath.Join(tmp, "package.json"), []byte(pkgJSON), 0644); err != nil {
 			t.Fatal(err)

@@ -441,8 +441,11 @@ var allSpecs = []HarnessSpec{
 		Kind:        KindPluginHook,
 		Output:      OutputPlugin,
 		Config: ConfigSpec{
-			ProjectPaths:    []string{".opencode/plugins/sila-goal-contract.js", "opencode.json"},
-			UserPaths:       []string{"~/.config/opencode/plugins/sila-goal-contract.js"},
+			ProjectPaths: []string{".opencode/plugins/sila-goal-contract.js", "opencode.json"},
+			UserPaths: []string{
+				"~/.config/opencode/plugins/sila-goal-contract.js",
+				"~/.var/app/ai.opencode.opencode/config/opencode/plugins/sila-goal-contract.js",
+			},
 			Format:          "json",
 			TrustRequired:   false,
 			AtomicWrite:     true,
@@ -450,13 +453,11 @@ var allSpecs = []HarnessSpec{
 		},
 		Events: map[contract.Phase]EventSpec{
 			contract.PhaseSessionStart: {NativeName: "session.created", ContextInjection: true},
-			contract.PhaseStop:         {NativeName: "session.idle", Blocking: false, StopContinuation: "continue-only"},
-			contract.PhaseToolBefore:   {NativeName: "tool.execute.before", Blocking: true},
-			contract.PhaseToolAfter:    {NativeName: "tool.execute.after"},
-			contract.PhaseCompactPre:   {NativeName: "experimental.session.compacting"},
-			contract.PhaseCompactPost:  {NativeName: "session.compacted", ContextInjection: true},
+			contract.PhaseStop:         {NativeName: "experimental.idle", Blocking: false, StopContinuation: "continue-only"},
+			contract.PhaseToolBefore:   {NativeName: "execute.before", Blocking: true},
+			contract.PhaseToolAfter:    {NativeName: "execute.after"},
+			contract.PhaseCompactPre:   {NativeName: "compaction"},
 		},
-		ExtraEvents: []string{"session.error"},
 		Capabilities: map[contract.Capability]bool{
 			contract.CapSessionStart:   true,
 			contract.CapSessionEnd:     false,

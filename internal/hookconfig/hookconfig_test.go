@@ -264,3 +264,40 @@ func TestCompactionCapabilityMatrix(t *testing.T) {
 		t.Fatal("claude PreCompact hook was not reported installed")
 	}
 }
+
+func TestRecallGateReadyReportsInstalledPreToolHarnesses(t *testing.T) {
+	ready, harnesses := RecallGateReady(map[string]Status{
+		"claude":  {Installed: true, Capabilities: map[string]bool{"tool-before": true}},
+		"codex":   {Installed: true, Capabilities: map[string]bool{"tool-before": false}},
+		"unknown": {Installed: false, Capabilities: map[string]bool{"tool-before": true}},
+	})
+	if !ready || len(harnesses) != 1 || harnesses[0] != "claude" {
+		t.Fatalf("ready=%v harnesses=%v", ready, harnesses)
+	}
+	if ready, harnesses := RecallGateReady(map[string]Status{}); ready || len(harnesses) != 0 {
+		t.Fatalf("empty statuses reported ready: %v %v", ready, harnesses)
+	}
+}
+
+func TestHookInstallPreservesForeignHooks(t *testing.T) {
+	dir := t.TempDir()
+	settings := filepath.Join(dir, ".claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(settings), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	foreign := `{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"echo foreign"}]}]}}`
+	if err := os.WriteFile(settings, []byte(foreign), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Install("claude", dir, false, false); err != nil {
+		t.Fatal(err)
+	}
+	root := readSettings(t, settings)
+	text, _ := json.Marshal(root)
+	if !strings.Contains(string(text), "echo foreign") {
+		t.Fatalf("foreign hook was removed: %s", text)
+	}
+	if !strings.Contains(string(text), "sila hook") {
+		t.Fatalf("sila hook was not installed: %s", text)
+	}
+}

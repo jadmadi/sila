@@ -1,6 +1,7 @@
 # Command Code Integration
 
-> The `Stop` hook now feeds the harness-neutral goal contract (`internal/harness/contract`)
+> The `Stop` hook now feeds the harness-neutral goal contract (`internal/harness/contract`,
+> [`goals/core-harness-goal-contract/goal.md`](../goals/core-harness-goal-contract/goal.md))
 > through the declarative adapter registry (`internal/harness/registry`). Command Code is
 > a native shell-hook adapter (not an in-process JS plugin bridge); bind the session with
 > `sila goals contract link --session=<id> --goal=<slug>`, and see

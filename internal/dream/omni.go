@@ -63,6 +63,8 @@ type OmniResultItem struct {
 	ReviewStatus string `json:"review_status,omitempty"`
 	OriginRole   string `json:"origin_role,omitempty"`
 	Quoted       bool   `json:"quoted,omitempty"`
+	// Visibility is the ACL scope of a memory record: project or global.
+	Visibility string `json:"visibility,omitempty"`
 }
 
 // OmniSearchResult wraps matched items across all tiers.
@@ -81,12 +83,19 @@ type OmniSearchResult struct {
 
 // OmniOptions filters an omni search. Zero values mean "no filter".
 type OmniOptions struct {
-	Project  string
-	Limit    int
-	Tool     string
-	Role     string
-	Since    string // RFC3339 lower bound; empty means all time
-	Semantic bool   // whether to apply semantic reranking via assist provider
+	Project         string
+	Limit           int
+	Tool            string
+	Role            string
+	Since           string // RFC3339 lower bound; empty means all time
+	Semantic        bool   // whether to apply semantic reranking via assist provider
+	IncludeArchived bool   // include archived and superseded memories
+
+	// ACLScoped limits cross-project results to the requester's own project
+	// plus records explicitly marked global. It is a no-op without a
+	// RequesterProject.
+	ACLScoped        bool
+	RequesterProject string
 }
 
 // OmniSearch executes a blended multi-source search across Architectural
@@ -117,10 +126,17 @@ func OmniSearchFiltered(st *store.Store, query string, opts OmniOptions) (*OmniS
 	var warnings []string
 
 	// 1. Distilled facts, invariants, and candidates.
+	excluded := map[string]bool{}
+	if !opts.IncludeArchived {
+		if blocked, blockErr := st.NonCurrentMemoryFactIDs(); blockErr == nil {
+			excluded = blocked
+		}
+	}
 	facts, err := st.SearchFactsFTS(effectiveQuery, project, false, limit)
 	if err != nil {
 		warnings = append(warnings, fmt.Sprintf("claims tier failed: %v", err))
 	} else {
+		facts = store.FilterNonCurrentFacts(facts, excluded)
 		for _, f := range facts {
 			if opts.Tool != "" && !containsFold(f.Tools, opts.Tool) {
 				continue
@@ -149,6 +165,7 @@ func OmniSearchFiltered(st *store.Store, query string, opts OmniOptions) (*OmniS
 				ReviewStatus: f.ReviewStatus,
 				OriginRole:   f.OriginRole,
 				Quoted:       f.Quoted,
+				Visibility:   f.Visibility,
 			})
 		}
 	}
@@ -255,6 +272,16 @@ func OmniSearchFiltered(st *store.Store, query string, opts OmniOptions) (*OmniS
 				Score:     score,
 			})
 		}
+	}
+
+	if opts.ACLScoped && opts.RequesterProject != "" {
+		visible := make([]OmniResultItem, 0, len(items))
+		for _, item := range items {
+			if aclAllows(opts.ACLScoped, opts.RequesterProject, item.ProjectID, item.Visibility) {
+				visible = append(visible, item)
+			}
+		}
+		items = visible
 	}
 
 	if opts.Role != "" {
@@ -377,6 +404,20 @@ func containsFold(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+// aclAllows reports whether a record is visible under an ACL-scoped read.
+// Records from the requester's project always pass. Foreign records pass only
+// when explicitly marked global; raw transcripts, commits, docs, and handoffs
+// carry no global scope and therefore stay inside their project.
+func aclAllows(aclScoped bool, requester, projectID, visibility string) bool {
+	if !aclScoped || requester == "" {
+		return true
+	}
+	if strings.EqualFold(projectID, requester) {
+		return true
+	}
+	return visibility == store.VisibilityGlobal
 }
 
 // AuthorityTier returns the integer priority of the item's evidence tier.

@@ -1,6 +1,8 @@
 package config
 
 import (
+	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 )
@@ -104,5 +106,90 @@ func TestResolvedUpstreamMCPServers_AuthSecurity(t *testing.T) {
 	}
 	if len(st.Args) != 0 {
 		t.Fatalf("expected empty Args for HTTP upstream, got %v", st.Args)
+	}
+}
+
+func TestRecallGatePolicyPrecedence(t *testing.T) {
+	home := t.TempDir()
+	project := t.TempDir()
+	globalPath := filepath.Join(home, ".config", "sila", "config.json")
+	projectPath := filepath.Join(project, ".sila", "config.json")
+
+	if policy, err := ResolveRecallGatePolicy("", project, home, nil); err != nil || policy != RecallGateWarn {
+		t.Fatalf("default policy = %q, err = %v; want warn", policy, err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(globalPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(globalPath, []byte(`{"recall_gate_policy":"enforce"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if policy, err := ResolveRecallGatePolicy("", project, home, nil); err != nil || policy != RecallGateEnforce {
+		t.Fatalf("global policy = %q, err = %v; want enforce", policy, err)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(projectPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(projectPath, []byte(`{"recall_gate_policy":"off"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if policy, err := ResolveRecallGatePolicy("", project, home, nil); err != nil || policy != RecallGateOff {
+		t.Fatalf("project policy = %q, err = %v; want off", policy, err)
+	}
+
+	if policy, err := ResolveRecallGatePolicy("enforce", project, home, nil); err != nil || policy != RecallGateEnforce {
+		t.Fatalf("flag policy = %q, err = %v; want enforce", policy, err)
+	}
+
+	env := map[string]string{"SILA_RECALL_GATE": "off"}
+	if policy, err := ResolveRecallGatePolicy("enforce", project, home, env); err != nil || policy != RecallGateOff {
+		t.Fatalf("env policy = %q, err = %v; want off", policy, err)
+	}
+}
+
+func TestRecallGateInvalidPolicy(t *testing.T) {
+	home := t.TempDir()
+	project := t.TempDir()
+
+	if _, err := ResolveRecallGatePolicy("loud", project, home, nil); err == nil {
+		t.Fatal("expected invalid explicit flag to be rejected")
+	}
+
+	env := map[string]string{"SILA_RECALL_GATE": "loud"}
+	policy, err := ResolveRecallGatePolicy("", project, home, env)
+	if policy != RecallGateWarn {
+		t.Fatalf("invalid env must degrade to warn, got %q", policy)
+	}
+	var perr *RecallGatePolicyError
+	if !errors.As(err, &perr) || !perr.DiagnosticOnly() {
+		t.Fatalf("expected diagnostic-only environment error, got %v", err)
+	}
+
+	projectPath := filepath.Join(project, ".sila", "config.json")
+	if err := os.MkdirAll(filepath.Dir(projectPath), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(projectPath, []byte(`{"recall_gate_policy":"loud"}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ResolveRecallGatePolicy("", project, home, nil); err == nil {
+		t.Fatal("expected invalid project config to be rejected")
+	}
+
+	cfgPath := filepath.Join(t.TempDir(), "config.json")
+	if err := SetKey(cfgPath, "recall_gate_policy", "enforce"); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.RecallGate != "enforce" {
+		t.Fatalf("stored policy = %q", cfg.RecallGate)
+	}
+	if err := SetKey(cfgPath, "recall_gate_policy", "loud"); err == nil {
+		t.Fatal("expected invalid config set to be rejected")
 	}
 }

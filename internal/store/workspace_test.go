@@ -28,8 +28,8 @@ func TestDetectWorkspaceProjectID(t *testing.T) {
       "path": "worker"
     },
     {
-      "name": "Docs (Public Docs)",
-      "path": "docs"
+      "name": "Research (Private Docs)",
+      "path": "research"
     }
   ]
 }`
@@ -40,8 +40,8 @@ func TestDetectWorkspaceProjectID(t *testing.T) {
 	cliDir := filepath.Join(tmp, "cli")
 	subCliDir := filepath.Join(tmp, "cli", "cmd", "sila")
 	workerDir := filepath.Join(tmp, "worker")
-	docsDir := filepath.Join(tmp, "docs")
-	for _, d := range []string{cliDir, subCliDir, workerDir, docsDir} {
+	researchDir := filepath.Join(tmp, "research")
+	for _, d := range []string{cliDir, subCliDir, workerDir, researchDir} {
 		if err := os.MkdirAll(d, 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -74,12 +74,12 @@ func TestDetectWorkspaceProjectID(t *testing.T) {
 		t.Errorf("ProjectID(subCliDir) = %q, want %q", got, "sila-cli")
 	}
 
-	// 4. Other declared folders: worker & docs
+	// 4. Other declared folders: worker & research
 	if got := ProjectID(workerDir); got != "sila-worker" {
 		t.Errorf("ProjectID(worker) = %q, want %q", got, "sila-worker")
 	}
-	if got := ProjectID(docsDir); got != "sila-docs" {
-		t.Errorf("ProjectID(docs) = %q, want %q", got, "sila-docs")
+	if got := ProjectID(researchDir); got != "research" {
+		t.Errorf("ProjectID(research) = %q, want %q", got, "research")
 	}
 
 	// 5. Unrelated folder outside workspace

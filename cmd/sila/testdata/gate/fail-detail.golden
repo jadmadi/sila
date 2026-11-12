@@ -1,0 +1,9 @@
+sila · gate (pre-commit)
+  ✔ PASS tests
+    go test ./cmd/sila passed in 1.2s
+  ✖ FAIL gate
+    one blocker
+  ✖ gate: one blocker
+    boom: assertion failed
+    fix: fix the assertion
+✖ 1 blocking check(s) — resolve before committing.

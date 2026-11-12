@@ -439,7 +439,7 @@ func TestRunChangelogTimeline(t *testing.T) {
 			t.Errorf("expected timeline table header %q in output:\n%s", header, out)
 		}
 	}
-	if !strings.Contains(out, "v0.18.0") || !strings.Contains(out, "v0.17.5") {
+	if !strings.Contains(out, "v0.11.0") || !strings.Contains(out, "v0.10.0") {
 		t.Errorf("expected multiple releases in timeline matrix, got:\n%s", out)
 	}
 }
@@ -456,13 +456,13 @@ func TestRunChangelogTargetVersion(t *testing.T) {
 
 	ui := render.New(os.Stdout, true)
 	out := captureStdout(t, func() {
-		runChangelog(ui, changelogOptions{targetVersion: "v0.18.0"})
+		runChangelog(ui, changelogOptions{targetVersion: "v0.11.0"})
 	})
 
-	if !strings.Contains(out, "v0.18.0") {
-		t.Errorf("expected output to contain v0.18.0 card, got:\n%s", out)
+	if !strings.Contains(out, "v0.11.0") {
+		t.Errorf("expected output to contain v0.11.0 card, got:\n%s", out)
 	}
-	if strings.Contains(out, "v0.17.5") {
-		t.Errorf("expected output NOT to contain v0.17.5 card when target is v0.18.0, got:\n%s", out)
+	if strings.Contains(out, "v0.10.0") {
+		t.Errorf("expected output NOT to contain v0.10.0 card when target is v0.11.0, got:\n%s", out)
 	}
 }

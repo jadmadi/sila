@@ -29,7 +29,7 @@ func MockToken(provider string) string {
 	case "gitlab", "glpat":
 		return "glpat-" + "mocktest123456789012"
 	case "slack", "xoxb":
-		return "xoxb-" + "mocktest-123456789012-123456789012-mocktoken"
+		return "xoxb-inert"
 	case "openai", "sk":
 		return "sk-" + "mocktest-1234567890abcdef1234567890abcdef"
 	case "random":
@@ -67,6 +67,7 @@ func IsMockCredential(text string) bool {
 		"testfixture",
 		"mock_token",
 		"mock-token",
+		"inert",
 		"testutil.mock",
 		"sila:test-fixture",
 		"sila:mock",

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -34,6 +35,220 @@ func writeError(w http.ResponseWriter, status int, msg string) {
 	})
 }
 
+// isUngroundedClaim reports a code claim whose files are missing. Invariants,
+// non-goals, and milestones are deliberate rules, not stale claims, so the
+// health strip and the Memory view agree on the same set.
+func isUngroundedClaim(f store.Fact) bool {
+	return !f.FileRefsExist && !f.IsInvariant() && !f.IsNonGoal() && !f.IsMilestone()
+}
+
+// overviewCounts is the top-line health strip.
+type overviewCounts struct {
+	Messages int `json:"messages"`
+	Facts    int `json:"facts"`
+	Verified int `json:"verified"`
+	Stale    int `json:"stale_claims"`
+	Projects int `json:"projects"`
+}
+
+// overviewMemory is the deliberate-memory corpus.
+type overviewMemory struct {
+	Lessons    int `json:"lessons"`
+	Cases      int `json:"cases"`
+	Invariants int `json:"invariants"`
+	NonGoals   int `json:"non_goals"`
+}
+
+// overviewHarness is one harness's share of recent activity.
+type overviewHarness struct {
+	Tool      string `json:"tool"`
+	Messages  int    `json:"messages"`
+	Assistant int    `json:"assistant"`
+	User      int    `json:"user"`
+}
+
+// timelineItem is one recent turn shown on the console.
+type timelineItem struct {
+	ID      int64    `json:"id"`
+	TS      string   `json:"ts"`
+	Role    string   `json:"role"`
+	Tools   []string `json:"tools"`
+	Content string   `json:"content"`
+}
+
+// overviewGoals is the goal-board summary.
+type overviewGoals struct {
+	Total       int `json:"total"`
+	Claimed     int `json:"claimed"`
+	Ready       int `json:"ready"`
+	Blocked     int `json:"blocked"`
+	Implemented int `json:"implemented"`
+}
+
+// overviewResponse is the single payload the console loads on first paint.
+type overviewResponse struct {
+	ProjectID  string            `json:"project_id"`
+	ProjectDir string            `json:"project_dir"`
+	Counts     overviewCounts    `json:"counts"`
+	Memory     overviewMemory    `json:"memory"`
+	Harnesses  []overviewHarness `json:"harnesses"`
+	Recent     []timelineItem    `json:"recent"`
+	Handoff    *store.Handoff    `json:"handoff,omitempty"`
+	Goals      overviewGoals     `json:"goals"`
+}
+
+// handleOverview returns the console's first-paint payload.
+func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	msgs, factsCount, verified, projects, err := s.cfg.Store.Counts()
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("counts failed: %v", err))
+		return
+	}
+
+	projectFacts, _ := s.cfg.Store.FactsByProject(s.cfg.ProjectID)
+	stale := 0
+	invariants := 0
+	nonGoals := 0
+	for _, f := range projectFacts {
+		if isUngroundedClaim(f) {
+			stale++
+		}
+		if f.IsInvariant() {
+			invariants++
+		}
+		if f.IsNonGoal() {
+			nonGoals++
+		}
+	}
+	lessons, _ := s.cfg.Store.LessonFacts(s.cfg.ProjectID, 500)
+	cases, _ := s.cfg.Store.CaseFacts(s.cfg.ProjectID, 500)
+
+	// One bounded scan powers both the harness mix and the visible timeline.
+	recent, _ := s.cfg.Store.RecentMessages(s.cfg.ProjectID, 200)
+	harnessMix := map[string]*overviewHarness{}
+	for _, m := range recent {
+		for _, tool := range m.SourceTools {
+			h := harnessMix[tool]
+			if h == nil {
+				h = &overviewHarness{Tool: tool}
+				harnessMix[tool] = h
+			}
+			h.Messages++
+			switch strings.ToLower(m.Role) {
+			case "assistant":
+				h.Assistant++
+			case "user":
+				h.User++
+			}
+		}
+	}
+	harnesses := make([]overviewHarness, 0, len(harnessMix))
+	for _, h := range harnessMix {
+		harnesses = append(harnesses, *h)
+	}
+	sort.Slice(harnesses, func(i, j int) bool {
+		if harnesses[i].Messages != harnesses[j].Messages {
+			return harnesses[i].Messages > harnesses[j].Messages
+		}
+		return harnesses[i].Tool < harnesses[j].Tool
+	})
+
+	items := make([]timelineItem, 0, 100)
+	for i, m := range recent {
+		if i == 100 {
+			break
+		}
+		items = append(items, timelineItem{
+			ID:      m.ID,
+			TS:      m.TS,
+			Role:    m.Role,
+			Tools:   m.SourceTools,
+			Content: truncateText(m.Content, 600),
+		})
+	}
+
+	handoff, _ := s.cfg.Store.LatestHandoff(s.cfg.ProjectID)
+
+	goalSummary := overviewGoals{}
+	if audit, scanErr := goals.ScanGoals(s.cfg.ProjectDir); scanErr == nil && audit != nil {
+		goalSummary.Total = audit.Total
+		goalSummary.Claimed = audit.ClaimedCount
+		goalSummary.Ready = audit.ReadyCount
+		goalSummary.Blocked = audit.BlockedCount
+		goalSummary.Implemented = audit.ImplementedCount
+	}
+
+	writeJSON(w, http.StatusOK, overviewResponse{
+		ProjectID:  s.cfg.ProjectID,
+		ProjectDir: s.cfg.ProjectDir,
+		Counts: overviewCounts{
+			Messages: msgs,
+			Facts:    factsCount,
+			Verified: verified,
+			Stale:    stale,
+			Projects: projects,
+		},
+		Memory: overviewMemory{
+			Lessons:    len(lessons),
+			Cases:      len(cases),
+			Invariants: invariants,
+			NonGoals:   nonGoals,
+		},
+		Harnesses: harnesses,
+		Recent:    items,
+		Handoff:   handoff,
+		Goals:     goalSummary,
+	})
+}
+
+// handleRecall answers "ask your history" with a ranked recall pack.
+func (s *Server) handleRecall(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	if query == "" {
+		writeError(w, http.StatusBadRequest, "q is required")
+		return
+	}
+	var paths []string
+	for p := range strings.SplitSeq(r.URL.Query().Get("paths"), ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			paths = append(paths, p)
+		}
+	}
+	res, err := dream.RecallSolutions(s.cfg.Store, query, dream.RecallOptions{
+		Project:      s.cfg.ProjectID,
+		ProjectDir:   s.cfg.ProjectDir,
+		Limit:        8,
+		BudgetTokens: 1200,
+		Context: &dream.RecallContext{
+			Task:  strings.TrimSpace(r.URL.Query().Get("task")),
+			Paths: paths,
+		},
+	})
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, fmt.Sprintf("recall failed: %v", err))
+		return
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+// truncateText bounds one timeline cell without cutting a UTF-8 rune.
+func truncateText(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max]) + "..."
+}
+
 // handleStatus returns store metrics, active project, and database health.
 func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -51,7 +266,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	facts, _ := s.cfg.Store.FactsByProject(s.cfg.ProjectID)
 	staleCount := 0
 	for _, f := range facts {
-		if !f.FileRefsExist && !f.IsInvariant() {
+		if isUngroundedClaim(f) {
 			staleCount++
 		}
 	}
@@ -250,7 +465,7 @@ func (s *Server) handleClaims(w http.ResponseWriter, r *http.Request) {
 		var out []store.Fact
 		for _, f := range facts {
 			if staleOnly {
-				if f.IsStale() {
+				if f.IsStale() || isUngroundedClaim(f) {
 					out = append(out, f)
 				}
 			} else {

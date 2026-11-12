@@ -1,10 +1,12 @@
 package goals
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 func setupTestResumeRepo(t *testing.T, slug string) (string, *WorkPackage) {
@@ -333,5 +335,87 @@ func TestTaskResumeBlocked(t *testing.T) {
 	}
 	if !hasBlockedDiag {
 		t.Errorf("expected DiagTaskCheckpointBlocked diagnostic, got: %+v", packetB.Diagnostics)
+	}
+}
+
+func TestTaskResumeStopAtBoundary(t *testing.T) {
+	slug := "test-stop-boundary"
+	tempDir, pkg := setupTestResumeRepo(t, slug)
+	second := pkg.Tasks[0]
+	second.ID = "T-002"
+	second.Title = "Second task"
+	second.Checks = append([]Check{}, pkg.Tasks[0].Checks...)
+	second.Checks[0].ID = "C-002"
+	pkg.Tasks = append(pkg.Tasks, second)
+	pkg.Revision = 2
+	if err := SaveWorkPackage(tempDir, slug, pkg); err != nil {
+		t.Fatalf("SaveWorkPackage: %v", err)
+	}
+
+	specDigest, err := WorkPackageDigest(pkg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, id := range []string{"T-001", "T-002"} {
+		cp := TaskCheckpoint{
+			SchemaVersion: TaskCheckpointSchemaVersion, GoalSlug: slug, TaskID: id,
+			Sequence: 1, SpecDigest: specDigest, CompletedSteps: []string{"S-001"},
+			NextStep: "S-002", Status: TaskCheckpointStatusInProgress,
+		}
+		if err := SaveTaskCheckpoint(tempDir, slug, cp); err != nil {
+			t.Fatalf("SaveTaskCheckpoint %s: %v", id, err)
+		}
+	}
+
+	claim := GoalClaim{
+		GoalSlug: slug, ClaimedBy: "agent", Agent: "agent",
+		ClaimedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC(), StopAtTaskID: "T-001",
+	}
+	data, err := json.Marshal(claim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tempDir, "goals", slug, "claim.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	boundary, err := BuildTaskResumePacket(tempDir, slug, "T-001")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, diag := range boundary.Diagnostics {
+		if diag.Code == DiagTaskStopBoundaryReached {
+			t.Fatalf("boundary task itself was blocked: %+v", diag)
+		}
+	}
+
+	past, err := BuildTaskResumePacket(tempDir, slug, "T-002")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if past.Executable {
+		t.Fatal("task past the stop boundary must not be executable")
+	}
+	found := false
+	for _, diag := range past.Diagnostics {
+		if diag.Code == DiagTaskStopBoundaryReached {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("missing %s diagnostic: %+v", DiagTaskStopBoundaryReached, past.Diagnostics)
+	}
+
+	if _, err := SetGoalStopAtTask(tempDir, slug, ""); err != nil {
+		t.Fatal(err)
+	}
+	cleared, err := BuildTaskResumePacket(tempDir, slug, "T-002")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, diag := range cleared.Diagnostics {
+		if diag.Code == DiagTaskStopBoundaryReached {
+			t.Fatalf("cleared lease still blocks: %+v", diag)
+		}
 	}
 }

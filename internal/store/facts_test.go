@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -202,11 +203,11 @@ func TestSearchFactsFTSProjectCaseInsensitiveAndPartial(t *testing.T) {
 	}
 	defer s.Close()
 
-	if _, err := s.EnsureProject("/home/user/github/example-app"); err != nil {
+	if _, err := s.EnsureProject("/home/user/github/example-app-App"); err != nil {
 		t.Fatal(err)
 	}
 	f := Fact{
-		ID: "fact_almatjar", ProjectID: "example-app", Claim: "Auth route uses refresh tokens with 7d expiry",
+		ID: "fact_almatjar", ProjectID: "example-app-App", Claim: "Auth route uses refresh tokens with 7d expiry",
 		Confidence: "high", Verified: true, RepoFiles: []string{"auth.go"}, Tools: []string{"devin"},
 		SessionRef: "s1", FirstSeen: "2026-08-01T00:00:00Z", PromotedAt: "2026-08-01T00:00:00Z",
 	}
@@ -214,7 +215,7 @@ func TestSearchFactsFTSProjectCaseInsensitiveAndPartial(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	selectors := []string{"example-app", "example-app", "/home/user/github/example-app"}
+	selectors := []string{"example-app-App", "almatjar-app", "/home/user/github/example-app-App"}
 	for _, sel := range selectors {
 		// Test FTS search with project selector
 		ftsRes, err := s.SearchFactsFTS("tokens", sel, false, 0)
@@ -735,5 +736,71 @@ func TestCompactFactAndCandidates(t *testing.T) {
 				t.Errorf("idempotent compaction altered compacted_at")
 			}
 		}
+	}
+}
+
+func TestReconcileFactDriftFileSHA256(t *testing.T) {
+	tmpDir := t.TempDir()
+	s, err := Open(filepath.Join(tmpDir, "sha.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+
+	projDir := filepath.Join(tmpDir, "repo")
+	if err := os.MkdirAll(projDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	fileA := filepath.Join(projDir, "service.go")
+	if err := os.WriteFile(fileA, []byte("package service\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	f := Fact{
+		ID: "fact_sha", ProjectID: "sha-repo", Claim: "Service lives in service.go",
+		Confidence: "grounded", Verified: true, RepoFiles: []string{"service.go"},
+		Tools: []string{"devin"}, SessionRef: "s1",
+		FirstSeen: "2026-08-01T00:00:00Z", PromotedAt: "2026-08-01T00:00:00Z",
+	}
+	if err := s.UpsertFact(f); err != nil {
+		t.Fatal(err)
+	}
+	score := func() float64 {
+		t.Helper()
+		var value float64
+		if err := s.DB.QueryRow(`SELECT COALESCE(maturity_score, 0) FROM facts WHERE id = ?`, "fact_sha").Scan(&value); err != nil {
+			t.Fatal(err)
+		}
+		return value
+	}
+
+	before := score()
+	if _, err := s.ReconcileFactDrift("sha-repo", projDir); err != nil {
+		t.Fatal(err)
+	}
+	if after := score(); after <= before {
+		t.Fatalf("unchanged file did not promote maturity: %v -> %v", before, after)
+	}
+	digest, err := s.GetState("fact_file_sha256:fact_sha:service.go")
+	if err != nil || !strings.HasPrefix(digest, "sha256:") {
+		t.Fatalf("missing backfilled digest: %q (%v)", digest, err)
+	}
+
+	if err := os.WriteFile(fileA, []byte("package service\n// rewritten\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	before = score()
+	if _, err := s.ReconcileFactDrift("sha-repo", projDir); err != nil {
+		t.Fatal(err)
+	}
+	if after := score(); after != before {
+		t.Fatalf("rewritten file promoted maturity: %v -> %v", before, after)
+	}
+	facts, err := s.FactsByProject("sha-repo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(facts) != 1 || !facts[0].FileRefsExist || !facts[0].Verified {
+		t.Fatalf("rewritten file demoted the fact: %+v", facts)
 	}
 }

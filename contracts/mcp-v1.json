@@ -1,7 +1,49 @@
 [
   {
+    "name": "audit_goal",
+    "description": "Run an epistemic blindfold mystery audit on a goal package to evaluate compliance and certify or reopen it.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "binary": {
+          "type": "string",
+          "description": "Optional target CLI binary path"
+        },
+        "persona": {
+          "type": "string",
+          "description": "Optional foundation persona ID (defaults to mystery-auditor)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "skip_canary": {
+          "type": "boolean",
+          "description": "If true, skip negative mutant canary testing"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Goal slug under goals/\u003cslug\u003e"
+        },
+        "timeout": {
+          "type": "string",
+          "description": "Optional timeout duration (e.g. 5m, 10m)"
+        },
+        "url": {
+          "type": "string",
+          "description": "Optional target URL for web service probing"
+        }
+      },
+      "required": [
+        "slug"
+      ]
+    }
+  },
+  {
     "name": "audit_goals",
     "description": "Audit goals against recent git commits, detecting implemented goals with commit SHAs, and optionally auto-syncing goals/README.md.",
+    "category": "collab",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -17,28 +59,483 @@
     }
   },
   {
-    "name": "compile_rules",
-    "description": "Compile the latest project handoff, architectural memos, verified facts, and reference docs into agent rule files (CLAUDE.md, .cursorrules, AGENTS.md, .windsurfrules).",
+    "name": "audit_hygiene",
+    "description": "Audit multi-toolchain disk storage, caches, and repository build residue across Go, pnpm, aube, npm, Cargo, Python (uv/pip), Bun, Zig, and mise. Returns reclaimable bytes and cleanable items without deleting anything.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "heavy": {
+          "type": "boolean",
+          "description": "If true, include heavy network-dependent caches (e.g. modcache, node_modules)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project directory or ID (default: active workspace)"
+        },
+        "scope": {
+          "type": "string",
+          "description": "Cleanup scope: repo (repository residue), global (user caches/package stores), or all (default)"
+        },
+        "targets": {
+          "type": "array",
+          "description": "Optional list of toolchain targets to inspect (e.g. ['go', 'pnpm', 'aube'])"
+        }
+      }
+    }
+  },
+  {
+    "name": "certify_goal",
+    "description": "Certify a goal from evidence, or run its verification contract automatically with auto_run.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Auditor identity (must differ from producer/claim holder)"
+        },
+        "auto_run": {
+          "type": "boolean",
+          "description": "Run the goal's verification contract before certifying"
+        },
+        "evidence": {
+          "type": "string",
+          "description": "Evidence file path (JSON facts or markdown review with Verdict: PASS)"
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional certification note"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Goal slug under goals/\u003cslug\u003e"
+        }
+      },
+      "required": [
+        "slug"
+      ]
+    }
+  },
+  {
+    "name": "check_symbol_blast_radius",
+    "description": "Run an in-memory edit-check or safe-delete contract analysis for a symbol (equivalent to sila edit-check / safe-delete).",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "candidate_payload": {
+          "type": "string",
+          "description": "Candidate Go source for edit_check"
+        },
+        "mode": {
+          "type": "string",
+          "description": "edit_check (default) or safe_delete"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "symbol": {
+          "type": "string",
+          "description": "Symbol name or canonical pkg::Sym identifier"
+        }
+      },
+      "required": [
+        "symbol"
+      ]
+    }
+  },
+  {
+    "name": "claim_goal",
+    "description": "Claim and lock a goal package for an agent to prevent other agents from taking the same task.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Optional agent identifier (e.g. claude-code, devin, antigravity)"
+        },
+        "allow_paths": {
+          "type": "array",
+          "description": "Optional canonical repo-relative paths authorized for mutation"
+        },
+        "deny_paths": {
+          "type": "array",
+          "description": "Optional inviolable boundary paths"
+        },
+        "duration": {
+          "type": "string",
+          "description": "Optional auto-release lease duration e.g. 2h"
+        },
+        "force": {
+          "type": "boolean",
+          "description": "If true, override an existing active claim"
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional initial status or execution note"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "session": {
+          "type": "string",
+          "description": "Optional session identifier to bind (UUID format recommended)"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Goal slug under goals/\u003cslug\u003e"
+        }
+      },
+      "required": [
+        "slug"
+      ]
+    }
+  },
+  {
+    "name": "claim_handoff",
+    "description": "Atomically claim an open or pending session handoff via Compare-and-Set (CAS), ensuring parallel agents and subagent swarms do not duplicate work.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent_name": {
+          "type": "string",
+          "description": "Name or role of the claiming agent (defaults to caller identity)."
+        },
+        "handoff_id": {
+          "type": "string",
+          "description": "The ID of the handoff to claim (e.g. hoff_123456)."
+        },
+        "session_id": {
+          "type": "string",
+          "description": "Unique session ID for idempotent retry and claim tracking."
+        }
+      },
+      "required": [
+        "handoff_id"
+      ]
+    }
+  },
+  {
+    "name": "clean_caches",
+    "description": "Clean multi-toolchain build caches, package stores, and repository residue across Go, pnpm, aube, npm, Cargo, Python (uv/pip), Bun, Zig, and mise. Safely reclaims disk space.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dry_run": {
+          "type": "boolean",
+          "description": "If true, simulate cleanup without deleting any files"
+        },
+        "heavy": {
+          "type": "boolean",
+          "description": "If true, include heavy network-dependent caches (e.g. modcache, node_modules)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project directory or ID (default: active workspace)"
+        },
+        "scope": {
+          "type": "string",
+          "description": "Cleanup scope: repo (repository residue), global (user caches/package stores), or all (default)"
+        },
+        "targets": {
+          "type": "array",
+          "description": "Optional list of toolchain targets to clean (e.g. ['go', 'pnpm', 'aube'])"
+        }
+      }
+    }
+  },
+  {
+    "name": "cloudflare_d1_query",
+    "description": "Execute SQL query or schema inspection against a Cloudflare D1 database with parameter support and safety sentry.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "database": {
+          "type": "string",
+          "description": "Optional D1 database ID or database name (defaults to configured or detected database)"
+        },
+        "params": {
+          "type": "array",
+          "description": "Optional positional SQL parameters to bind to placeholders"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory for local wrangler resolution"
+        },
+        "query": {
+          "type": "string",
+          "description": "SQL query to execute against the D1 database (e.g. 'SELECT * FROM messages LIMIT 10')"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    }
+  },
+  {
+    "name": "cloudflare_edge_telemetry",
+    "description": "Retrieve edge runtime telemetry, request volume, error counts, and CPU execution time percentiles (p50, p99).",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {
         "project": {
           "type": "string",
-          "description": "Project ID or directory slug"
+          "description": "Optional project ID or repository directory"
+        },
+        "script_name": {
+          "type": "string",
+          "description": "Worker script name (defaults to name detected from wrangler.jsonc)"
+        },
+        "time_range": {
+          "type": "string",
+          "description": "Time window for metrics aggregation: '1h', '24h', '7d' (default: '24h')"
+        }
+      }
+    }
+  },
+  {
+    "name": "cloudflare_worker_status",
+    "description": "Inspect Cloudflare Worker deployment status, active script version, routes, compatibility date, and declared bindings.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory for local wrangler resolution"
+        },
+        "script_name": {
+          "type": "string",
+          "description": "Worker script name (defaults to name detected from wrangler.jsonc or 'sila-edge-bridge')"
+        }
+      }
+    }
+  },
+  {
+    "name": "compare_proposals",
+    "description": "Evaluate 2 or more competing architectural proposals or feature specs in an empirical tournament against project non-goals, invariants, and historical preferences.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "context_query": {
+          "type": "string",
+          "description": "Optional background question or architectural decision topic"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name"
+        },
+        "proposals": {
+          "type": "array",
+          "description": "Array of proposal statements, architecture designs, or plan texts (minimum 2)"
+        }
+      },
+      "required": [
+        "proposals"
+      ]
+    }
+  },
+  {
+    "name": "compile_rules",
+    "description": "Compile the latest project handoff, architectural memos, distilled facts, file-referenced claims (labelled as claims, never as facts), and reference docs into agent rule files (CLAUDE.md, .cursorrules, AGENTS.md, .windsurfrules).",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory slug (default: active workspace)"
         },
         "target": {
           "type": "string",
           "description": "Target format: claude (default), cursor, windsurf, agents"
         }
+      }
+    }
+  },
+  {
+    "name": "consult_personas",
+    "description": "List, recommend, or bind specialist personas for a goal (equivalent to sila persona / sila hire).",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "action": {
+          "type": "string",
+          "description": "list (default), recommend, or bind_goal"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Optional domain filter"
+        },
+        "goal": {
+          "type": "string",
+          "description": "Goal slug for recommend or bind_goal"
+        },
+        "group": {
+          "type": "string",
+          "description": "Optional persona group slug or number"
+        },
+        "personas": {
+          "type": "array",
+          "description": "Persona IDs to bind to the goal"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        }
+      }
+    }
+  },
+  {
+    "name": "create_decision",
+    "description": "Create an addressed epistemic decision record (D\u003cnumber\u003e) with lettered trade-off options and explicit recommendation.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string",
+          "description": "Optional explicit address (e.g. 'D1') for testing or reservation"
+        },
+        "context": {
+          "type": "string",
+          "description": "Architectural context or motivation"
+        },
+        "goal": {
+          "type": "string",
+          "description": "Associated goal slug"
+        },
+        "options": {
+          "type": "array",
+          "description": "List of lettered options (minimum 2). Array of strings (e.g. ['A: Option 1', 'B: Option 2']) or option objects"
+        },
+        "project": {
+          "type": "string",
+          "description": "Target project ID (defaults to cwd project)"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Rationale or justification for the recommendation"
+        },
+        "recommendation": {
+          "type": "string",
+          "description": "Explicit recommended option letter (e.g. 'A')"
+        },
+        "title": {
+          "type": "string",
+          "description": "Title or core question of the decision"
+        }
       },
       "required": [
-        "project"
+        "options",
+        "recommendation",
+        "title"
+      ]
+    }
+  },
+  {
+    "name": "create_goal",
+    "description": "Create and scaffold a new goal package under goals/\u003cslug\u003e/ with goal.md, facts.md, and plan.md conforming to repository standards.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "commit": {
+          "type": "string",
+          "description": "Optional commit SHA when recording a retrospective goal (status='implemented')"
+        },
+        "depends_on": {
+          "type": "array",
+          "description": "Optional array of goal slugs that must be completed first"
+        },
+        "description": {
+          "type": "string",
+          "description": "Optional summary of what this goal accomplishes"
+        },
+        "files_to_touch": {
+          "type": "array",
+          "description": "Optional array of file or directory paths this goal will modify (used for concurrency collision prevention)"
+        },
+        "independent": {
+          "type": "boolean",
+          "description": "Explicitly declare whether goal is disjoint/independent (default: true if no depends_on)"
+        },
+        "invariants": {
+          "type": "array",
+          "description": "Optional array of architectural invariants and constraints for facts.md"
+        },
+        "overwrite": {
+          "type": "boolean",
+          "description": "If true, overwrite existing goal files"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "sequence": {
+          "type": "integer",
+          "description": "Optional recommended sequence index (e.g. 1, 2, 3)"
+        },
+        "shape": {
+          "type": "string",
+          "description": "Task shape: 'ship' (code modification, default) or 'scout' (non-mutating investigation report). Scout tasks are exempt from file collision checks."
+        },
+        "slug": {
+          "type": "string",
+          "description": "Kebab-case goal slug (e.g. user-roles-and-permissions)"
+        },
+        "spec_review": {
+          "type": "object",
+          "description": "Optional structured spec_review object conforming to sila/spec-review/v1"
+        },
+        "status": {
+          "type": "string",
+          "description": "Optional goal status: 'pending' (default) or 'implemented' for retrospective goal recording"
+        },
+        "strict": {
+          "type": "boolean",
+          "description": "If true, reject goal creation if any file collisions or topological conflicts are detected"
+        },
+        "tasks": {
+          "type": "array",
+          "description": "Optional array of discrete execution tasks or phases for plan.md"
+        },
+        "tier": {
+          "type": "string",
+          "description": "Optional goal tier: 'immediate', 'roadmap', 'nice-to-have', 'wont-fix' (default: 'roadmap')"
+        },
+        "title": {
+          "type": "string",
+          "description": "Optional human-readable goal title"
+        },
+        "work_package": {
+          "type": "object",
+          "description": "Optional structured work_package object conforming to sila/work-package/v1"
+        }
+      },
+      "required": [
+        "slug"
       ]
     }
   },
   {
     "name": "diagnose_system",
     "description": "Run end-to-end system diagnostic health audit on SQLite DB integrity, FTS5 virtual indexes, project path existence on disk, and storage permissions, with optional automatic repair.",
+    "category": "write",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -50,8 +547,80 @@
     }
   },
   {
+    "name": "emit_lifecycle_event",
+    "description": "Emit an active agent lifecycle transition event (session-start, user-prompt, pre-tool-use, post-tool-use, pre-compact, post-compaction, stop, session-end) into Sila's non-blocking spooler (\u003c5ms latency) for durable provenance without interactive hot-loop stalling.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Emitting agent or tool identifier (e.g. antigravity, claude-code, devin)"
+        },
+        "cwd": {
+          "type": "string",
+          "description": "Working directory context"
+        },
+        "drain": {
+          "type": "boolean",
+          "description": "If true, immediately drains the spool queue into the SQLite store (default: false)"
+        },
+        "event": {
+          "type": "string",
+          "description": "Canonical lifecycle event kind (e.g. session-start, user-prompt, pre-tool-use, post-tool-use, pre-compact, post-compaction, stop, session-end)"
+        },
+        "payload": {
+          "type": "object",
+          "description": "JSON payload containing event arguments, tool execution details, or error context"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory slug"
+        },
+        "session_id": {
+          "type": "string",
+          "description": "Agent session or conversation identifier"
+        }
+      },
+      "required": [
+        "event"
+      ]
+    }
+  },
+  {
+    "name": "get_activity_digest",
+    "description": "Summarize recent activity and time-windowed progress across sessions (equivalent to sila standup / sila digest).",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "activity": {
+          "type": "boolean",
+          "description": "Return the source-attributed recent session activity list instead of the digest report"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "since": {
+          "type": "string",
+          "description": "Time window: 24h, 5h, 2d, 1w, RFC3339, or YYYY-MM-DD (default 24h)"
+        },
+        "tool": {
+          "type": "string",
+          "description": "Optional harness filter for the activity list"
+        },
+        "top": {
+          "type": "integer",
+          "description": "Maximum activity rows (default 10)"
+        }
+      }
+    }
+  },
+  {
     "name": "get_db_stats",
     "description": "Get detailed SQLite database storage statistics, including file size, page count, freelist pages, and fragmentation percentage.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {}
@@ -60,6 +629,7 @@
   {
     "name": "get_doc",
     "description": "Retrieve the full text and metadata of a specific attached document by ID.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -76,32 +646,39 @@
   {
     "name": "get_latest_handoff",
     "description": "Retrieve the most recent active session handoff for a project.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {
         "project": {
           "type": "string",
-          "description": "Project ID or directory slug"
+          "description": "Optional project ID or directory slug (default: active workspace)"
+        },
+        "revision_hash": {
+          "type": "string",
+          "description": "Revision hash"
         }
-      },
-      "required": [
-        "project"
-      ]
+      }
     }
   },
   {
-    "name": "get_message_context",
-    "description": "Retrieve surrounding chronological context turns (before and after) for a specific conversation message ID, expanding verbatim context on demand without polluting the whole context window.",
+    "name": "get_memory",
+    "description": "Read one typed sila/memory/v1 record by id, including its envelope, authority label, grounding state and supersession status.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {
         "id": {
-          "type": "integer",
-          "description": "Message ID to expand"
+          "type": "string",
+          "description": "Memory record id (mem_...)"
         },
-        "window": {
-          "type": "integer",
-          "description": "Number of preceding and following turns to retrieve (default 3, max 20)"
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name"
+        },
+        "revision_hash": {
+          "type": "string",
+          "description": "Revision hash"
         }
       },
       "required": [
@@ -110,8 +687,64 @@
     }
   },
   {
+    "name": "get_message_context",
+    "description": "Expand the verbatim conversation around a specific message ID, staying within its recorded source session. Use after search or omni_search to unroll the turns surrounding a hit — the before/after context that explains WHY something was done. Returns a note instead of misleading neighbors when session provenance is unavailable.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "integer",
+          "description": "Message ID to expand"
+        },
+        "occurrence": {
+          "type": "integer",
+          "description": "1-based selection among multiple recorded source occurrences of a deduplicated message (default 1)"
+        },
+        "window": {
+          "type": "integer",
+          "description": "Turns around the hit (default 3, max 20)"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  },
+  {
+    "name": "get_operational_guidebook",
+    "description": "Call to load Sila's domain engineering standards and guardrails across 10 domains. Retrieve curated cross-project operational learnings, battle-tested engineering patterns, and failure postmortems categorized by domain (golang, typescript, cloudflare, d1, devops, ci/cd, security, testing, a11y).",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "domain": {
+          "type": "string",
+          "description": "Optional domain filter: golang, typescript, cloudflare, d1, devops, ci/cd, security, testing, a11y"
+        },
+        "format": {
+          "type": "string",
+          "description": "Output format: markdown (default), json, html, toon, or summary"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory filter"
+        },
+        "query": {
+          "type": "string",
+          "description": "Optional keyword search filter across titles, symptoms, causes, fixes, and rules (alias: search)"
+        },
+        "search": {
+          "type": "string",
+          "description": "Optional keyword search filter across titles, symptoms, causes, fixes, and rules (alias: query)"
+        }
+      }
+    }
+  },
+  {
     "name": "get_package_doc",
     "description": "Fetch official package and registry documentation for Go (pkg.go.dev), Rust (crates.io/docs.rs), NPM (npmjs.org), or Python (pypi.org) and optionally auto-ingest into project memory.",
+    "category": "write",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -140,12 +773,29 @@
   {
     "name": "get_project_facts",
     "description": "Retrieve all distilled claims/facts for a specific project with pagination support.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {
+        "as_of": {
+          "type": "string",
+          "description": "As-of timestamp"
+        },
         "facts_only": {
           "type": "boolean",
           "description": "Filter by promoted, LLM-distilled facts only"
+        },
+        "include_disputed": {
+          "type": "boolean",
+          "description": "Include disputed rows"
+        },
+        "include_stale": {
+          "type": "boolean",
+          "description": "Include stale rows"
+        },
+        "include_unverified": {
+          "type": "boolean",
+          "description": "Include unverified rows"
         },
         "limit": {
           "type": "integer",
@@ -157,7 +807,7 @@
         },
         "project": {
           "type": "string",
-          "description": "Project ID (e.g. sila)"
+          "description": "Optional project ID or alias (default: active workspace)"
         },
         "refs_exist_only": {
           "type": "boolean",
@@ -167,23 +817,217 @@
           "type": "boolean",
           "description": "Deprecated alias for refs_exist_only"
         }
-      },
-      "required": [
-        "project"
-      ]
+      }
     }
   },
   {
     "name": "get_status",
     "description": "Get knowledge store health statistics and summary counts.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {}
     }
   },
   {
+    "name": "get_subagent_charter",
+    "description": "Create and sign a local subagent continuity charter carrying the parent session, goal, lane, allow paths, and handoff policy.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "allow_paths": {
+          "type": "array",
+          "description": "Repo-relative paths the child may write"
+        },
+        "goal": {
+          "type": "string",
+          "description": "Goal slug bound to the parent claim"
+        },
+        "handoff_policy": {
+          "type": "string",
+          "description": "parent-only (default) or subagent-allowed"
+        },
+        "lane": {
+          "type": "string",
+          "description": "Optional lane label"
+        },
+        "parent_session_id": {
+          "type": "string",
+          "description": "Parent session that owns continuity"
+        },
+        "subagent_id": {
+          "type": "string",
+          "description": "Child agent identifier"
+        }
+      },
+      "required": [
+        "parent_session_id",
+        "subagent_id"
+      ]
+    }
+  },
+  {
+    "name": "go_diagnostics",
+    "description": "Run gopls compiler and vet diagnostics across target package or directory without modifying code.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "description": "Package pattern or directory path to check (default: './...')"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "tags": {
+          "type": "string",
+          "description": "Optional Go build tags (e.g. 'integration')"
+        }
+      }
+    }
+  },
+  {
+    "name": "go_package_api",
+    "description": "Inspect exported Go package types, interfaces, methods, functions, and documentation signatures using gopls or native AST parsing.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "include_unexported": {
+          "type": "boolean",
+          "description": "If true, also include unexported declarations (default: false)"
+        },
+        "pkg": {
+          "type": "string",
+          "description": "Go package directory or import path (e.g. './internal/store')"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        }
+      },
+      "required": [
+        "pkg"
+      ]
+    }
+  },
+  {
+    "name": "go_symbol_references",
+    "description": "Find all usages, call sites, and declarations of a Go symbol using gopls or pure-Go AST navigation.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dir": {
+          "type": "string",
+          "description": "Optional package or workspace directory to search (defaults to file's directory)"
+        },
+        "file": {
+          "type": "string",
+          "description": "Path to Go source file containing or referencing the symbol"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "symbol": {
+          "type": "string",
+          "description": "Symbol or identifier name to search for (e.g. 'ApprovalCoordinator')"
+        }
+      },
+      "required": [
+        "file",
+        "symbol"
+      ]
+    }
+  },
+  {
+    "name": "graph_report",
+    "description": "Audit the code + memory graph: communities, modularity, god nodes, surprising connections, and suggested questions.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "full": {
+          "type": "boolean",
+          "description": "Return the complete report instead of the bounded summary"
+        },
+        "project_dir": {
+          "type": "string",
+          "description": "Repository root (defaults to cwd)"
+        },
+        "rebuild": {
+          "type": "boolean",
+          "description": "Rebuild the graph in memory before reporting (no file write)"
+        },
+        "top": {
+          "type": "integer",
+          "description": "Communities, god nodes, and surprises to keep (default 10)"
+        }
+      }
+    }
+  },
+  {
+    "name": "list_archived_memories",
+    "description": "List archived and superseded memories with state, reason, authority, actor, restore deadline and restorable flag, plus aggregate counts and hash-chain health. Sensitive archive titles and notes are redacted.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name"
+        }
+      }
+    }
+  },
+  {
+    "name": "list_crew",
+    "description": "List all active crewmates with zero-token liveness status (running, idle, completed, failed). Uses OS process probes, not LLM API calls.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        }
+      }
+    }
+  },
+  {
+    "name": "list_decisions",
+    "description": "List addressed epistemic decisions (D\u003cnumber\u003e) with optional status or goal filter.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "goal": {
+          "type": "string",
+          "description": "Filter by associated goal slug"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Maximum decisions to return"
+        },
+        "project": {
+          "type": "string",
+          "description": "Target project ID (defaults to cwd project)"
+        },
+        "status": {
+          "type": "string",
+          "description": "Filter by status: open, resolved, superseded, abandoned, or all (default all)"
+        }
+      }
+    }
+  },
+  {
     "name": "list_feedback",
     "description": "Retrieve recorded agent feedback, suggestions, issues, and tips across projects for periodic review.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -198,41 +1042,356 @@
         "project": {
           "type": "string",
           "description": "Optional project ID filter"
+        },
+        "status": {
+          "type": "string",
+          "description": "Optional status filter: open, closed, in_progress, wontfix"
         }
       }
     }
   },
   {
     "name": "list_goals",
-    "description": "List all goal packages in the project's goals/ directory, including titles, descriptions, implementation statuses, and /goal launch commands.",
+    "description": "List goal packages in the project's goals/ directory, including titles, descriptions, implementation statuses, and /goal launch commands.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {
+        "limit": {
+          "type": "integer",
+          "description": "Optional maximum number of goals to return"
+        },
         "pending_only": {
           "type": "boolean",
-          "description": "If true, only return pending/ready-to-execute goals"
+          "description": "Deprecated alias for status='pending'"
         },
         "project": {
           "type": "string",
           "description": "Optional project ID or workspace root directory"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Optional goal slug under goals/\u003cslug\u003e; required together with task_id to inspect a specific task packet"
+        },
+        "status": {
+          "type": "string",
+          "description": "Filter goals by status: 'pending', 'claimed' (or 'active'), 'implemented' (or 'done'), 'ready', 'blocked', or 'all'"
+        },
+        "task_id": {
+          "type": "string",
+          "description": "Optional stable task ID (e.g. T-001); required together with slug to return a TaskPacket"
+        },
+        "tier": {
+          "type": "string",
+          "description": "Filter goals by tier: 'immediate', 'roadmap', 'nice-to-have', 'wont-fix'"
+        }
+      }
+    }
+  },
+  {
+    "name": "list_memories",
+    "description": "List typed memory records with kind, recency and supersession filters, plus grounded/authority counts. Superseded records are excluded unless include_superseded is true.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "include_superseded": {
+          "type": "boolean",
+          "description": "Include records superseded by a relation"
+        },
+        "kind": {
+          "type": "string",
+          "description": "Optional memory kind filter"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Maximum records (default 50, max 500)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name"
+        },
+        "since": {
+          "type": "string",
+          "description": "Optional RFC3339 timestamp or duration (e.g. 24h)"
+        }
+      }
+    }
+  },
+  {
+    "name": "list_memory_feedback",
+    "description": "List memory relevance feedback with signal counts, accepted versus superseded rows, bound versus unbound rows, and the most adjusted memories. Archived and superseded history is included; notes are local only.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "description": "Maximum rows (default 50, max 500)"
+        },
+        "memory_id": {
+          "type": "string",
+          "description": "Optional memory record id filter"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name"
+        },
+        "signal": {
+          "type": "string",
+          "description": "Optional signal filter: helped, verified, less_important, irrelevant, wrong"
+        },
+        "since": {
+          "type": "string",
+          "description": "Optional RFC3339 timestamp or duration (e.g. 7d)"
         }
       }
     }
   },
   {
     "name": "list_projects",
-    "description": "List all indexed project repositories with message, claim, and file_refs_exist counts.",
+    "description": "List indexed project repositories with message, claim, and verified fact counts, with optional substring query and limit.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "description": "Maximum number of projects to return (default 20, max 200)"
+        },
+        "query": {
+          "type": "string",
+          "description": "Optional search query to filter by project path or ID"
+        }
+      }
+    }
+  },
+  {
+    "name": "list_skills",
+    "description": "List available agent skills in compact summary form (slug, name, 1-sentence prompt trigger, token estimate) for progressive context disclosure without inlining full runbooks.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "filter": {
+          "type": "string",
+          "description": "Optional filter string to match against skill slugs, names, or triggers"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project directory or ID (default: active workspace)"
+        }
+      }
+    }
+  },
+  {
+    "name": "manage_merge_slot",
+    "description": "Acquire, heartbeat, release, or inspect the project merge-slot lease; busy returns MERGE_SLOT_BUSY.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "force": {
+          "type": "boolean",
+          "description": "Force release without a matching token"
+        },
+        "holder": {
+          "type": "string",
+          "description": "Holder name for acquire (default mcp)"
+        },
+        "lease_seconds": {
+          "type": "integer",
+          "description": "Lease length in seconds, clamped to 60 through 14400"
+        },
+        "operation": {
+          "type": "string",
+          "description": "acquire | heartbeat | release | status"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "token": {
+          "type": "string",
+          "description": "Token from acquire, required for heartbeat and release"
+        }
+      },
+      "required": [
+        "operation"
+      ]
+    }
+  },
+  {
+    "name": "memory_archive",
+    "description": "Archive a current memory with an explicit reason and authority. Archived memories leave recall, prime and default search but stay readable, auditable and restorable. Archive never deletes content; hard delete is refused.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "actor": {
+          "type": "string",
+          "description": "Actor identifier (default agent)"
+        },
+        "authority": {
+          "type": "string",
+          "description": "Required authority: user_request, agent_verified, sensitive"
+        },
+        "duplicate_of": {
+          "type": "string",
+          "description": "Required target memory id when reason is duplicate"
+        },
+        "expected_revision": {
+          "type": "string",
+          "description": "Expected revision"
+        },
+        "id": {
+          "type": "string",
+          "description": "Memory record id (mem_...)"
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional bounded note (max 500 characters); required for reason other"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Required reason: wrong, outdated, duplicate, sensitive, superseded, user_requested, other"
+        }
+      },
+      "required": [
+        "authority",
+        "id",
+        "reason"
+      ]
+    }
+  },
+  {
+    "name": "memory_feedback",
+    "description": "Report whether a memory returned by a specific recall pack helped, was verified, mattered less, was irrelevant, or was wrong. Requires the pack retrieval_id and the memory_id it returned; later signals from the same agent supersede the earlier one. Feedback only adjusts recall ranking inside the memory's authority tier and never edits, archives, or deletes the memory.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Agent identifier (default agent)"
+        },
+        "memory_id": {
+          "type": "string",
+          "description": "Memory record id returned by the retrieval (mem_...)"
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional bounded note (max 500 characters); secrets and absolute paths are rejected"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name"
+        },
+        "retrieval_id": {
+          "type": "string",
+          "description": "Retrieval id reported by recall or prime_context (ret_...)"
+        },
+        "signal": {
+          "type": "string",
+          "description": "Relevance signal: helped, verified, less_important, irrelevant, wrong"
+        }
+      },
+      "required": [
+        "memory_id",
+        "retrieval_id",
+        "signal"
+      ]
+    }
+  },
+  {
+    "name": "memory_history",
+    "description": "Return the append-only, hash-linked lifecycle chain for one memory and optionally verify it. A tampered chain reports the first broken event with MEMORY_CHAIN_BROKEN.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Memory record id (mem_...)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name"
+        },
+        "verify": {
+          "type": "boolean",
+          "description": "Verify hashes and chain (default true)"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  },
+  {
+    "name": "memory_restore",
+    "description": "Restore an archived memory to current by memory id or archive event id. Restoring an already-current memory is an idempotent no-op. Sensitive archives are user-restorable only; agent-verified archives expire after 24 hours for agents; superseded records cannot be restored.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "actor": {
+          "type": "string",
+          "description": "Actor identifier (default user)"
+        },
+        "authority": {
+          "type": "string",
+          "description": "Restore authority: user_request (default) or agent_verified"
+        },
+        "expected_revision": {
+          "type": "string",
+          "description": "Expected revision"
+        },
+        "id": {
+          "type": "string",
+          "description": "Memory id or archive event id"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name"
+        }
+      },
+      "required": [
+        "id"
+      ]
     }
   },
   {
     "name": "omni_search",
-    "description": "Unified multi-source hybrid search querying Architectural Invariants, Distilled Code Claims, Raw Message Transcripts, Git Commits, and External Docs in a single blended, ranked query.",
+    "description": "Call BEFORE running raw grep, find, or git log. Search every knowledge tier in one query: invariants, claims, transcripts, commits, docs, and handoffs, looking for prior research, decisions, or cross-session history.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {
+        "compact": {
+          "type": "boolean",
+          "description": "Compact, default false"
+        },
+        "include_archived": {
+          "type": "boolean",
+          "description": "Include archived and superseded memories (default false)"
+        },
+        "include_disputed": {
+          "type": "boolean",
+          "description": "Include disputed rows"
+        },
+        "include_stale": {
+          "type": "boolean",
+          "description": "Include stale rows"
+        },
+        "include_unverified": {
+          "type": "boolean",
+          "description": "Include unverified rows"
+        },
         "limit": {
           "type": "integer",
           "description": "Maximum results to return (default 15)"
@@ -244,6 +1403,22 @@
         "query": {
           "type": "string",
           "description": "Search query or technical keywords"
+        },
+        "role": {
+          "type": "string",
+          "description": "Only return transcript hits with this role (user, assistant, commit)"
+        },
+        "semantic": {
+          "type": "boolean",
+          "description": "Optional: if true, reranks candidates using TypeSafe System One assistance while preserving evidentiary tiers"
+        },
+        "since": {
+          "type": "string",
+          "description": "RFC3339 lower bound on result timestamps"
+        },
+        "tool": {
+          "type": "string",
+          "description": "Only return hits attributed to this source tool"
         }
       },
       "required": [
@@ -252,14 +1427,93 @@
     }
   },
   {
-    "name": "prime_context",
-    "description": "Retrieve an active session briefing (latest handoff, open tasks, key architectural facts, and disk grounding) for priming an agent at session start.",
+    "name": "pop_handoff",
+    "description": "Pop and atomically claim the newest eligible pending handoff for the current working directory and branch.",
+    "category": "write",
     "inputSchema": {
       "type": "object",
       "properties": {
+        "agent_name": {
+          "type": "string",
+          "description": "Name or role of the claiming agent."
+        },
+        "branch": {
+          "type": "string",
+          "description": "Optional git branch to scope the handoff baton to."
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory slug (default: active workspace)"
+        },
+        "session_id": {
+          "type": "string",
+          "description": "Unique session ID."
+        }
+      }
+    }
+  },
+  {
+    "name": "prime_context",
+    "description": "Retrieve a session briefing: latest handoff, key facts, directives, and disk grounding. Call this ONCE at the start of a session in a known project.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "all_goals": {
+          "type": "boolean",
+          "description": "Optional inclusion of all completed roadmap goals instead of aggregate count + bounded recent goals (default: false)"
+        },
+        "budget": {
+          "type": "integer",
+          "description": "Optional target context token budget for declarative compression and token pruning (e.g. 8000, 16000)"
+        },
+        "cache_pinned": {
+          "type": "boolean",
+          "description": "Optional Gobstopper cache-aware prompt pinning; segregates static system rules/tools at the top and dynamic handoff variables at the bottom (default: false)"
+        },
+        "codebase_map_chars": {
+          "type": "integer",
+          "description": "Optional maximum character budget for codebase symbol digest (default: 2000)"
+        },
+        "context": {
+          "type": "object",
+          "description": "Optional task context object ({task, paths[], branch, head, symbols[]}); when present, the briefing includes a bounded task-scoped recall pack placed before the codebase map."
+        },
+        "disable_codebase_map": {
+          "type": "boolean",
+          "description": "Optional flag to disable automatic codebase symbol digest generation (default: false)"
+        },
+        "graph": {
+          "type": "boolean",
+          "description": "Append a bounded graph summary (default false)"
+        },
+        "include_archived": {
+          "type": "boolean",
+          "description": "Include archived and superseded memories in the briefing (default false)"
+        },
+        "include_disputed": {
+          "type": "boolean",
+          "description": "Include disputed rows"
+        },
+        "include_markdown": {
+          "type": "boolean",
+          "description": "Optional inclusion of full rendered markdown text within the structured JSON result (default: false; text is returned in content[0].text)"
+        },
+        "include_stale": {
+          "type": "boolean",
+          "description": "Include stale rows"
+        },
+        "include_unverified": {
+          "type": "boolean",
+          "description": "Include unverified rows"
+        },
         "max_facts": {
           "type": "integer",
           "description": "Maximum number of key facts to include (default 5)"
+        },
+        "max_tokens": {
+          "type": "integer",
+          "description": "Optional target context token budget for deterministic multi-pressure degradation (default: 20000)"
         },
         "project": {
           "type": "string",
@@ -269,14 +1523,122 @@
     }
   },
   {
-    "name": "reconcile_drift",
-    "description": "Audit filesystem drift by re-verifying whether referenced repository files exist on disk for stored claims.",
+    "name": "query_graph",
+    "description": "Rank and expand code + memory graph nodes for a question; returns a bounded subgraph with provenance scores.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {
+        "files": {
+          "type": "array",
+          "description": "Optional repository files to include as slice seeds"
+        },
+        "max_bytes": {
+          "type": "integer",
+          "description": "Maximum result bytes (default 65536)"
+        },
+        "max_depth": {
+          "type": "integer",
+          "description": "Maximum expansion depth (default 2)"
+        },
+        "max_nodes": {
+          "type": "integer",
+          "description": "Maximum selected nodes (default 200)"
+        },
+        "project_dir": {
+          "type": "string",
+          "description": "Repository root (defaults to cwd)"
+        },
+        "question": {
+          "type": "string",
+          "description": "Question, symbol, or free-text terms to rank graph nodes"
+        },
+        "token_budget": {
+          "type": "integer",
+          "description": "Deprecated alias for max_nodes"
+        }
+      }
+    }
+  },
+  {
+    "name": "recall",
+    "description": "Find prior resolutions for a problem before searching the web or trying workarounds. Use it when a command fails, a package misbehaves, or an error appears. Returns lessons first, then grounded claims and memos, then transcript hits with grounding and an unroll command.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "as_of": {
+          "type": "string",
+          "description": "As-of timestamp"
+        },
+        "compact": {
+          "type": "boolean",
+          "description": "Compact, default false"
+        },
+        "context": {
+          "type": "object",
+          "description": "Optional task context object: {task, paths[], branch, head, symbols[]}. A JSON-encoded object string is also accepted. Unknown fields are rejected."
+        },
+        "include_archived": {
+          "type": "boolean",
+          "description": "Include archived and superseded memories (default false)"
+        },
+        "include_disputed": {
+          "type": "boolean",
+          "description": "Include disputed rows"
+        },
+        "include_stale": {
+          "type": "boolean",
+          "description": "Include stale rows"
+        },
+        "include_unverified": {
+          "type": "boolean",
+          "description": "Include unverified rows"
+        },
+        "limit": {
+          "type": "integer",
+          "description": "Maximum hits to return (default 5, max 50)"
+        },
+        "max_tokens": {
+          "type": "integer",
+          "description": "Estimated token budget for the recall pack (256-8192, default 1200)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project selector; ranks its hits first, never filters them out"
+        },
+        "query": {
+          "type": "string",
+          "description": "Symptom, error message, package name, or API in the words you would search"
+        },
+        "semantic": {
+          "type": "boolean",
+          "description": "Optional: rerank within tiers using TypeSafe System One assistance"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    }
+  },
+  {
+    "name": "reconcile_drift",
+    "description": "Audit filesystem drift by re-verifying whether referenced repository files exist on disk for stored claims.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "dry_run": {
+          "type": "boolean",
+          "description": "Optional simulation mode; if true, audits drift without writing updates to SQLite (default: false)"
+        },
         "project": {
           "type": "string",
           "description": "Optional project ID or directory slug (empty to reconcile all projects)"
+        },
+        "semantic": {
+          "type": "boolean",
+          "description": "Optional System One semantic verification; evaluates whether referenced code excerpts substantiate or contradict stored claims (default: false)"
         }
       }
     }
@@ -284,6 +1646,7 @@
   {
     "name": "record_feedback",
     "description": "Submit agent observations, recommendations, issues faced, tips, friction/challenges, or praise to help continuously improve sila.",
+    "category": "collab",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -299,9 +1662,21 @@
           "type": "string",
           "description": "Feedback content, recommendation, challenge, or message"
         },
+        "fact_id": {
+          "type": "string",
+          "description": "Optional fact ID to adjust retention salience for (helpful, not_helpful, stale, wrong)"
+        },
+        "id": {
+          "type": "string",
+          "description": "Optional explicit epistemic ticket ID or custom slug (e.g. dialectic-subshell-paths or fb_dialectic-subshell-paths)"
+        },
         "project": {
           "type": "string",
           "description": "Optional project ID or repository name"
+        },
+        "share": {
+          "type": "boolean",
+          "description": "Optional flag to anonymously share sanitized feedback with Sila maintainer via Cloudflare D1 edge"
         }
       },
       "required": [
@@ -310,8 +1685,411 @@
     }
   },
   {
+    "name": "record_preference",
+    "description": "Record an empirical pairwise preference decision (winner vs rejected candidate with rationale) to train and ground future proposal tournaments.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Optional agent identifier"
+        },
+        "candidate_a": {
+          "type": "string",
+          "description": "First candidate proposal statement or diff"
+        },
+        "candidate_b": {
+          "type": "string",
+          "description": "Second candidate proposal statement or diff"
+        },
+        "context_query": {
+          "type": "string",
+          "description": "Optional background topic or decision context"
+        },
+        "decision": {
+          "type": "string",
+          "description": "Optional associated addressed decision identifier (e.g. 'D1')"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory"
+        },
+        "rationale": {
+          "type": "string",
+          "description": "Trade-off justification or architectural rationale for this choice"
+        },
+        "winner": {
+          "type": "string",
+          "description": "Winner: 'A', 'B', or 'TIE'"
+        }
+      },
+      "required": [
+        "candidate_a",
+        "candidate_b",
+        "winner"
+      ]
+    }
+  },
+  {
+    "name": "release_goal",
+    "description": "Release a claimed goal lock, returning the goal to the ready-to-execute pending pool.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Goal slug under goals/\u003cslug\u003e"
+        }
+      },
+      "required": [
+        "slug"
+      ]
+    }
+  },
+  {
+    "name": "reopen_goal",
+    "description": "Safely reopen an implemented goal package for remediation, clearing prior completion state and returning it to pending or claimed.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Optional agent requesting reopening"
+        },
+        "claim": {
+          "type": "boolean",
+          "description": "If true, immediately claim the goal for remediation"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Reason or remediation explanation"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Goal slug under goals/\u003cslug\u003e"
+        }
+      },
+      "required": [
+        "slug"
+      ]
+    }
+  },
+  {
+    "name": "report_goal",
+    "description": "Report intermediate progress or update status note for an in-progress goal.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "client_kind": {
+          "type": "string",
+          "description": "Client runtime kind (e.g. ai_agent, human, ci_job)"
+        },
+        "note": {
+          "type": "string",
+          "description": "Progress report or status update note"
+        },
+        "origin_entity": {
+          "type": "string",
+          "description": "Attribution identity or organization (e.g. org:waqftech, pat:personal, system)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Goal slug under goals/\u003cslug\u003e"
+        },
+        "status": {
+          "type": "string",
+          "description": "Optional execution status (e.g. in_progress, evaluating, blocked)"
+        },
+        "task_checkpoint": {
+          "type": "object",
+          "description": "Optional structured task checkpoint conforming to sila/task-checkpoint/v1"
+        },
+        "tool_name": {
+          "type": "string",
+          "description": "Client or tool name (e.g. antigravity, cursor, claude-code)"
+        }
+      },
+      "required": [
+        "slug"
+      ]
+    }
+  },
+  {
+    "name": "request_approval",
+    "description": "Pause execution and request interactive human approval via configured gateway channels (Telegram, Discord, CLI) before proceeding with high-blast-radius or sensitive operations.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "prompt": {
+          "type": "string",
+          "description": "Clear explanation of the action requiring human approval"
+        },
+        "risk_level": {
+          "type": "string",
+          "description": "Risk level: 'low', 'medium', 'high', or 'critical' (default: 'medium')"
+        },
+        "timeout_seconds": {
+          "type": "integer",
+          "description": "Maximum time in seconds to wait for approval before timing out (default: 300, max: 3600)"
+        }
+      },
+      "required": [
+        "prompt"
+      ]
+    }
+  },
+  {
+    "name": "resolve_decision",
+    "description": "Record an in-place resolution for an open addressed decision (D\u003cnumber\u003e).",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string",
+          "description": "Decision address (e.g. 'D1')"
+        },
+        "choice": {
+          "type": "string",
+          "description": "Chosen option letter (e.g. 'A') or resolution summary"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Resolution notes or rationale"
+        },
+        "project": {
+          "type": "string",
+          "description": "Target project ID (defaults to cwd project)"
+        },
+        "resolved_by": {
+          "type": "string",
+          "description": "Name or role of resolver"
+        }
+      },
+      "required": [
+        "address",
+        "choice"
+      ]
+    }
+  },
+  {
+    "name": "resolve_feedback",
+    "description": "Mark an agent feedback ticket as resolved and closed with optional goal attribution and resolution notes.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Optional agent resolving the feedback"
+        },
+        "goal": {
+          "type": "string",
+          "description": "Optional goal slug that implemented/resolved this feedback"
+        },
+        "id": {
+          "type": "string",
+          "description": "Feedback record ID (e.g. fb_...)"
+        },
+        "note": {
+          "type": "string",
+          "description": "Optional explanation or resolution summary"
+        }
+      },
+      "required": [
+        "id"
+      ]
+    }
+  },
+  {
+    "name": "route_workflow",
+    "description": "Call when unsure which Sila command, persona, audit, or skill applies to the user's request. Advisory System-1 tool chain and workflow routing: recommends optimal multi-tool Sila sequences tailored to developer objectives (onboarding, investigation, goal execution, gate verification, or drift reconciliation).",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "current_tool": {
+          "type": "string",
+          "description": "Optional current or last executed tool name to inform chain progression"
+        },
+        "objective": {
+          "type": "string",
+          "description": "The developer's current objective, intent, or task description"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        }
+      },
+      "required": [
+        "objective"
+      ]
+    }
+  },
+  {
+    "name": "run_gate_pipeline",
+    "description": "Execute the sila quality gate validation in an isolated disposable Git worktree, testing the specified branch against tests, changelog, binary, and documentation invariants without touching the working directory, with optional forwarding to a remote target. Returns stage_lines, clean, duration_ms, and receipt_path; set verbose true to include the bounded full log.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "auto_forward": {
+          "type": "boolean",
+          "description": "If true, forward push to forward_target upon 100% green gate checks (default: false)"
+        },
+        "branch": {
+          "type": "string",
+          "description": "Optional git branch or ref to validate (default: current HEAD/branch)"
+        },
+        "forward_target": {
+          "type": "string",
+          "description": "Optional remote repository target to forward push to upon successful validation (e.g. 'origin')"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "verbose": {
+          "type": "boolean",
+          "description": "If true, include the bounded full gate log under output (default: false); receipt_path is always returned"
+        }
+      }
+    }
+  },
+  {
+    "name": "run_preflight_eval",
+    "description": "Run epistemic preflight evaluation or context ablation test suite before landing changes, validating against deterministic goal contracts and test suites across harnesses.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "ablation": {
+          "type": "boolean",
+          "description": "If true, run ablation comparison to evaluate marginal impact and Token ROI"
+        },
+        "case_name": {
+          "type": "string",
+          "description": "Optional filter for a specific test case name or slug"
+        },
+        "eval_dir": {
+          "type": "string",
+          "description": "Path to eval suite directory (default: ./evals or .)"
+        },
+        "harness": {
+          "type": "string",
+          "description": "Harness runner: auto, claude, agy, mock (default: mock for instant in-process preflight, or auto)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory (defaults to active workspace)"
+        },
+        "tag": {
+          "type": "string",
+          "description": "Optional tag filter (e.g. safety, regression)"
+        },
+        "target_rule": {
+          "type": "string",
+          "description": "Optional rule or context file for ablation comparison (With vs. Without)"
+        }
+      }
+    }
+  },
+  {
+    "name": "salam",
+    "description": "First-contact orientation briefing for agents starting work in a repository: provides active workspace identity, the 7-step working loop, live next steps, ready goals, and dual CLI/MCP runbook.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory (defaults to active workspace)"
+        }
+      }
+    }
+  },
+  {
+    "name": "save_case",
+    "description": "Call when introducing a reusable architectural pattern, module seam, or structural design. Record an architectural procedural case: intent, structural approach, key invariants/trade-offs, and evidence files. Call this when establishing an architectural precedent, choosing a design pattern, or making a non-error structural decision.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Agent or author identifier (default: user)"
+        },
+        "approach": {
+          "type": "string",
+          "description": "The chosen pattern, library, or structural approach"
+        },
+        "client_kind": {
+          "type": "string",
+          "description": "Client runtime kind (e.g. ai_agent, human, ci_job)"
+        },
+        "files": {
+          "type": "array",
+          "description": "Evidence files that show the implementation (alias: repo_files)"
+        },
+        "intent": {
+          "type": "string",
+          "description": "What architectural or design goal was addressed"
+        },
+        "invariant": {
+          "type": "string",
+          "description": "Key non-obvious constraint, race hazard, or trade-off"
+        },
+        "origin_entity": {
+          "type": "string",
+          "description": "Attribution identity or organization (e.g. org:waqftech, pat:personal, system)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name (default: active workspace)"
+        },
+        "repo_files": {
+          "type": "array",
+          "description": "Evidence files that show the implementation (alias: files)"
+        },
+        "tags": {
+          "type": "string",
+          "description": "Comma-separated tags"
+        },
+        "tool_name": {
+          "type": "string",
+          "description": "Client or tool name (e.g. antigravity, cursor, claude-code)"
+        }
+      },
+      "required": [
+        "intent"
+      ]
+    }
+  },
+  {
     "name": "save_doc",
     "description": "Save or attach an external reference document, API guide, or markdown documentation to a project.",
+    "category": "write",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -321,7 +2099,7 @@
         },
         "project": {
           "type": "string",
-          "description": "Project ID or directory name"
+          "description": "Optional project ID or directory name (default: active workspace)"
         },
         "title": {
           "type": "string",
@@ -334,14 +2112,66 @@
       },
       "required": [
         "content",
-        "project",
+        "title"
+      ]
+    }
+  },
+  {
+    "name": "save_domain_learning",
+    "description": "Persist a grounded domain guardrail learning that pairs with get_operational_guidebook.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "cause": {
+          "type": "string",
+          "description": "Root cause, when known"
+        },
+        "domain": {
+          "type": "string",
+          "description": "Domain such as golang, cloudflare, d1, security, testing, a11y"
+        },
+        "files": {
+          "type": "array",
+          "description": "Optional evidence files"
+        },
+        "fix": {
+          "type": "string",
+          "description": "What fixed it"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "rule": {
+          "type": "string",
+          "description": "Optional durable guardrail rule"
+        },
+        "symptom": {
+          "type": "string",
+          "description": "Observable symptom or failure mode"
+        },
+        "tags": {
+          "type": "array",
+          "description": "Optional tags"
+        },
+        "title": {
+          "type": "string",
+          "description": "Short learning title"
+        }
+      },
+      "required": [
+        "domain",
+        "fix",
+        "symptom",
         "title"
       ]
     }
   },
   {
     "name": "save_handoff",
-    "description": "Save a structured session handoff record (summary, open tasks, decisions, branch) to pass the baton cleanly to the next agent session.",
+    "description": "Call before ending a session. Save a structured handoff (summary, open tasks, decisions, branch) to pass the baton.",
+    "category": "write",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -353,36 +2183,56 @@
           "type": "string",
           "description": "Active git branch name"
         },
+        "client_kind": {
+          "type": "string",
+          "description": "Client runtime kind (e.g. ai_agent, human, ci_job)"
+        },
         "decisions": {
           "type": "array",
           "description": "Key decisions or constraints established"
+        },
+        "expected_revision": {
+          "type": "string",
+          "description": "Expected revision"
+        },
+        "files": {
+          "type": "array",
+          "description": "Key repository files touched or referenced (alias: repo_files)"
         },
         "open_items": {
           "type": "array",
           "description": "List of open tasks and pending items"
         },
+        "origin_entity": {
+          "type": "string",
+          "description": "Attribution identity or organization (e.g. org:waqftech, pat:personal, system)"
+        },
         "project": {
           "type": "string",
-          "description": "Project ID or directory name"
+          "description": "Optional project ID or directory name (default: active workspace)"
         },
         "repo_files": {
           "type": "array",
-          "description": "Key repository files touched or referenced"
+          "description": "Key repository files touched or referenced (alias: files)"
         },
         "summary": {
           "type": "string",
           "description": "Summary of work completed and current state"
+        },
+        "tool_name": {
+          "type": "string",
+          "description": "Client or tool name (e.g. antigravity, cursor, claude-code)"
         }
       },
       "required": [
-        "project",
         "summary"
       ]
     }
   },
   {
-    "name": "save_memo",
-    "description": "Record an explicit architectural directive, decision, or project memo directly into the verified knowledge store.",
+    "name": "save_lesson",
+    "description": "Record a solved problem as a structured lesson the next session or project can recall: symptom, cause, fix, and evidence files. Call this the moment a fix is proven — after debugging, after resolving a build or dependency failure, or after a tooling workaround.",
+    "category": "write",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -390,28 +2240,142 @@
           "type": "string",
           "description": "Agent or author identifier (default: user)"
         },
+        "cause": {
+          "type": "string",
+          "description": "Root cause, when known"
+        },
+        "client_kind": {
+          "type": "string",
+          "description": "Client runtime kind (e.g. ai_agent, human, ci_job)"
+        },
+        "files": {
+          "type": "array",
+          "description": "Evidence files that show the fix (alias: repo_files)"
+        },
+        "fix": {
+          "type": "string",
+          "description": "What actually fixed it"
+        },
+        "origin_entity": {
+          "type": "string",
+          "description": "Attribution identity or organization (e.g. org:waqftech, pat:personal, system)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name (default: active workspace)"
+        },
+        "repo_files": {
+          "type": "array",
+          "description": "Evidence files that show the fix (alias: files)"
+        },
+        "symptom": {
+          "type": "string",
+          "description": "What went wrong, in the words someone would search for"
+        },
+        "tags": {
+          "type": "string",
+          "description": "Comma-separated tags"
+        },
+        "tool_name": {
+          "type": "string",
+          "description": "Client or tool name (e.g. antigravity, cursor, claude-code)"
+        }
+      },
+      "required": [
+        "symptom"
+      ]
+    }
+  },
+  {
+    "name": "save_memo",
+    "description": "Record an explicit architectural directive, decision, or project memo directly into the verified knowledge store. Call immediately when an architectural decision, invariant, or rejected alternative is established.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Agent or author identifier (default: user)"
+        },
+        "client_kind": {
+          "type": "string",
+          "description": "Client runtime kind (e.g. ai_agent, human, ci_job)"
+        },
         "content": {
           "type": "string",
           "description": "Architectural decision or memo content"
         },
+        "decision": {
+          "type": "string",
+          "description": "Optional associated addressed decision identifier (e.g. 'D1')"
+        },
+        "files": {
+          "type": "array",
+          "description": "Referenced repository files (alias: repo_files)"
+        },
+        "origin_entity": {
+          "type": "string",
+          "description": "Attribution identity or organization (e.g. org:waqftech, pat:personal, system)"
+        },
         "project": {
           "type": "string",
-          "description": "Project ID or directory name"
+          "description": "Optional project ID or directory name (default: active workspace)"
         },
         "repo_files": {
           "type": "array",
-          "description": "Referenced repository files"
+          "description": "Referenced repository files (alias: files)"
+        },
+        "tool_name": {
+          "type": "string",
+          "description": "Client or tool name (e.g. antigravity, cursor, claude-code)"
         }
       },
       "required": [
-        "content",
-        "project"
+        "content"
+      ]
+    }
+  },
+  {
+    "name": "save_memory",
+    "description": "Persist a strict sila/memory/v1 envelope with typed assertions, evidence locators, relations and idempotency. Use when a decision needs machine-checkable structure beyond a prose memo. Unknown envelope fields are rejected with stable MEMORY_* codes.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Agent or author identifier (default: user)"
+        },
+        "client_kind": {
+          "type": "string",
+          "description": "Client runtime kind (e.g. ai_agent, human, ci_job)"
+        },
+        "memory": {
+          "type": "object",
+          "description": "sila/memory/v1 envelope object (a JSON-encoded object string is also accepted)"
+        },
+        "origin_entity": {
+          "type": "string",
+          "description": "Attribution identity or organization (e.g. org:waqftech, pat:personal, system)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name (default: active workspace)"
+        },
+        "tool_name": {
+          "type": "string",
+          "description": "Client or tool name (e.g. antigravity, cursor, claude-code)"
+        }
+      },
+      "required": [
+        "memory"
       ]
     }
   },
   {
     "name": "search_code",
     "description": "Search open-source code across public repositories on GitHub and optionally auto-ingest resulting code files into the project store.",
+    "category": "write",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -451,7 +2415,8 @@
   },
   {
     "name": "search_docs",
-    "description": "Search attached external reference documents and API guides for a project using SQLite FTS5 full-text search.",
+    "description": "Call BEFORE web search or scaffolding integrations to query indexed specifications and local documentation. Search attached external reference documents and API guides for a project using SQLite FTS5 full-text search.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -479,13 +2444,34 @@
   },
   {
     "name": "search_knowledge",
-    "description": "Search distilled knowledge, claims, and architectural decisions across AI CLI sessions using SQLite FTS5 full-text search.",
+    "description": "Search distilled knowledge, claims, and architectural decisions accumulated from past AI CLI sessions (Devin, OpenCode, Codex, AGY, ZCode, Claude Code, and more). PREFER THIS over reading files or git log when a question is about what was previously decided, built, or discovered — especially across different tools or before this repository existed. Returns attributed claims with file references.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {
+        "as_of": {
+          "type": "string",
+          "description": "As-of timestamp"
+        },
         "facts_only": {
           "type": "boolean",
           "description": "If true, only return promoted, LLM-distilled verified facts"
+        },
+        "include_archived": {
+          "type": "boolean",
+          "description": "Include archived and superseded memories (default false)"
+        },
+        "include_disputed": {
+          "type": "boolean",
+          "description": "Include disputed rows"
+        },
+        "include_stale": {
+          "type": "boolean",
+          "description": "Include stale rows"
+        },
+        "include_unverified": {
+          "type": "boolean",
+          "description": "Include unverified rows"
         },
         "limit": {
           "type": "integer",
@@ -523,13 +2509,18 @@
   },
   {
     "name": "search_messages",
-    "description": "Search raw conversation transcripts and message history across all AI CLI tools using SQLite FTS5 full-text search.",
+    "description": "Search the verbatim conversation transcripts of every indexed AI CLI tool on this machine. Use when you need the actual words exchanged in a past session — decisions in context, exact error messages, shell commands that were run — rather than distilled summaries of them.",
+    "category": "read",
     "inputSchema": {
       "type": "object",
       "properties": {
         "limit": {
           "type": "integer",
           "description": "Maximum number of results to return (default 10)"
+        },
+        "max_tokens": {
+          "type": "integer",
+          "description": "Optional maximum token budget per unrolled turn (default 800)"
         },
         "offset": {
           "type": "integer",
@@ -554,6 +2545,14 @@
         "tool": {
           "type": "string",
           "description": "Optional tool filter (devin, mimocode, opencode, codex, etc.)"
+        },
+        "two_pass": {
+          "type": "boolean",
+          "description": "Two-pass asymmetric retrieval (default false)"
+        },
+        "window": {
+          "type": "integer",
+          "description": "Turns in two-pass mode (default 2)"
         }
       },
       "required": [
@@ -564,6 +2563,7 @@
   {
     "name": "search_stackoverflow",
     "description": "Search developer QA, troubleshooting threads, and error resolutions on Stack Overflow and optionally auto-ingest solutions into project memory.",
+    "category": "write",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -596,6 +2596,7 @@
   {
     "name": "search_web_docs",
     "description": "Search live online documentation using Google Custom Search and optionally auto-ingest resulting documentation pages into the project store.",
+    "category": "write",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -622,8 +2623,322 @@
     }
   },
   {
+    "name": "shortest_path",
+    "description": "Find the most reliable confidence-weighted path between two graph nodes; ambiguous bare names fail with candidates.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "code_only": {
+          "type": "boolean",
+          "description": "Follow only code relations and skip memory nodes"
+        },
+        "max_hops": {
+          "type": "integer",
+          "description": "Maximum path hops (default 6)"
+        },
+        "project_dir": {
+          "type": "string",
+          "description": "Repository root (defaults to cwd)"
+        },
+        "source": {
+          "type": "string",
+          "description": "Source node ID, qualified symbol, or unique label"
+        },
+        "target": {
+          "type": "string",
+          "description": "Target node ID, qualified symbol, or unique label"
+        }
+      },
+      "required": [
+        "source",
+        "target"
+      ]
+    }
+  },
+  {
+    "name": "skill_load",
+    "description": "Retrieve complete instructions, metadata, and optional resources (scripts, references) for a specific skill from project or global catalogs without persistent state mutation.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "include_resources": {
+          "type": "boolean",
+          "description": "If true, include contents of referenced scripts and documentation files (default false)"
+        },
+        "include_scripts": {
+          "type": "boolean",
+          "description": "If true, include contents of referenced scripts and documentation files (alias for include_resources)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project directory or ID (default: active workspace)"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Exact skill slug or identifier to load"
+        }
+      },
+      "required": [
+        "slug"
+      ]
+    }
+  },
+  {
+    "name": "skill_search",
+    "description": "Search available agent skills across project and global libraries by keyword, technology, or task description. Returns bounded skill summaries with source provenance without loading full instruction bodies.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "limit": {
+          "type": "integer",
+          "description": "Maximum number of skill summaries to return (default 10, max 50)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project directory or ID (default: active workspace)"
+        },
+        "query": {
+          "type": "string",
+          "description": "Search terms, topic, skill name, technology, or task intent"
+        },
+        "tags": {
+          "type": "array",
+          "description": "Optional tags or category filters to narrow search results"
+        }
+      },
+      "required": [
+        "query"
+      ]
+    }
+  },
+  {
+    "name": "spawn_crewmate",
+    "description": "Spawn a crewmate agent in a disposable Git worktree with a tmux session window. The crewmate is bound to a goal package and auto-seeded with sila context. Zero-token supervision via OS process probes.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "base_ref": {
+          "type": "string",
+          "description": "Optional git ref to branch from (default: HEAD)"
+        },
+        "goal_slug": {
+          "type": "string",
+          "description": "Goal package slug the crewmate will work on"
+        },
+        "harness": {
+          "type": "string",
+          "description": "AI CLI tool to spawn: devin, claude, agy, opencode, codex, mimocode"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        }
+      },
+      "required": [
+        "goal_slug",
+        "harness"
+      ]
+    }
+  },
+  {
+    "name": "supersede_goal",
+    "description": "Mark a goal superseded by another goal, release, or commit, releasing its claim and charter.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Agent recording the supersede"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "reason": {
+          "type": "string",
+          "description": "Reason for superseding"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Goal slug to supersede"
+        },
+        "superseded_by": {
+          "type": "string",
+          "description": "Superseding goal slug, release, or commit"
+        }
+      },
+      "required": [
+        "slug"
+      ]
+    }
+  },
+  {
+    "name": "supervise_crew",
+    "description": "Run zero-token supervision pass over all crewmates, probing liveness via OS process checks and pane activity. When sentinel is enabled, executes dual-cron supervision with isolated Victory Auditor and bounded retries.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "sentinel": {
+          "type": "boolean",
+          "description": "Enable Sentinel dual-cron supervision with isolated Victory Auditor and bounded retries"
+        }
+      }
+    }
+  },
+  {
+    "name": "sync_rules",
+    "description": "Compile Core Hub agent standards, Universal Principles Pack, and project overlays, projecting updated rule files (AGENTS.md, CLAUDE.md, .cursor/rules/000-sila-core.mdc, .cursor/rules/000-sila-principles.mdc, .windsurfrules, .github/copilot-instructions.md, .devin/setup.sh) across all detected tool targets.",
+    "category": "write",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "include_principles": {
+          "type": "boolean",
+          "description": "Include Universal Principles Pack (Layered Constitution \u0026 9-verb memory loop)"
+        },
+        "policy_pack": {
+          "type": "string",
+          "description": "Optional policy pack name (e.g. maintainer)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "replace": {
+          "type": "boolean",
+          "description": "Authorize replacement of user-owned files"
+        },
+        "stack": {
+          "type": "string",
+          "description": "Optional target stack for tailored principles (go, ts, cloudflare, python, rust, polyglot)"
+        },
+        "tools": {
+          "type": "array",
+          "description": "Optional list of tools to compile rules for (claude, cursor, devin, windsurf, copilot, agents, all)"
+        }
+      }
+    }
+  },
+  {
+    "name": "touch_goal",
+    "description": "Renew the claim lease and heartbeat timestamp for an active goal without requiring long-running process persistence.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "agent": {
+          "type": "string",
+          "description": "Optional agent name renewing the lease"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Goal slug under goals/\u003cslug\u003e"
+        }
+      },
+      "required": [
+        "slug"
+      ]
+    }
+  },
+  {
+    "name": "update_goal",
+    "description": "Update an existing goal's metadata, dependencies, files to touch, shape, tier, personas, or spec review with preflight validation.",
+    "category": "collab",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "add_deps": {
+          "type": "array",
+          "description": "Add these goal slugs as dependencies"
+        },
+        "add_personas": {
+          "type": "array",
+          "description": "Add personas"
+        },
+        "clear_personas": {
+          "type": "boolean",
+          "description": "Clear all personas"
+        },
+        "depends_on": {
+          "type": "array",
+          "description": "Replace dependency list with these goal slugs"
+        },
+        "description": {
+          "type": "string",
+          "description": "New goal description"
+        },
+        "files_to_touch": {
+          "type": "array",
+          "description": "Replace the goal's FilesToTouch set"
+        },
+        "independent": {
+          "type": "boolean",
+          "description": "Explicitly mark the goal independent or dependent"
+        },
+        "personas": {
+          "type": "array",
+          "description": "Replace persona list"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "remove_deps": {
+          "type": "array",
+          "description": "Remove these goal slugs from dependencies"
+        },
+        "sequence": {
+          "type": "integer",
+          "description": "Recommended sequence index"
+        },
+        "shape": {
+          "type": "string",
+          "description": "Task shape: ship or scout"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Goal slug under goals/\u003cslug\u003e"
+        },
+        "spec_review": {
+          "type": "object",
+          "description": "Structured spec_review object conforming to sila/spec-review/v1"
+        },
+        "strict": {
+          "type": "boolean",
+          "description": "Fail on preflight warnings or file collisions"
+        },
+        "tier": {
+          "type": "string",
+          "description": "Goal tier: immediate, roadmap, nice-to-have, wont-fix"
+        },
+        "title": {
+          "type": "string",
+          "description": "New human-readable title"
+        }
+      },
+      "required": [
+        "slug"
+      ]
+    }
+  },
+  {
     "name": "vacuum_database",
     "description": "Run SQLite VACUUM and optimize query planner statistics on the knowledge store, defragmenting storage and reclaiming disk space.",
+    "category": "write",
     "inputSchema": {
       "type": "object",
       "properties": {
@@ -632,6 +2947,53 @@
           "description": "If true, forces a full vacuum even if freelist fragmentation is low"
         }
       }
+    }
+  },
+  {
+    "name": "validate_goals",
+    "description": "Run deterministic goal package, dependency, lifecycle, and registry validation.",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "manifest_path": {
+          "type": "string",
+          "description": "Optional expected-state manifest path"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or repository directory"
+        },
+        "slug": {
+          "type": "string",
+          "description": "Optional single goal slug to validate"
+        },
+        "strict": {
+          "type": "boolean",
+          "description": "Treat warnings as validation failures"
+        }
+      }
+    }
+  },
+  {
+    "name": "validate_memory",
+    "description": "Validate an envelope without writing; never mutates the store",
+    "category": "read",
+    "inputSchema": {
+      "type": "object",
+      "properties": {
+        "memory": {
+          "type": "object",
+          "description": "sila/memory/v1 envelope object (a JSON-encoded object string is also accepted)"
+        },
+        "project": {
+          "type": "string",
+          "description": "Optional project ID or directory name used for evidence checks"
+        }
+      },
+      "required": [
+        "memory"
+      ]
     }
   }
 ]

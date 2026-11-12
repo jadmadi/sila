@@ -306,7 +306,7 @@ func (gc *goalsContext) renderAudit(targetDir string) {
 			ui.Magenta(ui.Bold(projName)),
 			ui.Dim("("+targetDir+")"),
 		)
-		fmt.Fprintln(os.Stdout, ui.Dim("help: adopt the roadmap with `sila goals create <slug> --title=\"...\"`"))
+		fmt.Fprintln(os.Stdout, ui.Dim("help: adopt the roadmap with `sila goals create <slug> --title=\"...\" --files=\"path,...\"`"))
 		return
 	}
 
@@ -321,6 +321,7 @@ func (gc *goalsContext) renderAudit(targetDir string) {
 					"verified":    res.VerifiedCount,
 					"unverified":  res.UnverifiedCount,
 					"stale":       res.StaleCount,
+					"unbound":     res.UnboundCount,
 					"claimed":     res.ClaimedCount,
 					"pending":     res.PendingCount,
 				})
@@ -337,6 +338,7 @@ func (gc *goalsContext) renderAudit(targetDir string) {
 				"verified":    res.VerifiedCount,
 				"unverified":  res.UnverifiedCount,
 				"stale":       res.StaleCount,
+				"unbound":     res.UnboundCount,
 				"claimed":     res.ClaimedCount,
 				"pending":     res.PendingCount,
 			})
@@ -359,11 +361,11 @@ func (gc *goalsContext) renderAudit(targetDir string) {
 		if len(clearedClaims) > 0 {
 			fmt.Fprintf(os.Stdout, "\n🔓 Cleared %d closed claim %s\n", len(clearedClaims), plural(int64(len(clearedClaims)), "record"))
 		}
-		syncMsg := fmt.Sprintf("\n✨ Auto-synced goals/README.md (%d implemented [%d verified, %d unverified], %d claimed, %d pending)",
-			res.ImplementedCount, res.VerifiedCount, res.UnverifiedCount, res.ClaimedCount, res.PendingCount)
+		syncMsg := fmt.Sprintf("\n✨ Auto-synced goals/README.md (%d implemented [%d verified, %d unbound, %d unverified], %d claimed, %d pending)",
+			res.ImplementedCount, res.VerifiedCount, res.UnboundCount, res.UnverifiedCount, res.ClaimedCount, res.PendingCount)
 		if res.StaleCount > 0 {
-			syncMsg = fmt.Sprintf("\n✨ Auto-synced goals/README.md (%d implemented [%d verified, %d stale, %d unverified], %d claimed, %d pending)",
-				res.ImplementedCount, res.VerifiedCount, res.StaleCount, res.UnverifiedCount, res.ClaimedCount, res.PendingCount)
+			syncMsg = fmt.Sprintf("\n✨ Auto-synced goals/README.md (%d implemented [%d verified, %d unbound, %d stale, %d unverified], %d claimed, %d pending)",
+				res.ImplementedCount, res.VerifiedCount, res.UnboundCount, res.StaleCount, res.UnverifiedCount, res.ClaimedCount, res.PendingCount)
 		}
 		if commitMsg != "" {
 			syncMsg += " (committed)"

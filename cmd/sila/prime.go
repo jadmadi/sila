@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/jadmadi/sila/internal/config"
+	"github.com/jadmadi/sila/internal/daemon"
 	"github.com/jadmadi/sila/internal/dream"
 	"github.com/jadmadi/sila/internal/mcp"
 	"github.com/jadmadi/sila/internal/release"
@@ -25,6 +26,25 @@ func openMCPStore(dbPath string) (*store.Store, error) {
 
 // runMCP starts the Model Context Protocol stdio server.
 func runMCP(dbPath string, upstreams, noUpstreams bool, profile string, traceArgs bool) {
+	mode := strings.ToLower(strings.TrimSpace(os.Getenv("SILA_DAEMON")))
+	if mode == "" {
+		mode = "off"
+	}
+	if mode == "auto" || mode == "require" {
+		client, dialErr := daemon.Dial(daemon.DefaultSocketPath(), 2*time.Second)
+		if dialErr == nil {
+			defer client.Close()
+			if proxyErr := daemon.ProxyStream(context.Background(), client, os.Stdin, os.Stdout); proxyErr != nil && proxyErr != io.EOF {
+				fmt.Fprintf(os.Stderr, "sila mcp: %v\n", proxyErr)
+				os.Exit(1)
+			}
+			return
+		}
+		if mode == "require" {
+			fmt.Fprintln(os.Stderr, "daemon unavailable")
+			os.Exit(1)
+		}
+	}
 	st, err := openMCPStore(dbPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sila mcp: %v\n", err)
@@ -65,6 +85,7 @@ type primeRunOptions struct {
 	AllGoals           bool
 	DisableCodebaseMap bool
 	CodebaseMapChars   int
+	IncludeArchived    bool
 }
 
 // runPrime outputs a concise session start context briefing block with optional context compression and degradation.
@@ -89,6 +110,7 @@ func runPrimeWithOptions(ui render.UI, dbPath, project string, jsonOut, toonOut 
 
 	cwd, _ := os.Getwd()
 	defer release.SyncSoakDailyIfDue(cwd, dbPath)
+	defer ensureDaemonRunning(dbPath)
 	maxTokensStr := opts.MaxTokensStr
 	pressureStr := opts.PressureStr
 	if pressureStr == "" {
@@ -124,6 +146,7 @@ func runPrimeWithOptions(ui render.UI, dbPath, project string, jsonOut, toonOut 
 		ForcedPressure:     forcedPressure,
 		DisableCodebaseMap: opts.DisableCodebaseMap,
 		CodebaseMapChars:   opts.CodebaseMapChars,
+		IncludeArchived:    opts.IncludeArchived,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "sila: %v\n", err)
@@ -138,6 +161,9 @@ func runPrimeWithOptions(ui render.UI, dbPath, project string, jsonOut, toonOut 
 		fmt.Fprintln(os.Stderr, "sila prime: no pre-existing knowledge store; strict mode requires `sila sync` first")
 		os.Exit(3)
 	}
+
+	stateBlock := dream.LoadStateBlock(context.Background(), st, summary.ProjectID, cwd, time.Now().UTC(), stateBlockWindow(), 1200)
+	summary.StateBlock = stateBlock
 
 	if summary.Error != "" {
 		if jsonOut {
@@ -207,6 +233,21 @@ func runPrimeWithOptions(ui render.UI, dbPath, project string, jsonOut, toonOut 
 			}
 			fmt.Fprint(os.Stdout, render.FormatTOONTable("codebase_map", []string{"dir", "symbols"}, mapRows))
 		}
+		if summary.RecallPack != nil {
+			var packRows [][]string
+			for _, item := range summary.RecallPack.Items {
+				packRows = append(packRows, []string{item.Kind, item.ID, item.ProjectID, fmt.Sprintf("%.2f", item.Score), fmt.Sprintf("%t", item.Grounded), item.Resolution})
+			}
+			fmt.Fprint(os.Stdout, render.FormatTOONTable("recall_pack", []string{"kind", "id", "project", "score", "grounded", "resolution"}, packRows))
+			fmt.Fprint(os.Stdout, render.FormatTOONObject("recall_pack_meta", [][2]string{
+				{"ranking_version", summary.RecallPack.RankingVersion},
+				{"items", fmt.Sprintf("%d", len(summary.RecallPack.Items))},
+				{"tokens", fmt.Sprintf("%d", summary.RecallPack.Tokens)},
+				{"omitted", fmt.Sprintf("%d", summary.RecallPack.Omitted)},
+				{"empty_reason", summary.RecallPack.EmptyReason},
+				{"untrusted", "true"},
+			}))
+		}
 		fmt.Fprintf(os.Stdout, "grounding:\n  verified: %d/%d\n", summary.TotalVerified, summary.TotalClaims)
 		fmt.Fprintln(os.Stdout, "help[1]: Run `sila handoff` to inspect tasks or `sila opinions` for project taste")
 		return
@@ -231,6 +272,15 @@ func runPrimeWithOptions(ui render.UI, dbPath, project string, jsonOut, toonOut 
 	}
 	if opts.CachePinned {
 		md = mcp.FormatCachePinnedPrimeMarkdown(summary)
+	}
+	if stateBlock != "" && md != "" {
+		md = stateBlock + "\n" + md
+	}
+	if cards, cerr := st.LatestSessionCards(context.Background(), summary.ProjectID, 3); cerr == nil && md != "" {
+		md += dream.FormatSessionCards(cards, 3)
+	}
+	if disputedLine, derr := st.DisputedFactLine(summary.ProjectID); derr == nil && disputedLine != "" {
+		md = disputedLine + "\n\n" + md
 	}
 
 	// Surface symbol notes for modified repository files

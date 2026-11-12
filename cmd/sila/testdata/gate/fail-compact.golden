@@ -1,0 +1,5 @@
+PASS tests 1.2s
+FAIL gate 30ms
+  one blocker
+  boom: assertion failed
+FAIL 1 of 2 checks in 1.3s; full log: /tmp/gate.log

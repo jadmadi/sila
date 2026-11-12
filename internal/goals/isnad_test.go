@@ -14,7 +14,7 @@ func TestParseIsnadHeader(t *testing.T) {
 - **Registered By**: @antigravity | Session: 858af83c-c8c0-4f36-af3a-ad93375a58b4 | Date: 2026-10-03
 - **Spec Audited By**: @auditor | Session: abc-123 | Date: 2026-10-03
 - **Implemented By**: @builder | Session: def-456 | Commit: c0c08f8
-- **Mystery Audited By**: @mystery-auditor | Session: ghi-789 | Report: docs/specs/report.md
+- **Mystery Audited By**: @mystery-auditor | Session: ghi-789 | Report: research/specs/report.md
 
 ## Goal Description
 Some description here.
@@ -46,7 +46,7 @@ Some description here.
 	if isnad.MysteryAuditedBy != "@mystery-auditor" {
 		t.Errorf("MysteryAuditedBy = %q", isnad.MysteryAuditedBy)
 	}
-	if isnad.MysteryAuditedReport != "docs/specs/report.md" {
+	if isnad.MysteryAuditedReport != "research/specs/report.md" {
 		t.Errorf("MysteryAuditedReport = %q", isnad.MysteryAuditedReport)
 	}
 }

@@ -109,11 +109,11 @@ func TestMain(m *testing.M) {
 }
 
 // TestPublicToolCount verifies that the canonical MCP tool contract publishes exactly
-// PublicToolCount (75) unique, well-formed tools across the Go registry, category map,
+// PublicToolCount unique, well-formed tools across the Go registry, category map,
 // and the JSON-RPC tools/list protocol response.
 func TestPublicToolCount(t *testing.T) {
-	// 1. Verify PublicToolCount constant is exactly 75.
-	const expectedCount = 76
+	// 1. Verify PublicToolCount constant matches the registry size.
+	const expectedCount = 90
 	if PublicToolCount != expectedCount {
 		t.Fatalf("expected PublicToolCount constant to be %d, got %d", expectedCount, PublicToolCount)
 	}
@@ -274,7 +274,7 @@ func TestMCPServerLifecycleAndTools(t *testing.T) {
 		`{"jsonrpc":"2.0","id":3,"method":"tools/list"}`,
 		`{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"search_knowledge","arguments":{"query":"sqlite","project":"test-proj","offset":0,"limit":5}}}`,
 		`{"jsonrpc":"2.0","id":5,"method":"tools/call","params":{"name":"list_projects"}}`,
-		`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_project_facts","arguments":{"project":"test-proj","limit":5,"offset":0}}}`,
+		`{"jsonrpc":"2.0","id":6,"method":"tools/call","params":{"name":"get_project_facts","arguments":{"project":"test-proj","limit":5,"offset":0,"include_unverified":true,"include_stale":true}}}`,
 		`{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"name":"get_status"}}`,
 		`{"jsonrpc":"2.0","id":8,"method":"tools/call","params":{"name":"search_messages","arguments":{"query":"indexing","tool":"devin","role":"assistant"}}}`,
 		`{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"reconcile_drift","arguments":{"project":"test-proj"}}}`,
@@ -740,6 +740,16 @@ func TestChallenger_All31MCPToolsAndProjectResolution(t *testing.T) {
 		"save_memo",
 		"save_lesson",
 		"save_case",
+		"save_memory",
+		"get_memory",
+		"list_memories",
+		"validate_memory",
+		"memory_archive",
+		"memory_restore",
+		"list_archived_memories",
+		"memory_history",
+		"memory_feedback",
+		"list_memory_feedback",
 		"save_doc",
 		"search_docs",
 		"get_doc",
@@ -802,6 +812,10 @@ func TestChallenger_All31MCPToolsAndProjectResolution(t *testing.T) {
 		"save_domain_learning",
 		"check_symbol_blast_radius",
 		"get_subagent_charter",
+		"manage_merge_slot",
+		"query_graph",
+		"shortest_path",
+		"graph_report",
 	}
 
 	if len(expectedTools) != PublicToolCount {
@@ -2979,7 +2993,7 @@ func TestSaveHandoff_AutoDetectsGitBranch(t *testing.T) {
 }
 
 func TestServer_ProfileFiltering(t *testing.T) {
-	// 1. Test continuity profile (exposing the 36-tool agent-workflow surface)
+	// 1. Test continuity profile (exposing the bounded agent-workflow surface)
 	reqList := `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
 	inContinuity := strings.NewReader(reqList + "\n")
 	var outContinuity bytes.Buffer
@@ -3001,7 +3015,7 @@ func TestServer_ProfileFiltering(t *testing.T) {
 	if !ok {
 		t.Fatalf("missing tools array: %+v", resMap)
 	}
-	if ContinuityToolCount != 36 || len(ContinuityToolNames) != ContinuityToolCount {
+	if ContinuityToolCount != 10 || len(ContinuityToolNames) != ContinuityToolCount {
 		t.Fatalf("continuity surface mismatch: count=%d names=%d", ContinuityToolCount, len(ContinuityToolNames))
 	}
 	if len(toolsRaw) != ContinuityToolCount {
@@ -3072,10 +3086,8 @@ func TestContinuityToolNames_AllExistAndCoverContracts(t *testing.T) {
 		}
 	}
 	required := []string{
-		"salam", "prime_context", "list_goals", "run_gate_pipeline",
-		"reconcile_drift", "claim_goal", "recall", "save_lesson", "save_memo",
-		"audit_goals", "save_handoff", "record_feedback", "get_status",
-		"search_knowledge", "get_message_context", "touch_goal", "report_goal",
+		"prime_context", "recall", "omni_search", "save_memo", "save_lesson",
+		"save_handoff", "get_project_facts", "list_goals", "reconcile_drift", "get_status",
 	}
 	for _, name := range required {
 		if !ContinuityToolNames[name] {
@@ -3089,7 +3101,7 @@ func TestContinuityToolNames_AllExistAndCoverContracts(t *testing.T) {
 		}
 	}
 	triggers := map[string]string{
-		"omni_search":               "Call BEFORE running raw grep, find, or git log",
+		"omni_search":               "Search every knowledge tier",
 		"search_docs":               "Call BEFORE web search or scaffolding integrations",
 		"save_case":                 "Call when introducing a reusable architectural pattern",
 		"get_operational_guidebook": "Call to load Sila's domain engineering standards",
@@ -3437,4 +3449,76 @@ func parseJSONRPCResponses(t *testing.T, raw []byte) []JSONRPCResponse {
 		out = append(out, resp)
 	}
 	return out
+}
+
+func TestSearchDocsSnippetBound(t *testing.T) {
+	tmp := t.TempDir()
+	st, err := store.Open(filepath.Join(tmp, "snippet-mcp.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	proj, err := st.EnsureProject(tmp)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	bigContent := "# Overview\nshort intro\n## Target Heading\n" + strings.Repeat("target text ", 300)
+	docURL := "https://example.com/big-doc"
+	docID := store.DocID(proj.ID, docURL)
+	if err := st.InsertDoc(store.Doc{
+		ID: docID, ProjectID: proj.ID, Title: "Big Doc", URL: docURL,
+		Content: bigContent, Format: "markdown",
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	calls := []string{
+		`{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}`,
+		fmt.Sprintf(`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"search_docs","arguments":{"query":"target","project":%q}}}`, proj.ID),
+		fmt.Sprintf(`{"jsonrpc":"2.0","id":3,"method":"tools/call","params":{"name":"get_doc","arguments":{"id":%q}}}`, docID),
+	}
+	var out bytes.Buffer
+	srv := NewServer(st, strings.NewReader(strings.Join(calls, "\n")+"\n"), &out)
+	if err := srv.Run(); err != nil {
+		t.Fatal(err)
+	}
+	lines := strings.Split(strings.TrimSpace(out.String()), "\n")
+	if len(lines) < 3 {
+		t.Fatalf("expected 3 responses, got %d:\n%s", len(lines), out.String())
+	}
+
+	var searchResp, getResp JSONRPCResponse
+	if err := json.Unmarshal([]byte(lines[1]), &searchResp); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(lines[2]), &getResp); err != nil {
+		t.Fatal(err)
+	}
+	if searchResp.Error != nil || getResp.Error != nil {
+		t.Fatalf("errors: search=%+v get=%+v", searchResp.Error, getResp.Error)
+	}
+	searchText := searchResp.Result.(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	var docs []store.Doc
+	if err := json.Unmarshal([]byte(searchText), &docs); err != nil {
+		t.Fatalf("search_docs payload: %v", err)
+	}
+	if len(docs) != 1 {
+		t.Fatalf("search_docs returned %d docs, want 1", len(docs))
+	}
+	if len(docs[0].Content) > store.DefaultDocSnippetChars {
+		t.Fatalf("search_docs snippet is %d bytes, want <= %d", len(docs[0].Content), store.DefaultDocSnippetChars)
+	}
+	if !strings.Contains(docs[0].Content, "## Target Heading") {
+		t.Fatalf("search_docs snippet lost the matched heading: %q", docs[0].Content)
+	}
+
+	getText := getResp.Result.(map[string]any)["content"].([]any)[0].(map[string]any)["text"].(string)
+	var full store.Doc
+	if err := json.Unmarshal([]byte(getText), &full); err != nil {
+		t.Fatalf("get_doc payload: %v", err)
+	}
+	if len(full.Content) != len(bigContent) {
+		t.Fatalf("get_doc content is %d bytes, want the full %d", len(full.Content), len(bigContent))
+	}
 }

@@ -47,6 +47,9 @@ process.env.SILA_HOOK_BIN = fakeSilaPath;
 process.env.FAKE_SILA_LOG = logPath;
 
 // 4. Lifecycle: session.created -> session-start
+// Freeze the clock so the dedupe window cannot straddle a second boundary.
+const realNow = Date.now;
+Date.now = () => 1762300000000;
 process.env.FAKE_SILA_MODE = "allow";
 await hooks1.event({
   event: {
@@ -65,6 +68,7 @@ await hooks1.event({
 });
 const countAfterDuplicate = fs.readFileSync(logPath, "utf8").trim().split("\n").length;
 assert.equal(countAfterDuplicate, countAfterFirst, "dedupe must suppress duplicate event within same second");
+Date.now = realNow;
 
 // 6. tool.execute.before allow -> attaches bounded additionalContext
 const toolOutAllow = {};

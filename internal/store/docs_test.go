@@ -106,3 +106,32 @@ func TestInsertDoc_ProjectScoping_And_Bounds(t *testing.T) {
 		t.Errorf("expected error message to mention size limit, got: %v", err)
 	}
 }
+
+func TestExtractDocSnippet(t *testing.T) {
+	content := "# Intro\nwelcome text\n## Install\nrun make install\n## Usage\nthe worker uses sqlite for storage\n### Details\nsqlite busy timeout"
+
+	snippet := ExtractDocSnippet(content, "sqlite", 700)
+	if !strings.Contains(snippet, "## Usage") {
+		t.Fatalf("selected wrong section: %q", snippet)
+	}
+	if strings.Contains(snippet, "welcome text") {
+		t.Fatalf("snippet leaked an unrelated section: %q", snippet)
+	}
+	if len(snippet) > 700 {
+		t.Fatalf("snippet is %d bytes, want <= 700", len(snippet))
+	}
+
+	long := "## Big\n" + strings.Repeat("x", 2000) + "\n## Small\nneedle"
+	bounded := ExtractDocSnippet(long, "xxxx", 700)
+	if len(bounded) > 700 {
+		t.Fatalf("bounded snippet is %d bytes, want <= 700", len(bounded))
+	}
+	if !strings.HasPrefix(bounded, "## Big") {
+		t.Fatalf("bounded snippet lost the heading: %q", bounded[:min(len(bounded), 40)])
+	}
+
+	fallback := ExtractDocSnippet(content, "zzzz-no-match", 700)
+	if !strings.HasPrefix(fallback, "# Intro") {
+		t.Fatalf("fallback did not use the first section: %q", fallback)
+	}
+}

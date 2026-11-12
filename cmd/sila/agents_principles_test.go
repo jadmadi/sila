@@ -23,7 +23,7 @@ func TestCLIAgentsPrinciplesSyncAndReview(t *testing.T) {
 
 	// 1. Review --principles should preview diffs without modifying files
 	reviewOutput := captureStdout(t, func() {
-		runAgents(ui, "", "test-proj", "", "", "", "", false, false, true, "go", false, []string{"review", "--principles"})
+		runAgents(ui, "", "test-proj", "", "", "", "", false, false, true, false, "go", false, []string{"review", "--principles"})
 	})
 
 	if !strings.Contains(reviewOutput, "sila · agents review (principles)") {
@@ -44,7 +44,7 @@ func TestCLIAgentsPrinciplesSyncAndReview(t *testing.T) {
 	defer os.Chdir(origCwd)
 
 	_ = captureStdout(t, func() {
-		runAgents(ui, "", "test-proj", "", "", "", "", false, false, true, "go", false, []string{"sync", "--principles", "--stack=go"})
+		runAgents(ui, "", "test-proj", "", "", "", "", false, false, true, false, "go", false, []string{"sync", "--principles", "--stack=go"})
 	})
 
 	// Verify all 5 harness files exist and contain principles delimiters
@@ -81,7 +81,7 @@ func TestCLIAgentsPrinciplesSyncAndReview(t *testing.T) {
 
 	// 3. Compile --principles output test
 	compileOutput := captureStdout(t, func() {
-		runAgents(ui, "", "test-proj", "", "", "", "", false, false, true, "go", false, []string{"compile", "--principles"})
+		runAgents(ui, "", "test-proj", "", "", "", "", false, false, true, false, "go", false, []string{"compile", "--principles"})
 	})
 
 	if !strings.Contains(compileOutput, agents.PrinciplesBlockBegin) {

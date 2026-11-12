@@ -28,7 +28,7 @@ func TestGoalsRetrospectiveCLI(t *testing.T) {
 	ui := render.New(os.Stdout, true)
 
 	// Create goal with --status=implemented and --commit=7a6b5c4 via CLI args
-	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "CLI Retro Goal", "Retro Description", "", "", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false,
+	runGoals(ui, dbPath, tmp, "agent", "", "", "", false, false, "", "CLI Retro Goal", "Retro Description", "", "internal/retro/goal.go", 1, true, false, false, false, false, false, false, false, true, false, false, false, false, "", "", "", false,
 		[]string{
 			"create",
 			"cli-retro-goal",

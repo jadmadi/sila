@@ -433,9 +433,6 @@ func TestAuditReceiptTamperAllFields_OnRecertifiedGoals(t *testing.T) {
 
 	for _, slug := range goalsToTest {
 		t.Run(slug, func(t *testing.T) {
-			if _, err := os.Stat(filepath.Join(rootDir, "goals", slug, "audit-receipt.json")); err != nil {
-				t.Skipf("private recertified goal fixture not present: %v", err)
-			}
 			for _, filename := range []string{"audit-receipt.json"} {
 				path := filepath.Join(rootDir, "goals", slug, filename)
 				data, err := os.ReadFile(path)
@@ -591,9 +588,6 @@ func TestGoalStateGatingWithTamperedReceipt_OnRecertifiedGoals(t *testing.T) {
 	for _, slug := range goalsToTest {
 		t.Run(slug, func(t *testing.T) {
 			path := filepath.Join(rootDir, "goals", slug, "audit-receipt.json")
-			if _, err := os.Stat(path); err != nil {
-				t.Skipf("private recertified goal fixture not present: %v", err)
-			}
 			data, err := os.ReadFile(path)
 			if err != nil {
 				t.Fatalf("read %s: %v", path, err)

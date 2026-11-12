@@ -51,7 +51,7 @@ func TestDoctorSkillsCLI(t *testing.T) {
 
 	// 1. Test doctor with skills flag in JSON mode
 	jsonOut := captureStdout(t, func() {
-		runDoctor(ui, dbPath, p.ID, false, true, false, true, false, false, false, false)
+		runDoctor(ui, dbPath, p.ID, false, false, true, false, true, false, false, false, false)
 	})
 	if !strings.Contains(jsonOut, `"total_registered":`) {
 		t.Errorf("expected JSON total_registered field, got: %s", jsonOut)
@@ -59,7 +59,7 @@ func TestDoctorSkillsCLI(t *testing.T) {
 
 	// 2. Test doctor with skills flag in TOON mode
 	toonOut := captureStdout(t, func() {
-		runDoctor(ui, dbPath, p.ID, false, false, true, true, false, false, false, false)
+		runDoctor(ui, dbPath, p.ID, false, false, false, true, true, false, false, false, false)
 	})
 	if !strings.Contains(toonOut, "skill_bloat_audit:") {
 		t.Errorf("expected TOON skill_bloat_audit object, got: %s", toonOut)
@@ -67,7 +67,7 @@ func TestDoctorSkillsCLI(t *testing.T) {
 
 	// 3. Test standard doctor run includes Skills bloat check and Covenant check
 	stdOut := captureStdout(t, func() {
-		runDoctor(ui, dbPath, p.ID, false, true, false, false, false, false, false, false)
+		runDoctor(ui, dbPath, p.ID, false, false, true, false, false, false, false, false, false)
 	})
 	if !strings.Contains(stdOut, "Agent Skill") || !strings.Contains(stdOut, "MCP Bloat") {
 		t.Errorf("expected doctor standard checks to include Agent Skill & MCP Bloat, got: %s", stdOut)
@@ -92,7 +92,7 @@ func TestDoctorCovenantCLI(t *testing.T) {
 
 	// 1. JSON mode
 	jsonOut := captureStdout(t, func() {
-		runDoctor(ui, dbPath, p.ID, false, true, false, false, true, false, false, false)
+		runDoctor(ui, dbPath, p.ID, false, false, true, false, false, true, false, false, false)
 	})
 	if !strings.Contains(jsonOut, `"overall": "COMPLIANT"`) && !strings.Contains(jsonOut, `"overall":"COMPLIANT"`) {
 		t.Errorf("expected JSON COMPLIANT, got: %s", jsonOut)
@@ -103,7 +103,7 @@ func TestDoctorCovenantCLI(t *testing.T) {
 
 	// 2. TOON mode
 	toonOut := captureStdout(t, func() {
-		runDoctor(ui, dbPath, p.ID, false, false, true, false, true, false, false, false)
+		runDoctor(ui, dbPath, p.ID, false, false, false, true, false, true, false, false, false)
 	})
 	if !strings.Contains(toonOut, "covenant_summary:") {
 		t.Errorf("expected TOON covenant_summary object, got: %s", toonOut)
@@ -114,7 +114,7 @@ func TestDoctorCovenantCLI(t *testing.T) {
 
 	// 3. Human mode
 	humanOut := captureStdout(t, func() {
-		runDoctor(ui, dbPath, p.ID, false, false, false, false, true, false, false, false)
+		runDoctor(ui, dbPath, p.ID, false, false, false, false, false, true, false, false, false)
 	})
 	if !strings.Contains(humanOut, "sila · doctor --covenant") {
 		t.Errorf("expected human header, got: %s", humanOut)
@@ -178,7 +178,7 @@ func TestDoctor_EdgeAudit(t *testing.T) {
 
 	// 1. JSON mode against non-worker repo (should emit SKIPPED)
 	jsonOut := captureStdout(t, func() {
-		runDoctor(ui, dbPath, p.ID, false, true, false, false, false, true, false, false)
+		runDoctor(ui, dbPath, p.ID, false, false, true, false, false, false, true, false, false)
 	})
 	if !strings.Contains(jsonOut, `"status": "SKIPPED"`) && !strings.Contains(jsonOut, `"status":"SKIPPED"`) {
 		t.Errorf("expected JSON SKIPPED status for non-worker repo, got: %s", jsonOut)
@@ -186,7 +186,7 @@ func TestDoctor_EdgeAudit(t *testing.T) {
 
 	// 2. TOON mode against non-worker repo
 	toonOut := captureStdout(t, func() {
-		runDoctor(ui, dbPath, p.ID, false, false, true, false, false, true, false, false)
+		runDoctor(ui, dbPath, p.ID, false, false, false, true, false, false, true, false, false)
 	})
 	if !strings.Contains(toonOut, "edge_audit_summary:") {
 		t.Errorf("expected TOON edge_audit_summary, got: %s", toonOut)
@@ -197,7 +197,7 @@ func TestDoctor_EdgeAudit(t *testing.T) {
 
 	// 3. Human mode against non-worker repo
 	humanOut := captureStdout(t, func() {
-		runDoctor(ui, dbPath, p.ID, false, false, false, false, false, true, false, false)
+		runDoctor(ui, dbPath, p.ID, false, false, false, false, false, false, true, false, false)
 	})
 	if !strings.Contains(humanOut, "sila · doctor --edge") {
 		t.Errorf("expected human header, got: %s", humanOut)
@@ -406,7 +406,7 @@ func TestDoctorDebtCLI(t *testing.T) {
 
 	// 1. Test JSON mode
 	jsonOut := captureStdout(t, func() {
-		runDoctor(ui, dbPath, p.ID, false, true, false, false, false, false, true, false)
+		runDoctor(ui, dbPath, p.ID, false, false, true, false, false, false, false, true, false)
 	})
 	if !strings.Contains(jsonOut, `"total_items":`) || !strings.Contains(jsonOut, `"healthy_count":`) {
 		t.Errorf("expected JSON debt report fields, got: %s", jsonOut)
@@ -414,7 +414,7 @@ func TestDoctorDebtCLI(t *testing.T) {
 
 	// 2. Test TOON mode
 	toonOut := captureStdout(t, func() {
-		runDoctor(ui, dbPath, p.ID, false, false, true, false, false, false, true, false)
+		runDoctor(ui, dbPath, p.ID, false, false, false, true, false, false, false, true, false)
 	})
 	if !strings.Contains(toonOut, "debt_summary:") || !strings.Contains(toonOut, "debt_items[") {
 		t.Errorf("expected TOON debt summary and items, got: %s", toonOut)
@@ -422,7 +422,7 @@ func TestDoctorDebtCLI(t *testing.T) {
 
 	// 3. Test Human mode
 	humanOut := captureStdout(t, func() {
-		runDoctor(ui, dbPath, p.ID, false, false, false, false, false, false, true, false)
+		runDoctor(ui, dbPath, p.ID, false, false, false, false, false, false, false, true, false)
 	})
 	if !strings.Contains(humanOut, "sila · doctor --debt") {
 		t.Errorf("expected human debt header, got: %s", humanOut)

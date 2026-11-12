@@ -314,3 +314,137 @@ func TestContractStopEncodingFamilies(t *testing.T) {
 		}
 	}
 }
+
+func TestHookStatusJSONIncludesRecallGate(t *testing.T) {
+	t.Setenv("HOME", t.TempDir())
+	project := t.TempDir()
+	dbPath := filepath.Join(t.TempDir(), "status_recall.db")
+	out := captureStdout(t, func() {
+		runHook(render.New(os.Stdout, true), dbPath, "demo", "", "", "", project, "", false, false, true, 5, []string{"status"})
+	})
+	var payload map[string]any
+	if err := json.Unmarshal([]byte(out), &payload); err != nil {
+		t.Fatalf("status JSON: %v\n%s", err, out)
+	}
+	recall, ok := payload["recall_gate"].(map[string]any)
+	if !ok {
+		t.Fatalf("missing recall_gate object: %#v", payload)
+	}
+	for _, key := range []string{"policy", "state_dir", "sessions", "denied_total", "retried_total", "bypassed_total", "fail_open_total", "last_decision", "last_decision_at"} {
+		if _, ok := recall[key]; !ok {
+			t.Fatalf("recall_gate missing %q: %#v", key, recall)
+		}
+	}
+	if recall["policy"] != "warn" {
+		t.Fatalf("default policy = %v, want warn", recall["policy"])
+	}
+}
+
+func runHookWithStdin(t *testing.T, payload []byte, dbPath string, args []string) string {
+	t.Helper()
+	origStdin := os.Stdin
+	defer func() { os.Stdin = origStdin }()
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	os.Stdin = r
+	go func() {
+		defer w.Close()
+		_, _ = w.Write(payload)
+	}()
+	ui := render.New(os.Stdout, true)
+	return captureStdout(t, func() {
+		runHook(ui, dbPath, "test-proj", "", "", "", "", "", false, false, false, 5, args)
+	})
+}
+
+func TestHookToolEnvelopeStreaming(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("SILA_RECALL_GATE", "off")
+	dbPath := filepath.Join(tempHome, "stream.db")
+	st, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	big := strings.Repeat("a", 32*1024)
+	clean, err := json.Marshal(map[string]any{
+		"hook_event_name": "PreToolUse",
+		"session_id":      "sess-stream",
+		"cwd":             tempHome,
+		"tool_name":       "write_file",
+		"tool_input":      map[string]any{"content": big},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := runHookWithStdin(t, clean, dbPath, []string{"pre-tool-use"})
+	if strings.Contains(out, "payload exceeds") {
+		t.Fatalf("32 KiB clean payload was rejected: %s", out)
+	}
+	if strings.Contains(out, `"deny"`) {
+		t.Fatalf("32 KiB clean payload was denied: %s", out)
+	}
+
+	secret, err := json.Marshal(map[string]any{
+		"hook_event_name": "PreToolUse",
+		"session_id":      "sess-stream",
+		"cwd":             tempHome,
+		"tool_name":       "write_file",
+		"tool_input":      map[string]any{"content": "AKIA1234567890ABCDEF"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out = runHookWithStdin(t, secret, dbPath, []string{"pre-tool-use"})
+	var decision map[string]string
+	if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &decision); err != nil {
+		t.Fatalf("secret deny output is not JSON: %q (%v)", out, err)
+	}
+	if decision["permissionDecision"] != "deny" {
+		t.Fatalf("32 KiB secret payload decision = %#v, want deny", decision)
+	}
+}
+
+func TestHookUnparsedWrapperGuard(t *testing.T) {
+	tempHome := t.TempDir()
+	t.Setenv("HOME", tempHome)
+	t.Setenv("SILA_RECALL_GATE", "off")
+	dbPath := filepath.Join(tempHome, "wrapper.db")
+	st, err := store.Open(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+
+	cases := []map[string]any{
+		{"raw": `{"content":"x"}`, "len": float64(412)},
+		{"__unparsedToolInput": `{"content":"x"}`},
+	}
+	for _, toolInput := range cases {
+		payload, err := json.Marshal(map[string]any{
+			"hook_event_name": "PreToolUse",
+			"session_id":      "sess-wrap",
+			"cwd":             tempHome,
+			"tool_name":       "write_file",
+			"tool_input":      toolInput,
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		out := runHookWithStdin(t, payload, dbPath, []string{"pre-tool-use"})
+		var decision map[string]string
+		if err := json.Unmarshal([]byte(strings.TrimSpace(out)), &decision); err != nil {
+			t.Fatalf("wrapper deny output is not JSON: %q (%v)", out, err)
+		}
+		if decision["permissionDecision"] != "deny" {
+			t.Fatalf("wrapper %#v decision = %#v, want deny", toolInput, decision)
+		}
+		if !strings.Contains(strings.ToLower(decision["permissionDecisionReason"]), "wrapper") {
+			t.Fatalf("wrapper deny reason = %q, want wrapper explanation", decision["permissionDecisionReason"])
+		}
+	}
+}

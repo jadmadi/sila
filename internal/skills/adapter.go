@@ -1437,6 +1437,16 @@ func HarnessSkillVault(home, harness string) string {
 	case "antigravity":
 		return filepath.Join(home, ".gemini", "antigravity", "builtin", "skills")
 	case "opencode":
+		if xdg := strings.TrimSpace(os.Getenv("XDG_CONFIG_HOME")); xdg != "" {
+			xdgVault := filepath.Join(xdg, "opencode", "skills")
+			if _, err := os.Stat(xdgVault); err == nil {
+				return xdgVault
+			}
+		}
+		flatpakVault := filepath.Join(home, ".var", "app", "ai.opencode.opencode", "config", "opencode", "skills")
+		if _, err := os.Stat(flatpakVault); err == nil {
+			return flatpakVault
+		}
 		return filepath.Join(home, ".config", "opencode", "skills")
 	default:
 		return filepath.Join(home, ".agents", "skills")

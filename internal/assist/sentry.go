@@ -254,7 +254,13 @@ func scanLocalRisksDetailed(text string) (hasSecret, hasSchema, hasSkip bool, te
 		}
 		for _, pat := range skipTestPatterns {
 			if pat.MatchString(added) {
-				hasSkip = true
+				// Match the sectioned scan: skips inside test files are
+				// expected capability guards, not silently removed assertions.
+				if strings.Contains(text, "_test.go") {
+					testExemptions++
+				} else {
+					hasSkip = true
+				}
 				break
 			}
 		}

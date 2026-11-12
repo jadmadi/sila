@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -64,6 +65,19 @@ func openReadStoreOnce(dbPath string) (*store.Store, bool, error) {
 		return nil, false, err
 	}
 
+	// Serialize first-run initialization. Two goroutines or processes that
+	// both see a missing file would otherwise run migrations against the same
+	// fresh database and corrupt it.
+	release, lockErr := acquireStoreInitLock(dbPath)
+	if lockErr != nil {
+		return nil, false, lockErr
+	}
+	defer release()
+	if _, err := os.Stat(dbPath); err == nil {
+		st, openErr := store.OpenRO(dbPath)
+		return st, false, openErr
+	}
+
 	created, err := store.Open(dbPath)
 	if err != nil {
 		return nil, false, err
@@ -74,4 +88,28 @@ func openReadStoreOnce(dbPath string) (*store.Store, bool, error) {
 	}
 	st, err := store.OpenRO(actualPath)
 	return st, true, err
+}
+
+// acquireStoreInitLock takes a bounded cross-process directory lock next to the
+// database. The lock is removed by the returned function.
+func acquireStoreInitLock(dbPath string) (func(), error) {
+	lockPath := dbPath + ".init.lock"
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0o700); err != nil {
+		return nil, err
+	}
+	deadline := time.Now().Add(10 * time.Second)
+	for time.Now().Before(deadline) {
+		if err := os.Mkdir(lockPath, 0o700); err == nil {
+			return func() { _ = os.Remove(lockPath) }, nil
+		} else if !os.IsExist(err) {
+			return nil, err
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	// A crashed initializer can leave a stale lock; break it once.
+	_ = os.Remove(lockPath)
+	if err := os.Mkdir(lockPath, 0o700); err != nil {
+		return nil, err
+	}
+	return func() { _ = os.Remove(lockPath) }, nil
 }

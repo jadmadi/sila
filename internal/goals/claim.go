@@ -44,6 +44,7 @@ type GoalClaim struct {
 	IterationCount      int       `json:"iteration_count,omitempty"`
 	ConsecutiveFailures int       `json:"consecutive_failures,omitempty"`
 	LastFailureError    string    `json:"last_failure_error,omitempty"`
+	StopAtTaskID        string    `json:"stop_at_task_id,omitempty"`
 }
 
 // FileConflict reports a concurrency collision where a candidate goal touches files already claimed by an active agent.
@@ -725,4 +726,31 @@ func RecordClaimIteration(rootDir, slug string, passed bool, failureReason strin
 	}
 
 	return &claim, tripped, nil
+}
+
+// SetGoalStopAtTask records or clears the stop-at-task checkpoint lease on the
+// active claim. An empty stopAtTaskID clears the lease.
+func SetGoalStopAtTask(rootDir, slug, stopAtTaskID string) (*GoalClaim, error) {
+	if strings.TrimSpace(slug) == "" {
+		return nil, fmt.Errorf("missing goal slug")
+	}
+	cleanRoot := resolveGoalsRootDir(rootDir)
+	claim, err := LoadGoalClaim(cleanRoot, slug)
+	if err != nil {
+		return nil, err
+	}
+	if claim == nil {
+		return nil, fmt.Errorf("goal %q has no active claim", slug)
+	}
+	claim.StopAtTaskID = strings.TrimSpace(stopAtTaskID)
+	claim.UpdatedAt = time.Now().UTC()
+	data, err := json.MarshalIndent(claim, "", "  ")
+	if err != nil {
+		return nil, fmt.Errorf("marshal claim.json: %w", err)
+	}
+	claimPath := filepath.Join(cleanRoot, "goals", slug, "claim.json")
+	if err := AtomicWriteFile(claimPath, data, 0644); err != nil {
+		return nil, fmt.Errorf("write claim.json: %w", err)
+	}
+	return claim, nil
 }

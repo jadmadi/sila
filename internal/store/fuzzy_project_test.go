@@ -20,7 +20,7 @@ func TestResolveProjectFuzzy(t *testing.T) {
 	}{
 		{"sila-cli", "/mnt/projects/sila/cli"},
 		{"sila-worker", "/mnt/projects/sila/worker"},
-		{"sila-docs", "/mnt/projects/sila/research"},
+		{"research", "/mnt/projects/sila/research"},
 		{"marof-app", "/mnt/projects/marof/frontend"},
 	} {
 		if _, err := s.DB.Exec(`INSERT INTO projects(path, id, created_at) VALUES(?, ?, ?)`, p.path, p.id, "2026-09-01T00:00:00Z"); err != nil {
@@ -54,8 +54,8 @@ func TestResolveProjectFuzzy(t *testing.T) {
 
 	// 5. Substring match (unique)
 	p, err = s.ResolveProjectFuzzy("resea")
-	if err != nil || p == nil || p.ID != "sila-docs" {
-		t.Fatalf("expected substring match resea -> sila-docs, got %v, err=%v", p, err)
+	if err != nil || p == nil || p.ID != "research" {
+		t.Fatalf("expected substring match resea -> research, got %v, err=%v", p, err)
 	}
 
 	// 6. Ambiguous prefix

@@ -106,7 +106,7 @@ var projectCredits = []CreditEntry{
 		License:  "MIT",
 		URL:      "https://modelcontextprotocol.io/",
 		Category: "Agent Protocol & Integration",
-		Impact:   "Open protocol standard for LLM tool integration, enabling Sila's 76-tool stdio server for Claude, Cursor, Antigravity, Devin, and any MCP client.",
+		Impact:   "Open protocol standard for LLM tool integration, enabling Sila's 80-tool stdio server for Claude, Cursor, Antigravity, Devin, and any MCP client.",
 	},
 }
 

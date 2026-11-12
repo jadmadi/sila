@@ -739,6 +739,7 @@ func runSingleSyncCore(ui render.UI, st *store.Store, project string, dryRun, fu
 		vacDur = vRes.Duration
 	}
 	release.SyncSoakDailyIfDue("", st.Path)
+	ensureDaemonRunning(st.Path)
 
 	prog.Finish()
 

@@ -1,9 +1,11 @@
 package goals
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // TestClearClosedClaims pins the reconciliation promise: a claim record on an
@@ -55,5 +57,37 @@ func TestClearClosedClaims(t *testing.T) {
 
 	if cleared, err := ClearClosedClaims(root, nil); err != nil || cleared != nil {
 		t.Errorf("nil audit = %v, %v; want a no-op", cleared, err)
+	}
+}
+
+func TestGoalStopAtTaskSetAndClear(t *testing.T) {
+	root := t.TempDir()
+	slug := "stop-goal"
+	goalDir := filepath.Join(root, "goals", slug)
+	if err := os.MkdirAll(goalDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	claim := GoalClaim{GoalSlug: slug, ClaimedBy: "agent", Agent: "agent", ClaimedAt: time.Now().UTC(), UpdatedAt: time.Now().UTC()}
+	data, err := json.Marshal(claim)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(goalDir, "claim.json"), data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	set, err := SetGoalStopAtTask(root, slug, "T-002")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if set.StopAtTaskID != "T-002" {
+		t.Fatalf("stop_at_task_id = %q, want T-002", set.StopAtTaskID)
+	}
+	cleared, err := SetGoalStopAtTask(root, slug, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cleared.StopAtTaskID != "" {
+		t.Fatalf("stop_at_task_id = %q after clear, want empty", cleared.StopAtTaskID)
 	}
 }

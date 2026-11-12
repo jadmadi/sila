@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/jadmadi/sila/internal/goals"
 	"github.com/jadmadi/sila/internal/harness/contract"
@@ -97,6 +99,8 @@ type goalsRunOptions struct {
 	selectionFile string
 	autoRun       bool
 	ascii         bool
+	limit         int
+	limitSet      bool
 }
 
 func extractAttributeArgs(args []string, commitFlag string) (string, string, error) {
@@ -249,6 +253,8 @@ type goalsContext struct {
 	selectionFile    string
 	autoRun          bool
 	noMemory         bool
+	limitOpt         int
+	limitSet         bool
 }
 
 func (gc *goalsContext) handleView(tDir string, vArgs []string) {
@@ -505,4 +511,260 @@ func (gc *goalsContext) annotateContract(res *goals.AuditResult, targetDir strin
 	d := contract.NewChecker(gc.st, targetDir).Evaluate(sig, policy)
 	res.ContractStatus = d.Decision
 	res.ContractReason = contract.Summary(d)
+}
+
+// verificationRoot resolves the project root for content-bound checks.
+func (gc *goalsContext) verificationRoot(targetDir string) string {
+	if targetDir != "" {
+		return targetDir
+	}
+	if dir, err := goals.ResolveProjectDir(gc.st, ""); err == nil && dir != "" {
+		return dir
+	}
+	dir, _ := os.Getwd()
+	return dir
+}
+
+func verificationBadge(ui render.UI, state string) string {
+	switch state {
+	case goals.StateVerified:
+		return ui.Green("✔")
+	case goals.StateStale, goals.StateStaleSpec:
+		return ui.Yellow("▲")
+	default:
+		return ui.Dim("○")
+	}
+}
+
+func (gc *goalsContext) handleVerify(targetDir string, args []string) {
+	if len(args) < 2 || args[1] == "" {
+		fmt.Fprintln(os.Stderr, "sila goals verify: goal slug is required")
+		os.Exit(2)
+	}
+	slug := args[1]
+	root := gc.verificationRoot(targetDir)
+	rec, err := goals.LoadVerification(root, slug)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sila goals verify: %v\n", err)
+		os.Exit(1)
+	}
+	if rec == nil {
+		if gc.jsonOut {
+			emitJSON(map[string]any{"goal": slug, "state": goals.StateUnbound})
+			return
+		}
+		fmt.Fprintf(os.Stdout, "%s %s: %s (no content-bound record)\n", gc.ui.Dim("○"), slug, goals.StateUnbound)
+		return
+	}
+	state, changed, err := goals.ComputeVerificationState(root, slug, rec)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sila goals verify: %v\n", err)
+		os.Exit(1)
+	}
+	if gc.jsonOut {
+		emitJSON(map[string]any{
+			"goal": slug, "state": state, "level": rec.Level,
+			"method": rec.Method, "verified_at": rec.VerifiedAt, "changed": changed,
+		})
+		return
+	}
+	fmt.Fprintf(os.Stdout, "%s %s: %s (%s, %s)\n", verificationBadge(gc.ui, state), slug, state, rec.Level, rec.Method)
+	for _, p := range changed {
+		fmt.Fprintf(os.Stdout, "  changed: %s\n", p)
+	}
+}
+
+func (gc *goalsContext) handleDrift(targetDir string, args []string) {
+	if len(args) < 2 || args[1] == "" {
+		fmt.Fprintln(os.Stderr, "sila goals drift: goal slug is required")
+		os.Exit(2)
+	}
+	slug := args[1]
+	root := gc.verificationRoot(targetDir)
+	rec, err := goals.LoadVerification(root, slug)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sila goals drift: %v\n", err)
+		os.Exit(1)
+	}
+	if rec == nil {
+		if gc.jsonOut {
+			emitJSON(map[string]any{"goal": slug, "state": goals.StateUnbound, "changed": []string{}})
+			return
+		}
+		fmt.Fprintf(os.Stdout, "%s %s: %s\n", gc.ui.Dim("○"), slug, goals.StateUnbound)
+		return
+	}
+	state, changed, err := goals.ComputeVerificationState(root, slug, rec)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sila goals drift: %v\n", err)
+		os.Exit(1)
+	}
+	if gc.jsonOut {
+		emitJSON(map[string]any{"goal": slug, "state": state, "changed": changed})
+		return
+	}
+	fmt.Fprintf(os.Stdout, "%s %s: %s, %d changed path(s)\n", verificationBadge(gc.ui, state), slug, state, len(changed))
+	for _, p := range changed {
+		fmt.Fprintf(os.Stdout, "  %s\n", p)
+	}
+}
+
+func (gc *goalsContext) handleReverify(targetDir string, args []string) {
+	all := gc.showAll
+	for _, a := range args[1:] {
+		if a == "--all" {
+			all = true
+		}
+	}
+	root := gc.verificationRoot(targetDir)
+	if all {
+		rep, err := goals.ReverifyAll(root)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "sila goals reverify: %v\n", err)
+			os.Exit(1)
+		}
+		if gc.jsonOut {
+			emitJSON(rep)
+			return
+		}
+		fmt.Fprintf(os.Stdout, "Re-anchor pass: %d implemented goals, %s re-anchored, %d refused\n",
+			rep.Total, gc.ui.Green(fmt.Sprint(rep.Reanchored)), rep.Refused)
+		return
+	}
+	if len(args) < 2 || args[1] == "" {
+		fmt.Fprintln(os.Stderr, "sila goals reverify: goal slug is required (or pass --all)")
+		os.Exit(2)
+	}
+	slug := args[1]
+	rec, err := goals.Reverify(root, slug)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sila goals reverify: %v\n", err)
+		os.Exit(1)
+	}
+	if gc.jsonOut {
+		emitJSON(rec)
+		return
+	}
+	fmt.Fprintf(os.Stdout, "%s %s re-anchored at %s (%s)\n", gc.ui.Green("✔"), slug, rec.VerifiedAt.Format(time.RFC3339), rec.Level)
+}
+
+// handleContract writes goals/<slug>/contract.json from an explicit command and
+// the goal's test paths, so `sila goals test` becomes runnable.
+func (gc *goalsContext) handleContractSet(targetDir string, args []string) {
+	command := ""
+	testsFlag := ""
+	timeout := 0
+	maxRounds := 0
+	exitCode := 0
+	force := gc.force
+	slug := ""
+	for i := 1; i < len(args); i++ {
+		a := args[i]
+		switch {
+		case strings.HasPrefix(a, "--command="):
+			command = strings.TrimPrefix(a, "--command=")
+		case strings.HasPrefix(a, "--tests="):
+			testsFlag = strings.TrimPrefix(a, "--tests=")
+		case strings.HasPrefix(a, "--timeout="):
+			if n, err := strconv.Atoi(strings.TrimPrefix(a, "--timeout=")); err == nil {
+				timeout = n
+			}
+		case strings.HasPrefix(a, "--max-rounds="):
+			if n, err := strconv.Atoi(strings.TrimPrefix(a, "--max-rounds=")); err == nil {
+				maxRounds = n
+			}
+		case strings.HasPrefix(a, "--exit-code="):
+			if n, err := strconv.Atoi(strings.TrimPrefix(a, "--exit-code=")); err == nil {
+				exitCode = n
+			}
+		case a == "--force":
+			force = true
+		case !strings.HasPrefix(a, "-") && a != "set" && slug == "":
+			slug = a
+		}
+	}
+	if slug == "" {
+		fmt.Fprintln(os.Stderr, "Usage: sila goals contract set <slug> --command=\"...\" [--tests=\"path,...\"] [--timeout=N] [--max-rounds=N] [--exit-code=N] [--force] [--json]")
+		os.Exit(2)
+	}
+	root := gc.verificationRoot(targetDir)
+	if !force && fileExistsPath(goals.ContractPath(root, slug)) {
+		fmt.Fprintf(os.Stderr, "sila goals contract: %s already exists; pass --force to replace it\n", goals.ContractPath(root, slug))
+		os.Exit(1)
+	}
+	if strings.TrimSpace(command) == "" {
+		fmt.Fprintln(os.Stderr, "sila goals contract: --command is required (for example --command=\"go test ./internal/goals/...\")")
+		os.Exit(2)
+	}
+
+	var testPaths []string
+	if strings.TrimSpace(testsFlag) != "" {
+		for p := range strings.SplitSeq(testsFlag, ",") {
+			if s := strings.TrimSpace(p); s != "" {
+				testPaths = append(testPaths, s)
+			}
+		}
+	} else {
+		derived, err := goals.DefaultContractTestPaths(root, slug)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "sila goals contract: %v\n", err)
+			os.Exit(1)
+		}
+		testPaths = derived
+	}
+
+	contract, err := goals.CreateVerificationContract(root, command, timeout, maxRounds, exitCode, testPaths)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sila goals contract: %v\n", err)
+		os.Exit(1)
+	}
+	if err := goals.SaveContract(root, slug, contract); err != nil {
+		fmt.Fprintf(os.Stderr, "sila goals contract: %v\n", err)
+		os.Exit(1)
+	}
+	if gc.jsonOut {
+		emitJSON(map[string]any{
+			"slug": slug, "path": goals.ContractPath(root, slug),
+			"command": contract.Command, "test_paths": contract.TestPaths,
+			"contract_hash": contract.ContractHash,
+		})
+		return
+	}
+	fmt.Fprintf(os.Stdout, "%s contract for %s written to %s\n", gc.ui.Green("✔"), slug, goals.ContractPath(root, slug))
+	fmt.Fprintf(os.Stdout, "  Command: %s\n", contract.Command)
+	if len(contract.TestPaths) > 0 {
+		fmt.Fprintf(os.Stdout, "  Tests:   %s\n", strings.Join(contract.TestPaths, ", "))
+	} else {
+		fmt.Fprintln(os.Stdout, gc.ui.Dim("  Tests:   none detected; the contract binds the command only"))
+	}
+	fmt.Fprintf(os.Stdout, "  Hash:    %s\n", contract.ContractHash)
+	fmt.Fprintf(os.Stdout, "  Run:     sila goals test %s\n", slug)
+}
+
+func fileExistsPath(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func (gc *goalsContext) handleReconcile(targetDir string, args []string) {
+	all := false
+	for _, a := range args[1:] {
+		if a == "--all" {
+			all = true
+		}
+	}
+	root := gc.verificationRoot(targetDir)
+	rep, err := goals.ClassifyVerification(root)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "sila goals reconcile: %v\n", err)
+		os.Exit(1)
+	}
+	if gc.jsonOut {
+		emitJSON(rep)
+		return
+	}
+	goals.RenderReconciliation(os.Stdout, rep, all)
+	if !all {
+		fmt.Fprintln(os.Stdout, "  (use --all to list every goal)")
+	}
 }
