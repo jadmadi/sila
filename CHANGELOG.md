@@ -7,6 +7,14 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-12
+
+### Changed
+
+- Release preflight tests now use hermetic fixtures and generic project names,
+  so the public release pipeline does not depend on private host data.
+- The public `v1.0.0` changelog section is included on main. No runtime changes.
+
 ## [1.0.0] - 2026-11-12
 
 ### Added
