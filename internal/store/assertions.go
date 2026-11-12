@@ -41,7 +41,7 @@ type FactWithLineage struct {
 // AssertionID computes a deterministic ID for an assertion.
 func AssertionID(projectID, statementID, evidenceType, evidenceID string) string {
 	sum := sha256.Sum256([]byte(fmt.Sprintf("%s\x00%s\x00%s\x00%s", projectID, statementID, evidenceType, evidenceID)))
-	return "ass_" + hex.EncodeToString(sum[:6])
+	return "ass_" + hex.EncodeToString(sum[:16])
 }
 
 // InsertAssertion upserts an assertion into the database.
