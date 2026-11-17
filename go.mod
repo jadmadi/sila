@@ -3,7 +3,7 @@ module github.com/jadmadi/sila
 go 1.27.4
 
 require (
-	github.com/klauspost/compress v1.20.2
+	github.com/klauspost/compress v1.20.4
 	github.com/mattn/go-isatty v0.0.24
 	golang.org/x/term v0.46.0
 	modernc.org/sqlite v1.56.0
