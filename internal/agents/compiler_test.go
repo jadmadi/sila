@@ -305,7 +305,11 @@ func TestDeployTargets_AutoDetectsStackAndGuardsTools(t *testing.T) {
 		t.Errorf("AGENTS.md contains Go-scripting invariant in a python project: %s", agentsStr)
 	}
 
-	for _, unprompted := range []string{"CLAUDE.md", "GEMINI.md", ".cursor", ".devin"} {
+	claudeInfo, err := os.Lstat(filepath.Join(tmp, "CLAUDE.md"))
+	if err != nil || claudeInfo.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("CLAUDE.md symlink missing: %v", err)
+	}
+	for _, unprompted := range []string{"GEMINI.md", ".cursor", ".devin"} {
 		p := filepath.Join(tmp, unprompted)
 		if _, err := os.Lstat(p); !os.IsNotExist(err) {
 			t.Errorf("unprompted path %q should not exist on disk", unprompted)

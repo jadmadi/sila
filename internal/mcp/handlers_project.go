@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jadmadi/sila/internal/agents"
 	"github.com/jadmadi/sila/internal/assist"
 	"github.com/jadmadi/sila/internal/config"
 	"github.com/jadmadi/sila/internal/dream"
@@ -331,6 +332,11 @@ func (s *Server) handleProjectTool(req JSONRPCRequest, name string, rawArgs json
 			}
 		}
 		projectDir, _ := s.resolveTargetProjectDir(args.Project)
+		if projectDir != "" {
+			if _, err := agents.EnsureInstructionAlias(projectDir); err != nil {
+				fmt.Fprintf(os.Stderr, "sila prime: %v\n", err)
+			}
+		}
 		projectID, err := s.resolveTargetProject(args.Project)
 		if err != nil {
 			s.sendError(req.ID, -32602, "Invalid params", err.Error())

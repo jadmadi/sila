@@ -16,6 +16,7 @@ import (
 	"time"
 	"uuid"
 
+	"github.com/jadmadi/sila/internal/agents"
 	"github.com/jadmadi/sila/internal/assist"
 	"github.com/jadmadi/sila/internal/config"
 	"github.com/jadmadi/sila/internal/dream"
@@ -292,6 +293,13 @@ func (s *Server) handlePromptsGet(req JSONRPCRequest) {
 		projectStr = pVal
 	}
 	projectID, _ := s.resolveTargetProject(projectStr)
+	if params.Name == "cache_pinned_session" || params.Name == "cache_pinned_goal" {
+		if dir, err := s.resolveTargetProjectDir(projectStr); err == nil && dir != "" {
+			if _, linkErr := agents.EnsureInstructionAlias(dir); linkErr != nil {
+				fmt.Fprintf(os.Stderr, "sila prime: %v\n", linkErr)
+			}
+		}
+	}
 
 	switch params.Name {
 	case "cache_pinned_session":

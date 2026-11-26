@@ -166,6 +166,7 @@ Read the full [privacy and security boundaries](docs/covenant.md).
 
 | Document | Purpose |
 | :--- | :--- |
+| [docs/end-user/](docs/end-user/README.md) | Using Sila on your own projects: story, onboarding, scenarios, commands |
 | [docs/reference.md](docs/reference.md) | Command and feature reference |
 | [docs/mcp.md](docs/mcp.md) | MCP client setup and tool catalog |
 | [docs/architecture.md](docs/architecture.md) | Architecture and decisions |

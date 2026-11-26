@@ -354,6 +354,12 @@ and prints the full 9-verb working contract plus capability triggers. When the
 active goal carries `Personas`, it renders `Hired Squad:`. Cases participate in
 the `--max-tokens` shedding cascade and are dropped before lessons.
 
+`sila prime` and `prime_context` also keep `AGENTS.md` and `CLAUDE.md` as one
+file. When exactly one of those names exists, the missing name becomes a
+relative symlink to the existing file. Both names are left unchanged when both
+already exist. A link failure is reported on stderr and the briefing still
+prints.
+
 The briefing separates what it knows from what it merely observed. The block above
 shows distilled facts and explicit decisions; a claim that only *references* a real
 file is not one, so it renders under a separately named heading instead:
