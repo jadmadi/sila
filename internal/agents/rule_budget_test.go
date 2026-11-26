@@ -153,27 +153,30 @@ func TestDeployTargetsNoUnpromptedHarnessFiles(t *testing.T) {
 		t.Errorf("AGENTS.md missing: %v", err)
 	}
 
-	// CLAUDE.md and GEMINI.md must NOT exist
-	if _, err := os.Lstat(filepath.Join(tmp, "CLAUDE.md")); !os.IsNotExist(err) {
-		t.Errorf("unprompted CLAUDE.md was created on clean repo")
+	// CLAUDE.md is a symlink to AGENTS.md. GEMINI.md stays absent.
+	claudeInfo, err := os.Lstat(filepath.Join(tmp, "CLAUDE.md"))
+	if err != nil || claudeInfo.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("CLAUDE.md symlink missing: %v", err)
+	} else if target, readErr := os.Readlink(filepath.Join(tmp, "CLAUDE.md")); readErr != nil || target != "AGENTS.md" {
+		t.Errorf("CLAUDE.md -> %q, want AGENTS.md (%v)", target, readErr)
 	}
 	if _, err := os.Lstat(filepath.Join(tmp, "GEMINI.md")); !os.IsNotExist(err) {
 		t.Errorf("unprompted GEMINI.md was created on clean repo")
 	}
 
-	// Plan should explicitly record skip for both
-	claudeSkipped := false
+	// Plan should record the CLAUDE.md symlink and skip GEMINI.md.
+	claudeLinked := false
 	geminiSkipped := false
 	for _, p := range res.Plan {
-		if p.Path == "CLAUDE.md" && p.Action == "skip" {
-			claudeSkipped = true
+		if p.Path == "CLAUDE.md" && p.Action == "symlink" {
+			claudeLinked = true
 		}
 		if p.Path == "GEMINI.md" && p.Action == "skip" {
 			geminiSkipped = true
 		}
 	}
-	if !claudeSkipped {
-		t.Errorf("expected plan skip for CLAUDE.md")
+	if !claudeLinked {
+		t.Errorf("expected plan symlink for CLAUDE.md")
 	}
 	if !geminiSkipped {
 		t.Errorf("expected plan skip for GEMINI.md")

@@ -267,7 +267,7 @@ func TestProvision_DoesNotCreateCursorMCPServerUnprompted(t *testing.T) {
 		}
 	}
 
-	for _, unprompted := range []string{".cursor", "CLAUDE.md", "GEMINI.md", ".devin"} {
+	for _, unprompted := range []string{".cursor", "GEMINI.md", ".devin"} {
 		p := filepath.Join(root, unprompted)
 		if _, err := os.Stat(p); !os.IsNotExist(err) {
 			t.Errorf("unprompted path %q should not exist in clean repo: %v", unprompted, err)

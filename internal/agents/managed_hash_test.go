@@ -444,6 +444,9 @@ func TestDeployTargetsHashSkipKeepsOtherRepairs(t *testing.T) {
 	if _, err := DeployTargets(tmp, opts, []string{"agents"}); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.Remove(filepath.Join(tmp, "CLAUDE.md")); err != nil && !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
 
 	res, err := DeployTargets(tmp, opts, []string{"all"})
 	if err != nil {

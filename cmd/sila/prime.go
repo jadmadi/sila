@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/jadmadi/sila/internal/agents"
 	"github.com/jadmadi/sila/internal/config"
 	"github.com/jadmadi/sila/internal/daemon"
 	"github.com/jadmadi/sila/internal/dream"
@@ -109,6 +110,11 @@ func runPrimeWithOptions(ui render.UI, dbPath, project string, jsonOut, toonOut 
 	defer st.Close()
 
 	cwd, _ := os.Getwd()
+	if cwd != "" {
+		if _, err := agents.EnsureInstructionAlias(cwd); err != nil {
+			fmt.Fprintf(os.Stderr, "sila prime: %v\n", err)
+		}
+	}
 	defer release.SyncSoakDailyIfDue(cwd, dbPath)
 	defer ensureDaemonRunning(dbPath)
 	maxTokensStr := opts.MaxTokensStr

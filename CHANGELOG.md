@@ -7,11 +7,15 @@ and this project follows [Semantic Versioning](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Fixed
+- `sila prime` and MCP `prime_context` link a missing `AGENTS.md` or `CLAUDE.md` to the file that already exists. Creating `AGENTS.md` also links `CLAUDE.md` to it.
+
 ### Changed
 - The public release preflight uses `./build.sh --check --public`; the private-only goal-receipt tests are excluded and documented in `docs/release-preflight.md`.
 
 ### Added
 - Context-aware recall packs: `sila recall --task` and `--context-file` assemble a bounded `recall-pack/v1`; `prime_context` carries the same pack over MCP.
+- End-user guide in `docs/end-user/`: onboarding, worked scenarios, and what each command does for someone using Sila on their own projects.
 
 ## [1.0.3-preflight-test] - 2026-11-13
 

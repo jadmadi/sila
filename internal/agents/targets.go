@@ -250,6 +250,10 @@ func deployTargetsOnce(repoRoot string, opts CompileOptions, tools []string) (*S
 	res.ManagedHash = expectedHash
 	res.ManagedRevision = ManagedRevision
 
+	// An existing regular CLAUDE.md is the only instruction file. Link
+	// AGENTS.md to it instead of writing a second body that would diverge.
+	agentsReady := false
+	agentsAliased := false
 	plan := PlannedWrite{
 		Path:                "AGENTS.md",
 		BeforeBytes:         len(existing),
@@ -259,13 +263,29 @@ func deployTargetsOnce(repoRoot string, opts CompileOptions, tools []string) (*S
 		ManagedRevision:     ManagedRevision,
 		HashMatch:           hashMatch,
 	}
-	if len(merged) > MaxRuleFileBytes {
+	if linkName, _, desc, ok := instructionAlias(repoRoot); ok && linkName == agentsInstructionFile {
+		agentsAliased = true
+		res.Plan = append(res.Plan, PlannedWrite{
+			Path:   agentsInstructionFile,
+			Action: "symlink",
+			Detail: desc,
+		})
+		if !opts.Preview {
+			created, err := EnsureInstructionAlias(repoRoot)
+			if err != nil {
+				res.Errors = append(res.Errors, fmt.Sprintf("symlink AGENTS.md: %v", err))
+			} else if created != "" {
+				res.Symlinks = append(res.Symlinks, created)
+			}
+		}
+	} else if len(merged) > MaxRuleFileBytes {
 		errMsg := fmt.Sprintf("AGENTS.md (%d bytes) exceeds Antigravity 24 KB ceiling (%d bytes); aborting write to protect rule budget", len(merged), MaxRuleFileBytes)
 		plan.Action = "error"
 		plan.Detail = errMsg
 		res.Plan = append(res.Plan, plan)
 		res.Errors = append(res.Errors, errMsg)
 	} else {
+		agentsReady = true
 		if existing == "" {
 			plan.Action = "create"
 		} else {
@@ -294,6 +314,9 @@ func deployTargetsOnce(repoRoot string, opts CompileOptions, tools []string) (*S
 			if !opts.Preview {
 				if err := atomicWriteFile(agentsPath, []byte(merged), 0644); err != nil {
 					res.Errors = append(res.Errors, fmt.Sprintf("write AGENTS.md: %v", err))
+					if existing == "" {
+						agentsReady = false
+					}
 				} else {
 					res.FilesWritten = append(res.FilesWritten, "AGENTS.md")
 				}
@@ -311,25 +334,27 @@ func deployTargetsOnce(repoRoot string, opts CompileOptions, tools []string) (*S
 	}
 
 	// 2. Claude Code (CLAUDE.md): never destroy user content. A regular file
-	// is left untouched unless opts.Replace authorizes replacement.
+	// is left untouched unless opts.Replace authorizes replacement. When
+	// CLAUDE.md is absent and AGENTS.md is a real file, link CLAUDE.md to it
+	// even when no Claude harness is detected.
 	deployClaude := toolsMap["claude"] || toolsMap["claudecode"]
 	if allTools && HasClaudeIntegration(repoRoot) {
 		deployClaude = true
 	}
-	if deployClaude {
-		claudePath := filepath.Join(repoRoot, "CLAUDE.md")
-		fi, statErr := os.Lstat(claudePath)
-		switch {
-		case os.IsNotExist(statErr):
-			cplan := PlannedWrite{Path: "CLAUDE.md", Action: "symlink", Detail: "CLAUDE.md -> AGENTS.md"}
-			res.Plan = append(res.Plan, cplan)
-			if !opts.Preview {
-				if err := atomicSymlink("AGENTS.md", claudePath); err == nil {
-					res.Symlinks = append(res.Symlinks, "CLAUDE.md -> AGENTS.md")
-				} else {
-					res.Errors = append(res.Errors, fmt.Sprintf("symlink CLAUDE.md: %v", err))
-				}
+	claudePath := filepath.Join(repoRoot, "CLAUDE.md")
+	fi, statErr := os.Lstat(claudePath)
+	if !agentsAliased && agentsReady && os.IsNotExist(statErr) {
+		cplan := PlannedWrite{Path: "CLAUDE.md", Action: "symlink", Detail: "CLAUDE.md -> AGENTS.md"}
+		res.Plan = append(res.Plan, cplan)
+		if !opts.Preview {
+			if err := atomicSymlink("AGENTS.md", claudePath); err == nil {
+				res.Symlinks = append(res.Symlinks, "CLAUDE.md -> AGENTS.md")
+			} else {
+				res.Errors = append(res.Errors, fmt.Sprintf("symlink CLAUDE.md: %v", err))
 			}
+		}
+	} else if deployClaude && statErr == nil {
+		switch {
 		case fi.Mode()&os.ModeSymlink != 0:
 			target, _ := os.Readlink(claudePath)
 			if filepath.Clean(target) == "AGENTS.md" {
@@ -402,7 +427,7 @@ func deployTargetsOnce(repoRoot string, opts CompileOptions, tools []string) (*S
 				})
 			}
 		}
-	} else if allTools {
+	} else if allTools && os.IsNotExist(statErr) {
 		res.Plan = append(res.Plan, PlannedWrite{
 			Path:   "CLAUDE.md",
 			Action: "skip",

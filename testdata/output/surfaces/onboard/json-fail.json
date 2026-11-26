@@ -26,10 +26,11 @@
       {
         "name": "Agent rules",
         "status": "warn",
-        "detail": "1 rule files would be updated: AGENTS.md",
+        "detail": "2 rule files would be updated: AGENTS.md, CLAUDE.md",
         "fix": "sila install",
         "files": [
-          "AGENTS.md"
+          "AGENTS.md",
+          "CLAUDE.md"
         ]
       },
       {

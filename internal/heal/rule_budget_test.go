@@ -67,12 +67,13 @@ func TestHealRespectsProjectRuleBounds(t *testing.T) {
 		t.Errorf("injected global Git guide into project rules")
 	}
 
-	// 5. Must NOT create unprompted harness files
-	for _, unprompted := range []string{"CLAUDE.md", "GEMINI.md"} {
-		p := filepath.Join(root, unprompted)
-		if _, err := os.Lstat(p); !os.IsNotExist(err) {
-			t.Errorf("unprompted harness file %s was created", unprompted)
-		}
+	// CLAUDE.md aliases AGENTS.md. Other harness files stay absent.
+	claudeInfo, err := os.Lstat(filepath.Join(root, "CLAUDE.md"))
+	if err != nil || claudeInfo.Mode()&os.ModeSymlink == 0 {
+		t.Errorf("CLAUDE.md symlink missing: %v", err)
+	}
+	if _, err := os.Lstat(filepath.Join(root, "GEMINI.md")); !os.IsNotExist(err) {
+		t.Errorf("unprompted harness file GEMINI.md was created")
 	}
 
 	// 6. Idempotence: running ApplyHeal a second time produces identical file
